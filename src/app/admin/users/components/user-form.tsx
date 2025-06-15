@@ -13,6 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import type { UserProfile } from '@/types';
 import { UserRole } from '@/types';
 import { Save, Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation'; // Import useRouter
 
 const userFormSchemaBase = z.object({
   name: z.string().min(1, "User name is required."),
@@ -43,6 +44,7 @@ interface UserFormProps {
 }
 
 export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = false }: UserFormProps) {
+  const router = useRouter(); // Initialize router
   const currentSchema = isEditing ? editUserFormSchema : newUserFormSchema;
   const form = useForm<UserFormValues>({
     resolver: zodResolver(currentSchema),
