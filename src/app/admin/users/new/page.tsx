@@ -16,7 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 export default function NewUserPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { currentUser: adminUser, loading: adminAuthLoading } = useAuth(); // Get admin's auth loading state
+  const { currentUser: adminUser, loading: adminAuthLoading } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [debugMessages, setDebugMessages] = useState<string[]>([]);
 
@@ -27,7 +27,6 @@ export default function NewUserPage() {
 
 
   useEffect(() => {
-    // Wait for admin auth state to resolve before checking role
     if (!adminAuthLoading && adminUser && adminUser.role !== UserRole.SUPER_ADMIN) {
       addDebugMessage(`Access Denied. Current admin role: ${adminUser.role}. Redirecting.`);
       toast({ title: "Access Denied", description: "You do not have permission to add users.", variant: "destructive" });
@@ -37,7 +36,15 @@ export default function NewUserPage() {
 
   const handleSubmit = async (data: UserFormValues) => {
     setIsSubmitting(true);
-    addDebugMessage(`handleSubmit called with email: ${data.email} by admin: ${adminUser?.email} (Role: ${adminUser?.role}, UID: ${adminUser?.id})`);
+    addDebugMessage(`handleSubmit called with email: ${data.email}. Admin context: ${adminUser?.email} (Role: ${adminUser?.role}, UID: ${adminUser?.id})`);
+    
+    if (!adminUser || adminUser.role !== UserRole.SUPER_ADMIN) {
+        addDebugMessage("Critical Error: handleSubmit called but adminUser is not Super Admin or is null. This should be caught by useEffect.");
+        toast({ title: "Error", description: "Current user is not authorized to create users. Please re-login as Super Admin.", variant: "destructive", duration: 10000 });
+        setIsSubmitting(false);
+        return;
+    }
+
     if (!data.password) {
         addDebugMessage("Password is required error triggered.");
         toast({ title: "Error", description: "Password is required to create a new user.", variant: "destructive" });
@@ -46,21 +53,19 @@ export default function NewUserPage() {
     }
 
     let newUserAuth: FirebaseUser | null = null;
+    const originalAdminUID = adminUser.id; // Capture admin UID before Auth state changes
 
     try {
       addDebugMessage("Step 1: Attempting to create user in Firebase Authentication...");
+      // IMPORTANT: createUserWithEmailAndPassword will sign in the new user, changing auth.currentUser
       const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
       newUserAuth = userCredential.user;
-      addDebugMessage(`Step 1 Success: Auth user created. UID: ${newUserAuth.uid}, Email: ${newUserAuth.email}`);
-
-      // Note: createUserWithEmailAndPassword signs in the new user.
-      // The admin's session in *this client* is temporarily replaced.
-      // The Firestore rules use request.auth which *should* still be the admin's original token for the write.
+      addDebugMessage(`Step 1 Success: Auth user created. UID: ${newUserAuth.uid}, Email: ${newUserAuth.email}. Current auth.currentUser is now this new user.`);
 
       addDebugMessage("Step 2: Preparing user profile for Firestore...");
       const userAvatar = `https://placehold.co/100x100.png?text=${data.name.substring(0,2).toUpperCase()}&bg=FF5733&txt=FFFFFF`;
       const userProfileForFirestore: Omit<UserProfile, 'id'> & { createdAt: any, updatedAt: any, uid: string } = {
-        uid: newUserAuth.uid, // Ensure UID is part of the Firestore document
+        uid: newUserAuth.uid,
         name: data.name,
         email: data.email,
         role: data.role, 
@@ -71,21 +76,52 @@ export default function NewUserPage() {
       addDebugMessage(`Step 2 Success: Firestore profile data prepared for UID ${newUserAuth.uid}: ${JSON.stringify(userProfileForFirestore)}`);
       
       addDebugMessage("Step 3: Attempting to update Firebase Auth profile (displayName, photoURL) for new user...");
-      await updateProfile(newUserAuth, {
-          displayName: data.name,
-          photoURL: userAvatar
-      });
+      await updateProfile(newUserAuth, { displayName: data.name, photoURL: userAvatar });
       addDebugMessage("Step 3 Success: Firebase Auth profile updated for new user.");
 
-      addDebugMessage(`Step 4: Attempting to create user document in Firestore for UID: ${newUserAuth.uid}... (Admin: ${adminUser?.email}, Admin Role: ${adminUser?.role}, Admin UID: ${adminUser?.id})`);
-      await setDoc(doc(db, "users", newUserAuth.uid), userProfileForFirestore);
-      addDebugMessage(`Step 4 Success: Firestore document created for UID ${newUserAuth.uid}.`);
-
-      toast({
-        title: "User Created Successfully",
-        description: `User "${data.name}" has been created in Auth and Firestore. Redirecting to user list...`,
-      });
-      router.push('/admin/users'); // Redirect admin to users list
+      // CRITICAL STEP: Create Firestore document. This relies on Firestore Rules allowing
+      // the 'originalAdminUID' (Super Admin) to create a document for 'newUserAuth.uid'.
+      // However, auth.currentUser is now newUserAuth. This means the Firestore Rules for 'create'
+      // on /users/{userId} must correctly identify the *actual* authenticated user (which is now the new user)
+      // if it's based on request.auth.uid. Our rule `allow create: if isSuperAdmin()` uses request.auth.uid.
+      // This operation will likely fail if executed by the new user unless they are also Super Admin (which they are not here).
+      // This is a fundamental limitation of client-side user creation by an admin.
+      
+      addDebugMessage(`Step 4: Attempting to create user document in Firestore for UID: ${newUserAuth.uid}. The current Firebase SDK auth state is for this new user (UID: ${auth.currentUser?.uid}). Firestore rules will evaluate based on THIS user's token.`);
+      
+      try {
+        // This setDoc will be attempted by the NEWLY CREATED AND SIGNED-IN USER.
+        // For this to succeed with `allow create: if isSuperAdmin()`, the new user would have to be a super admin.
+        // This will fail if the new user is Sub Admin.
+        // If it fails, AuthContext will also try to create a doc when onAuthStateChanged runs for the new user.
+        await setDoc(doc(db, "users", newUserAuth.uid), userProfileForFirestore);
+        addDebugMessage(`Step 4 Success: Firestore document created for UID ${newUserAuth.uid}. This might indicate permissive rules or the new user coincidentally had rights.`);
+        toast({
+            title: "User Created (Auth & Firestore)",
+            description: `User "${data.name}" created. Auth user is now signed in. Redirecting...`,
+            duration: 7000,
+        });
+      } catch (firestoreError: any) {
+          addDebugMessage(`Step 4 FAILED: Firestore document creation for UID ${newUserAuth.uid} failed. Error Code: ${firestoreError.code}, Message: ${firestoreError.message}`);
+          if (firestoreError.code === 'permission-denied') {
+              toast({
+                title: "Firestore Write Failed (Permission Denied)",
+                description: `Auth user "${data.name}" created, but saving profile to Firestore failed due to permissions. The active session is now the new user. A Super Admin might need to manually set the role in Firestore if the default creation by AuthContext also fails.`,
+                variant: "destructive",
+                duration: 20000,
+              });
+          } else {
+              toast({
+                title: "Firestore Write Failed",
+                description: `Auth user "${data.name}" created, but saving profile to Firestore failed: ${firestoreError.message}`,
+                variant: "destructive",
+                duration: 20000,
+              });
+          }
+      }
+      // Redirect. AuthContext and AdminLayout will handle if the new user (now current) has access.
+      // If not, they will be redirected to login. This is expected client-side behavior.
+      router.push('/admin/dashboard'); 
 
     } catch (error: any) {
       addDebugMessage(`Error during user creation process: Name: ${error.name}, Code: ${error.code}, Message: ${error.message}`);
@@ -100,51 +136,24 @@ export default function NewUserPage() {
             errorTitle = "Email Already In Use";
             errorMessage = "This email address is already in use by another account. Please use a different email.";
             break;
-          case 'auth/weak-password':
-            errorTitle = "Weak Password";
-            errorMessage = "The password is too weak. Please choose a stronger password (at least 6 characters).";
-            break;
-          case 'auth/invalid-email':
-            errorTitle = "Invalid Email";
-            errorMessage = "The email address is not valid. Please enter a correct email format.";
-            break;
-          // This case is for Firestore permission denied AFTER auth user is created
-          case 'permission-denied': 
-          case 'PERMISSION_DENIED': // Firestore sometimes returns this
-             errorTitle = "Firestore Permission Denied";
-             errorMessage = `Failed to save user profile to Firestore for ${data.email}. The currently logged-in admin (${adminUser?.email}, UID: ${adminUser?.id}) likely lacks permission. CRITICAL: 1. Verify Firestore Security Rules allow 'create' on '/users/{newUserId}' for Super Admins. 2. Ensure the admin user's document in Firestore (/users/${adminUser?.id}) has 'role: "Super Admin"'.`;
-             if (newUserAuth) {
-               errorMessage += ` Auth User UID: ${newUserAuth.uid} was created in Auth but Firestore profile save failed. Manual cleanup in Firebase Auth might be needed if profile cannot be saved.`;
-               addDebugMessage(`Firestore permission-denied for creating doc for UID ${newUserAuth.uid}. Admin UID: ${adminUser?.id}, Admin Role from context: ${adminUser?.role}.`);
-             } else {
-               addDebugMessage(`Firestore permission-denied, and newUserAuth object is null. This might be an Auth error re-interpreted or Firestore rules for a different operation.`);
-             }
-            break;
+          // Other auth errors...
           default:
-            errorMessage = `Firebase error (${error.code}): ${error.message}`;
-            if (newUserAuth && error.code !== 'auth/email-already-in-use' && error.code !== 'auth/weak-password' && error.code !== 'auth/invalid-email') {
-                errorMessage += ` Auth User UID: ${newUserAuth.uid} was created but another error occurred. Check logs.`;
-            }
+            errorMessage = `Firebase Auth error (${error.code}): ${error.message}`;
         }
       } else {
         errorMessage = error.message || "An unknown error occurred.";
-         if (newUserAuth) {
-            errorMessage += ` Auth User UID: ${newUserAuth.uid} was created but an error occurred. Check logs.`;
-        }
       }
       
       toast({
         title: errorTitle,
         description: errorMessage,
         variant: "destructive",
-        duration: 20000, // Longer duration for important errors
+        duration: 10000,
       });
+      // Do not redirect on auth error, stay on page.
     } finally {
         setIsSubmitting(false);
         addDebugMessage("handleSubmit finished.");
-        // IMPORTANT: Do not sign out the new user or try to re-sign in the admin here manually
-        // as it can lead to complex race conditions with onAuthStateChanged.
-        // The AdminLayout and AuthContext should handle the auth state after redirection.
     }
   };
   
@@ -153,13 +162,12 @@ export default function NewUserPage() {
   }
   
   if (!adminAuthLoading && adminUser && adminUser.role !== UserRole.SUPER_ADMIN && !isSubmitting) {
-     // This case should ideally be caught by useEffect redirect, but as a fallback render.
     return (
         <div className="p-4">
             <p>Access Denied. You do not have permission to view this page.</p>
              <Card className="mt-4">
                 <CardHeader><CardTitle className="text-sm font-headline">Debug Information (Access Denied)</CardTitle></CardHeader>
-                <CardContent><pre className="text-xs bg-muted p-2 rounded max-h-60 overflow-auto">{debugMessages.join("\n")}</pre></CardContent>
+                <CardContent><pre className="text-xs bg-muted p-2 rounded max-h-60 overflow-auto whitespace-pre-wrap break-all">{debugMessages.join("\n")}</pre></CardContent>
             </Card>
         </div>
     );
@@ -171,11 +179,10 @@ export default function NewUserPage() {
         <p>Admin user not authenticated. Redirecting to login might be in progress...</p>
         <Card className="mt-4">
             <CardHeader><CardTitle className="text-sm font-headline">Debug Information (No Admin User)</CardTitle></CardHeader>
-            <CardContent><pre className="text-xs bg-muted p-2 rounded max-h-60 overflow-auto">{debugMessages.join("\n")}</pre></CardContent>
+            <CardContent><pre className="text-xs bg-muted p-2 rounded max-h-60 overflow-auto whitespace-pre-wrap break-all">{debugMessages.join("\n")}</pre></CardContent>
         </Card>
       </div>);
   }
-
 
   return (
     <>

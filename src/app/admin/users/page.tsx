@@ -42,7 +42,7 @@ export default function UsersPage() {
 
   useEffect(() => {
     if (currentUser && currentUser.role !== UserRole.SUPER_ADMIN) {
-      addDebugMessage(`useEffect[currentUser]: Access Denied. Current role: ${currentUser.role} (ID: ${currentUser.id}). Redirecting.`);
+      addDebugMessage(`useEffect[currentUser]: Access Denied. Current role: ${currentUser.role} (ID: ${currentUser.id}). Redirecting to dashboard.`);
       toast({ title: "Access Denied", description: "You do not have permission to manage users.", variant: "destructive" });
       router.push('/admin/dashboard');
       setIsLoading(false); 
@@ -65,25 +65,25 @@ export default function UsersPage() {
       const usersCollectionRef = collection(db, "users");
       const q = query(usersCollectionRef, orderBy("name", "asc")); 
       const querySnapshot = await getDocs(q);
-      const fetchedUsers: UserProfile[] = [];
-      querySnapshot.forEach((doc) => {
-        fetchedUsers.push({ id: doc.id, ...doc.data() } as UserProfile);
+      const fetchedUsersData: UserProfile[] = [];
+      querySnapshot.forEach((docSnap) => {
+        fetchedUsersData.push({ id: docSnap.id, ...docSnap.data() } as UserProfile);
       });
-      setUsers(fetchedUsers);
-      addDebugMessage(`fetchUsers: Success. Fetched ${fetchedUsers.length} users.`);
-      if (fetchedUsers.length === 0) {
+      setUsers(fetchedUsersData);
+      addDebugMessage(`fetchUsers: Success. Fetched ${fetchedUsersData.length} users.`);
+      if (fetchedUsersData.length === 0) {
         addDebugMessage("fetchUsers: No users returned from Firestore query, but query itself was successful (no error thrown). Check collection content and rules if unexpected.");
       }
     } catch (error: any) {
       console.error("Error fetching users from Firestore:", error);
       addDebugMessage(`fetchUsers: Firestore Error - Code: ${error.code}, Message: ${error.message}`);
       let errorTitle = "Error fetching users";
-      let errorMessage = `Failed to retrieve user data: ${error.message}. Please check console for details.`;
+      let errorMessage = `Failed to retrieve user data: ${error.message}.`;
       if (error.code === 'permission-denied' || (error.message && error.message.toLowerCase().includes('permission-denied'))) {
         errorTitle = "Firestore Permission Denied";
-        errorMessage = `Failed to retrieve user list. This usually means the currently logged-in admin (${currentUser?.email}, ID: ${currentUser?.id}) does not have 'list' permission for the 'users' collection. Please verify: 1. Your Firestore Security Rules grant 'list' access to Super Admins. 2. Your admin user document in Firestore has 'role: "Super Admin"'.`;
+        errorMessage = `Failed to retrieve user list. This usually means the currently logged-in admin (${currentUser?.email}, ID: ${currentUser?.id}) does not have 'list' permission for the 'users' collection. Please verify: 1. Your Firestore Security Rules grant 'list' access to Super Admins. 2. Your admin user document in Firestore has 'role: "Super Admin"'. Check Firebase console.`;
       }
-      toast({ title: errorTitle, description: errorMessage, variant: "destructive", duration: 15000 });
+      toast({ title: errorTitle, description: errorMessage, variant: "destructive", duration: 20000 });
     } finally {
       setIsLoading(false);
       addDebugMessage("fetchUsers: Fetch attempt finished.");
@@ -97,11 +97,12 @@ export default function UsersPage() {
             fetchUsers();
         } else {
             addDebugMessage(`useEffect[currentUser, fetchUsers]: currentUser (ID: ${currentUser.id}) is NOT Super Admin (role: ${currentUser.role}). Not fetching users. isLoading set to false.`);
+            // This case should be handled by the first useEffect which redirects.
             setIsLoading(false);
         }
     } else {
-        addDebugMessage("useEffect[currentUser, fetchUsers]: currentUser is null (auth provider might be loading or has changed).");
-        setIsLoading(true); // Keep loading until auth state is clear
+        addDebugMessage("useEffect[currentUser, fetchUsers]: currentUser is null (auth provider might be loading or user logged out).");
+        setIsLoading(true); 
     }
   }, [currentUser, fetchUsers, addDebugMessage]);
 
@@ -121,7 +122,6 @@ export default function UsersPage() {
       toast({ title: "Error", description: "You cannot delete your own account.", variant: "destructive" });
       return;
     }
-    // Add check to prevent deleting other Super Admins if current user is not also a Super Admin (already covered by role check for page access)
     addDebugMessage(`Attempting to delete user: ${userId} (${userName}) by admin: ${currentUser?.id}`);
     try {
       await deleteDoc(doc(db, "users", userId));
@@ -152,7 +152,6 @@ export default function UsersPage() {
     }
   };
   
-  // Show loading skeletons if isLoading is true, even if currentUser is present
   if (isLoading) { 
      return (
       <>
@@ -176,7 +175,7 @@ export default function UsersPage() {
             </div>
             <div className="mt-4 p-2 border rounded bg-muted/50">
                 <p className="text-xs font-semibold">Debug Log (Loading State):</p>
-                <pre className="text-xs max-h-40 overflow-auto">{debugMessages.join("\n")}</pre>
+                <pre className="text-xs max-h-40 overflow-auto whitespace-pre-wrap break-all">{debugMessages.join("\n")}</pre>
             </div>
           </CardContent>
         </Card>
@@ -184,29 +183,25 @@ export default function UsersPage() {
     );
   }
 
-  // If not loading, and currentUser is present but not Super Admin, show access denied.
   if (currentUser && currentUser.role !== UserRole.SUPER_ADMIN) { 
-    // This case should ideally be caught by useEffect redirect, but as a fallback render.
     return (
         <div className="p-4">
             <p>Access Denied. You do not have permission to view this page.</p>
             <Card className="mt-4">
                 <CardHeader><CardTitle className="text-sm font-headline">Debug Information (Access Denied)</CardTitle></CardHeader>
-                <CardContent><pre className="text-xs bg-muted p-2 rounded max-h-60 overflow-auto">{debugMessages.join("\n")}</pre></CardContent>
+                <CardContent><pre className="text-xs bg-muted p-2 rounded max-h-60 overflow-auto whitespace-pre-wrap break-all">{debugMessages.join("\n")}</pre></CardContent>
             </Card>
         </div>
     );
   }
   
-  // If not loading, and currentUser is null (e.g. logged out, or auth state changed to non-admin),
-  // the useEffect should redirect, but if it hasn't yet, show minimal UI or redirect indication.
-  if (!currentUser) {
+  if (!currentUser && !isLoading) { // Should be caught by AdminLayout, but as a safeguard.
       return (
         <div className="p-4">
-            <p>Authenticating or redirecting...</p>
+            <p>User not authenticated. Redirecting to login might be in progress...</p>
              <Card className="mt-4">
                 <CardHeader><CardTitle className="text-sm font-headline">Debug Information (No Current User)</CardTitle></CardHeader>
-                <CardContent><pre className="text-xs bg-muted p-2 rounded max-h-60 overflow-auto">{debugMessages.join("\n")}</pre></CardContent>
+                <CardContent><pre className="text-xs bg-muted p-2 rounded max-h-60 overflow-auto whitespace-pre-wrap break-all">{debugMessages.join("\n")}</pre></CardContent>
             </Card>
         </div>
       );
@@ -248,7 +243,6 @@ export default function UsersPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {/* Content is rendered only if not loading AND currentUser is Super Admin (implicit from checks above) */}
           {filteredUsers.length > 0 ? (
             <div className="overflow-x-auto">
               <Table>
@@ -334,7 +328,7 @@ export default function UsersPage() {
               <UsersIcon className="mx-auto h-12 w-12 text-muted-foreground" /> 
               <h3 className="mt-4 text-lg font-semibold">No users found</h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                {users.length === 0 && !isLoading ? "No users exist in the database. Ensure Firestore rules allow listing and your Super Admin user has the correct role in Firestore." : 
+                {users.length === 0 && !isLoading && !searchTerm && roleFilter === 'all' ? "No users exist in the database. Ensure Firestore rules grant 'list' access to your Super Admin user AND your Super Admin user's document in Firestore has 'role: \"Super Admin\"'." : 
                 (searchTerm || roleFilter !== 'all' ? "Try adjusting your search or filter." : "Get started by adding a new user.")}
               </p>
               {!(searchTerm || roleFilter !== 'all') && users.length === 0 && !isLoading && (
@@ -351,10 +345,9 @@ export default function UsersPage() {
         <Card className="mt-4">
             <CardHeader><CardTitle className="text-sm font-headline">Debug Information (Users Page)</CardTitle></CardHeader>
             <CardContent>
-                <pre className="text-xs bg-muted p-2 rounded max-h-60 overflow-auto">{debugMessages.join("\n")}</pre>
+                <pre className="text-xs bg-muted p-2 rounded max-h-60 overflow-auto whitespace-pre-wrap break-all">{debugMessages.join("\n")}</pre>
             </CardContent>
         </Card>
     </TooltipProvider>
   );
 }
-
