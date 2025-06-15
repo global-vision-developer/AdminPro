@@ -19,7 +19,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { db, auth } from '@/lib/firebase'; // Added auth to the import
+import { db, auth } from '@/lib/firebase';
 import { collection, getDocs, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -50,8 +50,8 @@ export default function UsersPage() {
   }, [currentUser, authLoading, router, toast, addDebugMessage]);
 
   const fetchUsers = useCallback(async () => {
-    const localCurrentUser = auth.currentUser; // Directly check Firebase Auth state for current operation
-    const contextUserForLog = currentUser; // For logging what AuthContext thinks
+    const localCurrentUser = auth.currentUser;
+    const contextUserForLog = currentUser;
 
     addDebugMessage(`fetchUsers called. AuthContext currentUser: ${contextUserForLog ? `${contextUserForLog.email} (Role: ${contextUserForLog.role}, ID: ${contextUserForLog.id})` : 'null'}. Actual Firebase Auth UID for op: ${localCurrentUser ? localCurrentUser.uid : 'null (Firebase Auth)'}`);
 
@@ -59,10 +59,8 @@ export default function UsersPage() {
       addDebugMessage(`fetchUsers: Pre-condition failed. Firebase Auth UID: ${localCurrentUser?.uid}. AuthContext Role: ${contextUserForLog?.role}. Aborting fetch.`);
       setIsLoading(false);
       if (!localCurrentUser) {
-          toast({title: "Authentication Error", description: "No authenticated user found for fetching user list. Please re-login.", variant: "destructive"});
+          toast({title: "Authentication Error", description: "No authenticated user found for fetching user list. Please re-login.", variant: "destructive", duration: 10000});
           router.push('/');
-      } else if (contextUserForLog && contextUserForLog.role !== UserRole.SUPER_ADMIN) {
-          // This case is already handled by the useEffect above, but good to log.
       }
       return;
     }
@@ -90,14 +88,14 @@ export default function UsersPage() {
       let errorMessage = `Failed to retrieve user data: ${error.message}.`;
       if (error.code === 'permission-denied' || (error.message && error.message.toLowerCase().includes('permission-denied'))) {
         errorTitle = "Firestore Permission Denied";
-        errorMessage = `Failed to list users. This means the logged-in Super Admin (UID: ${localCurrentUser.uid}) does not have 'list' permission on the '/users' collection according to Firestore Rules. Verify Rules: 1. 'match /users { allow list: if isSuperAdmin(); }' is present. 2. 'isSuperAdmin()' function correctly checks 'role == "Super Admin"' for UID ${localCurrentUser.uid} in its Firestore document. 3. The Firestore document /users/${localCurrentUser.uid} has 'role: "Super Admin"'.`;
+        errorMessage = `Failed to list users. UID: ${localCurrentUser.uid}. Ensure Firestore Rules grant 'list' on '/users' FOR a user whose document at '/users/${localCurrentUser.uid}' has 'role: "Super Admin"'. Also, check the rule for 'get' on '/users/${localCurrentUser.uid}' used internally by isSuperAdmin().`;
       }
-      toast({ title: errorTitle, description: errorMessage, variant: "destructive", duration: 20000 });
+      toast({ title: errorTitle, description: errorMessage, variant: "destructive", duration: 30000 }); // Increased duration
     } finally {
       setIsLoading(false);
       addDebugMessage("fetchUsers: Fetch attempt finished.");
     }
-  }, [currentUser, toast, addDebugMessage, router]); // currentUser from AuthContext still used for initial checks
+  }, [currentUser, toast, addDebugMessage, router]);
 
   useEffect(() => {
     if (!authLoading && currentUser) {
@@ -105,14 +103,12 @@ export default function UsersPage() {
             addDebugMessage(`useEffect[currentUser, fetchUsers]: AuthContext currentUser is Super Admin (ID: ${currentUser.id}). Calling fetchUsers.`);
             fetchUsers();
         } else {
-            // This case is handled by the other useEffect that redirects non-Super Admins.
             addDebugMessage(`useEffect[currentUser, fetchUsers]: AuthContext currentUser (ID: ${currentUser.id}) is NOT Super Admin (role: ${currentUser.role}). Not fetching users. isLoading set to false.`);
             setIsLoading(false);
         }
     } else if (!authLoading && !currentUser) {
         addDebugMessage("useEffect[currentUser, fetchUsers]: AuthContext currentUser is null and auth is not loading. Redirecting to / might be handled by AdminLayout.");
-        // AdminLayout will handle redirect if currentUser becomes null
-        setIsLoading(false); // Ensure loading is false if no user
+        setIsLoading(false);
     } else {
         addDebugMessage("useEffect[currentUser, fetchUsers]: authLoading is true. Waiting for auth state...");
         setIsLoading(true);
@@ -196,7 +192,6 @@ export default function UsersPage() {
     );
   }
 
-  // This check should ideally be covered by AdminLayout, but good as a fallback.
   if (!authLoading && currentUser && currentUser.role !== UserRole.SUPER_ADMIN) {
     return (
         <div className="p-4">
@@ -210,7 +205,6 @@ export default function UsersPage() {
   }
 
   if (!authLoading && !currentUser) {
-      // This case should be handled by AdminLayout redirecting to login page.
       return (
         <div className="p-4">
             <p>User not authenticated. Redirecting to login might be in progress...</p>
@@ -366,3 +360,5 @@ export default function UsersPage() {
     </TooltipProvider>
   );
 }
+
+    
