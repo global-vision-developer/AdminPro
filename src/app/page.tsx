@@ -1,9 +1,9 @@
+
 "use client";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, LogIn } from "lucide-react";
@@ -15,8 +15,9 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import Image from "next/image";
 
 const loginSchema = z.object({
-  email: z.string().email({ message: "Invalid email address." }),
-  name: z.string().optional(), // Optional name field for new users
+  email: z.string().email({ message: "Имэйл хаяг буруу байна." }),
+  password: z.string().min(6, { message: "Нууц үг дор хаяж 6 тэмдэгттэй байх ёстой." }),
+  name: z.string().optional(), // Optional name field for new users if they sign up
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -30,11 +31,11 @@ export default function LoginPage() {
     resolver: zodResolver(loginSchema),
     defaultValues: {
       email: "",
+      password: "",
       name: "",
     },
   });
   
-  // Redirect if already logged in
   useEffect(() => {
     if (!loading && currentUser) {
       router.push('/admin/dashboard');
@@ -51,11 +52,9 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginFormValues) => {
     setIsSubmitting(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    login(data.email, data.name);
-    // Actual login logic will redirect via AuthContext
-    // setIsSubmitting(false); // Not strictly necessary if redirecting
+    await login(data.email, data.password, data.name);
+    // AuthContext handles navigation or error display
+    setIsSubmitting(false); 
   };
 
   return (
@@ -66,11 +65,11 @@ export default function LoginPage() {
       <Card className="w-full max-w-md shadow-2xl z-10 border-primary/20">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 flex items-center justify-center">
-            <Image src="https://placehold.co/80x80.png?bg=FF5733&text=АП" alt="Админ Про Logo" width={80} height={80} className="rounded-lg" data-ai-hint="logo abstract" />
+            <Image src="https://placehold.co/80x80.png?bg=FF5733&text=АП" alt="Админ Про Logo" width={80} height={80} className="rounded-lg" data-ai-hint="logo abstract"/>
           </div>
           <CardTitle className="text-3xl font-headline text-primary">Админ Про</CardTitle>
           <CardDescription className="text-muted-foreground">
-            Sign in to manage your content
+            Системд нэвтэрч контентоо удирдана уу
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -81,7 +80,7 @@ export default function LoginPage() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel htmlFor="email">Email Address</FormLabel>
+                    <FormLabel htmlFor="email">Имэйл Хаяг</FormLabel>
                     <FormControl>
                       <Input
                         id="email"
@@ -97,15 +96,15 @@ export default function LoginPage() {
               />
               <FormField
                 control={form.control}
-                name="name"
+                name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel htmlFor="name">Name (Optional for new users)</FormLabel>
+                    <FormLabel htmlFor="password">Нууц Үг</FormLabel>
                     <FormControl>
                       <Input
-                        id="name"
-                        type="text"
-                        placeholder="Your Name"
+                        id="password"
+                        type="password"
+                        placeholder="••••••••"
                         {...field}
                         className="h-11 text-base"
                       />
@@ -114,20 +113,40 @@ export default function LoginPage() {
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full h-11 text-lg" disabled={isSubmitting}>
-                {isSubmitting ? (
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel htmlFor="name">Нэр (Шинээр бүртгүүлэх бол)</FormLabel>
+                    <FormControl>
+                      <Input
+                        id="name"
+                        type="text"
+                        placeholder="Таны нэр"
+                        {...field}
+                        className="h-11 text-base"
+                      />
+                    </FormControl>
+                    <FormDescription>Хэрэв бүртгэлгүй бол энэ нэрээр шинэ бүртгэл үүснэ.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button type="submit" className="w-full h-11 text-lg" disabled={isSubmitting || loading}>
+                {isSubmitting || loading ? (
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                 ) : (
                   <LogIn className="mr-2 h-5 w-5" />
                 )}
-                Sign In
+                Нэвтрэх / Бүртгүүлэх
               </Button>
             </form>
           </Form>
         </CardContent>
         <CardFooter className="flex flex-col items-center text-xs text-muted-foreground pt-6">
-          <p>Use 'super@example.com' or 'sub@example.com' for demo.</p>
-          <p>Any other email will create a Sub Admin account.</p>
+          <p>Туршилтаар: 'super@example.com' эсвэл 'sub@example.com' ашиглана уу.</p>
+          <p>Нууц үг: 'password' (эсвэл өөрийн хүссэн 6-с дээш тэмдэгттэй нууц үг)</p>
         </CardFooter>
       </Card>
       <p className="mt-8 text-center text-sm text-muted-foreground">
