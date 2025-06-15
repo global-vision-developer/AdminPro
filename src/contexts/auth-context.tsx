@@ -26,10 +26,14 @@ interface AuthContextType {
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Initial mock users - roles can be migrated to custom claims in a real app
+// Эрх хуваарилалт:
+// Та энд нэмэлт имэйл хаягуудыг нэмж, тодорхой эрх оноож болно.
+// Энд жагсаагдаагүй хэрэглэгчид нэвтрэх/бүртгүүлэх үед анхдагчаар SUB_ADMIN эрхтэй болно.
 const initialMockRoles: Record<string, UserRole> = {
   'super@example.com': UserRole.SUPER_ADMIN,
   'sub@example.com': UserRole.SUB_ADMIN,
+  // Жишээ: Өөр super admin нэмэх:
+  // 'another-super-admin@example.com': UserRole.SUPER_ADMIN, 
 };
 
 
