@@ -1,14 +1,14 @@
+
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
-import { PlusCircle, Edit, Trash2, UserCog, ShieldCheck, ShieldAlert, Search } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, UserCog, ShieldCheck, ShieldAlert, Search, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card'; // Removed CardTitle, CardDescription as not used
 import { PageHeader } from '@/components/admin/page-header';
 import type { UserProfile } from '@/types';
 import { UserRole } from '@/types';
-import { mockUsers as initialMockUsers } from '@/lib/mock-data';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -19,23 +19,52 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { db } from '@/lib/firebase';
+import { collection, getDocs, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
+import { Skeleton } from '@/components/ui/skeleton';
+
 
 export default function UsersPage() {
   const { currentUser } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
 
-  const [users, setUsers] = useState<UserProfile[]>(initialMockUsers);
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
 
-  // RBAC: Only Super Admins can access this page
   useEffect(() => {
     if (currentUser && currentUser.role !== UserRole.SUPER_ADMIN) {
       toast({ title: "Access Denied", description: "You do not have permission to manage users.", variant: "destructive" });
       router.push('/admin/dashboard');
     }
   }, [currentUser, router, toast]);
+
+  const fetchUsers = useCallback(async () => {
+    if (currentUser?.role !== UserRole.SUPER_ADMIN) return;
+    setIsLoading(true);
+    try {
+      const usersCollectionRef = collection(db, "users");
+      const q = query(usersCollectionRef, orderBy("name", "asc")); // Optional: order by name
+      const querySnapshot = await getDocs(q);
+      const fetchedUsers: UserProfile[] = [];
+      querySnapshot.forEach((doc) => {
+        // Assuming doc.id is the user's uid
+        fetchedUsers.push({ id: doc.id, ...doc.data() } as UserProfile);
+      });
+      setUsers(fetchedUsers);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      toast({ title: "Error", description: "Failed to fetch users from Firestore.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentUser?.role, toast]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   const filteredUsers = useMemo(() => {
     return users.filter(user => {
@@ -46,13 +75,28 @@ export default function UsersPage() {
     });
   }, [users, searchTerm, roleFilter]);
 
-  const handleDeleteUser = (userId: string) => {
+  const handleDeleteUser = async (userId: string, userName: string) => {
     if (userId === currentUser?.id) {
       toast({ title: "Error", description: "You cannot delete your own account.", variant: "destructive" });
       return;
     }
-    setUsers(prev => prev.filter(u => u.id !== userId));
-    toast({ title: "User Deleted", description: `User with ID ${userId} has been removed.` });
+    try {
+      // Delete user document from Firestore
+      await deleteDoc(doc(db, "users", userId));
+      setUsers(prev => prev.filter(u => u.id !== userId));
+      toast({ title: "User Firestore Record Deleted", description: `Firestore record for user "${userName}" has been removed.` });
+      console.warn(`User with ID ${userId} was deleted from Firestore. For complete deletion, the Firebase Auth user should also be deleted, ideally via a Cloud Function.`);
+      toast({
+        title: "Important: Auth User Deletion",
+        description: "User record removed from database. For full deletion, the authentication record needs to be removed by an administrator via backend tools or a Cloud Function.",
+        variant: "default",
+        duration: 10000,
+      });
+
+    } catch (error) {
+      console.error("Error deleting user from Firestore:", error);
+      toast({ title: "Error", description: "Failed to delete user from Firestore.", variant: "destructive" });
+    }
   };
   
   const getRoleBadge = (role: UserRole) => {
@@ -66,9 +110,8 @@ export default function UsersPage() {
     }
   };
 
-
-  if (currentUser?.role !== UserRole.SUPER_ADMIN) {
-    return <div className="p-4"><p>Access Denied. Redirecting...</p></div>; // Should be redirected by useEffect
+  if (currentUser?.role !== UserRole.SUPER_ADMIN && !isLoading) { // Check isLoading to prevent flash of content
+    return <div className="p-4"><p>Access Denied. Redirecting...</p></div>;
   }
 
   return (
@@ -106,7 +149,13 @@ export default function UsersPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {filteredUsers.length > 0 ? (
+          {isLoading ? (
+            <div className="space-y-4">
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+            </div>
+          ) : filteredUsers.length > 0 ? (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -156,23 +205,24 @@ export default function UsersPage() {
                                       <Trash2 className="h-4 w-4" />
                                     </Button>
                                   </TooltipTrigger>
-                                  <TooltipContent>Delete User</TooltipContent>
+                                  <TooltipContent>Delete User (Firestore Record)</TooltipContent>
                                 </Tooltip>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    This action cannot be undone. This will permanently delete the user "{user.name}".
+                                    This action will delete the user record for "{user.name}" from the database.
+                                    Deleting the authentication record requires backend action.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                                   <AlertDialogAction
-                                    onClick={() => handleDeleteUser(user.id)}
+                                    onClick={() => handleDeleteUser(user.id, user.name)}
                                     className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                                   >
-                                    Delete
+                                    Delete Firestore Record
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>

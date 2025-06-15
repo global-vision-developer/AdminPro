@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from 'react';
@@ -8,19 +9,31 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import type { UserProfile } from '@/types';
 import { UserRole } from '@/types';
 import { Save, Loader2 } from 'lucide-react';
 
-const userFormSchema = z.object({
+const userFormSchemaBase = z.object({
   name: z.string().min(1, "User name is required."),
   email: z.string().email("Invalid email address."),
   role: z.nativeEnum(UserRole),
-  // password: z.string().min(8, "Password must be at least 8 characters.").optional(), // Only for new users typically
 });
 
-export type UserFormValues = z.infer<typeof userFormSchema>;
+// Schema for creating a new user (includes password)
+const newUserFormSchema = userFormSchemaBase.extend({
+  password: z.string().min(6, "Password must be at least 6 characters."),
+  confirmPassword: z.string().min(6, "Please confirm your password."),
+}).refine(data => data.password === data.confirmPassword, {
+  message: "Passwords do not match.",
+  path: ["confirmPassword"], // path to field that will display the error
+});
+
+// Schema for editing an existing user (password is not editable here)
+const editUserFormSchema = userFormSchemaBase;
+
+
+export type UserFormValues = z.infer<typeof newUserFormSchema>; // Use the more inclusive type
 
 interface UserFormProps {
   initialData?: UserProfile | null;
@@ -30,12 +43,20 @@ interface UserFormProps {
 }
 
 export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = false }: UserFormProps) {
+  const currentSchema = isEditing ? editUserFormSchema : newUserFormSchema;
   const form = useForm<UserFormValues>({
-    resolver: zodResolver(userFormSchema),
-    defaultValues: initialData || {
+    resolver: zodResolver(currentSchema),
+    defaultValues: initialData ? {
+      ...initialData,
+      // Ensure password fields are empty or undefined for initialData if not part of it
+      password: '', 
+      confirmPassword: '',
+    } : {
       name: '',
       email: '',
       role: UserRole.SUB_ADMIN,
+      password: '',
+      confirmPassword: '',
     },
   });
 
@@ -99,26 +120,41 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
                 </FormItem>
               )}
             />
-            {/* {!isEditing && (
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )} */}
+            {!isEditing && (
+              <>
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="••••••••" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="confirmPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Confirm Password</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="••••••••" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
           </CardContent>
         </Card>
 
         <div className="flex justify-end space-x-2">
-          <Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button>
+          <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>Cancel</Button>
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
