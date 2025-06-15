@@ -47,21 +47,19 @@ export default function NewUserPage() {
         uid: newUserAuth.uid,
         name: data.name,
         email: data.email,
-        role: data.role, // Role selected in the form
+        role: data.role, 
         avatar: userAvatar,
-        createdAt: serverTimestamp(),
+        createdAt: serverTimestamp(), 
         updatedAt: serverTimestamp(),
       };
       
       // Step 3: Update Firebase Auth profile (displayName, photoURL)
-      // This should happen after Firestore document is successfully created, or handled carefully
       await updateProfile(newUserAuth, {
           displayName: data.name,
           photoURL: userAvatar
       });
 
       // Step 4: Create user document in Firestore
-      // This is the critical step that might be failing due to Firestore rules
       await setDoc(doc(db, "users", newUserAuth.uid), userProfileForFirestore);
 
       toast({
@@ -75,7 +73,7 @@ export default function NewUserPage() {
       let errorMessage = "An unexpected error occurred. Please try again.";
       let errorTitle = "Error Creating User";
 
-      if (error.name === "FirebaseError") { // Check if it's a FirebaseError
+      if (error.name === "FirebaseError") { 
         switch (error.code) {
           case 'auth/email-already-in-use':
             errorMessage = "This email address is already in use by another account. Please use a different email.";
@@ -89,21 +87,18 @@ export default function NewUserPage() {
             errorMessage = "The email address is not valid. Please enter a correct email format.";
             errorTitle = "Invalid Email";
             break;
-          // Firestore specific errors (though setDoc might not throw these directly in a way that's easy to catch by code here without more granular try-catch)
-          // The "Missing or insufficient permissions" for Firestore usually comes from the operation itself failing, not from createUserWithEmailAndPassword
-          case 'permission-denied': // This could be from Firestore if setDoc fails
+          case 'permission-denied': 
              errorTitle = "Firestore Permission Denied";
              errorMessage = `Failed to save user profile to database for ${data.email}. User created in Auth, but profile not saved. Please check Firestore rules.`;
-             // Potentially attempt to delete the Auth user if Firestore save fails, though this adds complexity.
-             // if (newUserAuth) {
-             //   try { await deleteUser(newUserAuth); } catch (delErr) { console.error("Failed to clean up Auth user after Firestore error", delErr); }
-             // }
+             if (newUserAuth) {
+               console.warn("Auth user created but Firestore profile creation failed. UID:", newUserAuth.uid);
+               errorMessage += ` Auth User UID: ${newUserAuth.uid} (may need manual cleanup if profile cannot be saved).`;
+             }
             break;
           default:
             errorMessage = `Firebase error (${error.code}): ${error.message}`;
         }
       } else {
-        // Non-Firebase error
         errorMessage = error.message || "An unknown error occurred.";
       }
       
@@ -111,7 +106,7 @@ export default function NewUserPage() {
         title: errorTitle,
         description: errorMessage,
         variant: "destructive",
-        duration: 9000, // Longer duration for more complex errors
+        duration: 9000, 
       });
     } finally {
         setIsSubmitting(false);
