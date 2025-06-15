@@ -56,7 +56,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             profileAvatar = userData.avatar || profileAvatar;
             console.log(`AuthContext: Role from Firestore for ${firebaseUser.uid}: ${userData.role}. Parsed as: ${userRole}`);
 
-            // Sync Auth profile if Firestore has different/better info
             if (firebaseUser.displayName !== profileName || firebaseUser.photoURL !== profileAvatar) {
               try {
                   console.log(`AuthContext: Auth profile for ${firebaseUser.uid} out of sync. Updating Auth profile...`);
@@ -67,23 +66,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               }
             }
           } else {
-            // User exists in Auth, but not in Firestore. Create Firestore document.
-            console.log(`AuthContext: No Firestore document for ${firebaseUser.uid}. Creating one... Role will be: ${userRole}`);
+            console.log(`AuthContext: No Firestore document for ${firebaseUser.uid}. Attempting to create one (usually for a new user)... Role will be: ${userRole}`);
             const nameForDoc = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User';
             const avatarForDoc = firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${nameForDoc.substring(0,2).toUpperCase()}`;
             
-            await setDoc(userDocRef, {
-              uid: firebaseUser.uid,
-              email: firebaseUser.email,
-              name: nameForDoc,
-              role: userRole, // Default role for new Firestore doc
-              avatar: avatarForDoc,
-              createdAt: serverTimestamp(), 
-              updatedAt: serverTimestamp(),
-            });
-            profileName = nameForDoc;
-            profileAvatar = avatarForDoc;
-            console.log(`AuthContext: Firestore document created for ${firebaseUser.uid} with role: ${userRole}`);
+            try {
+              await setDoc(userDocRef, {
+                uid: firebaseUser.uid,
+                email: firebaseUser.email,
+                name: nameForDoc,
+                role: userRole, 
+                avatar: avatarForDoc,
+                createdAt: serverTimestamp(), 
+                updatedAt: serverTimestamp(),
+              });
+              profileName = nameForDoc;
+              profileAvatar = avatarForDoc;
+              console.log(`AuthContext: Firestore document CREATED for ${firebaseUser.uid} with role: ${userRole}. This was attempted by user UID: ${firebaseUser.uid}.`);
+            } catch (firestoreSetError: any) {
+                console.error(`AuthContext: FAILED to create Firestore document for new user ${firebaseUser.uid}. Error:`, firestoreSetError);
+                // This error often happens if Firestore rules prevent a new (non-SuperAdmin) user from creating their own document.
+                // Or if isSuperAdmin() is incorrectly applied for self-creation.
+                toast({ 
+                    title: "Firestore Profile Incomplete", 
+                    description: `User account for ${firebaseUser.email} created in Auth, but Firestore profile creation failed (UID: ${firebaseUser.uid}). Error: ${firestoreSetError.message}. An admin might need to assign a role manually.`, 
+                    variant: "destructive", 
+                    duration: 15000 
+                });
+                // We still proceed to set currentUser, as Auth user exists.
+            }
           }
 
           const userProfile: UserProfile = {
@@ -97,15 +108,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log(`AuthContext: currentUser set in context for ${firebaseUser.uid}:`, userProfile);
 
         } catch (error: any) {
-          console.error(`AuthContext: Error fetching/setting user data from Firestore for UID ${firebaseUser.uid}:`, error);
+          console.error(`AuthContext: Generic error fetching/setting user data from Firestore for UID ${firebaseUser.uid}:`, error);
           let firestoreErrorMsg = "Хэрэглэгчийн эрх, мэдээллийг Firestore-оос уншихад/хадгалахад алдаа гарлаа.";
           if (error.code === 'permission-denied' || (error.message && error.message.toLowerCase().includes('permission-denied'))) {
-            firestoreErrorMsg = `Firestore Permission Denied: Хэрэглэгчийн мэдээллийг унших/хадгалах зөвшөөрөлгүй байна (UID: ${firebaseUser.uid}). Firebase Console дээрх Firestore Rules болон таны нэвтэрсэн хэрэглэгчийн Firestore document дахь 'role' талбарыг ('Super Admin' байх ёстой) шалгана уу. Одоогийн уншсан role: (Алдаанаас болж тодорхойгүй).`;
+            firestoreErrorMsg = `Firestore Permission Denied: Хэрэглэгчийн мэдээллийг унших/хадгалах зөвшөөрөлгүй байна (UID: ${firebaseUser.uid}). Firebase Console дээрх Firestore Rules болон таны нэвтэрсэн хэрэглэгчийн Firestore document дахь 'role' талбарыг шалгана уу. Error: ${error.message}`;
           } else if (error.name === 'FirebaseError') {
              firestoreErrorMsg = `Firebase Firestore Error (${error.code}): ${error.message}. UID: ${firebaseUser.uid}`;
           }
           toast({ title: "Алдаа гарлаа", description: firestoreErrorMsg, variant: "destructive", duration: 20000 });
-          setCurrentUser(null);
+          setCurrentUser(null); // If critical data fails, clear current user
           try {
             await firebaseSignOut(auth); // Sign out if crucial data cannot be fetched/set
           } catch (signOutError) {
@@ -124,32 +135,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log("AuthContext: Unsubscribing from onAuthStateChanged.");
       unsubscribe();
     }
-  }, [toast]);
+  }, [toast]); // Removed router from dependencies as redirect is handled elsewhere or by layout
 
   const login = useCallback(async (email: string, password: string) => {
     setLoading(true);
     console.log(`AuthContext: Attempting login for ${email}`);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // onAuthStateChanged will handle setting currentUser and navigation if successful
-      // router.push('/admin/dashboard'); // Let onAuthStateChanged handle redirect
-      console.log(`AuthContext: Login successful for ${email}, onAuthStateChanged will take over.`);
+      console.log(`AuthContext: Login successful for ${email}, onAuthStateChanged will handle setting user and redirect if necessary via AdminLayout.`);
+      // router.push('/admin/dashboard'); // Let onAuthStateChanged and AdminLayout handle redirect
     } catch (error: any) {
       console.error("AuthContext: Firebase login error:", error);
       let friendlyMessage = "Нэвтрэхэд алдаа гарлаа. Таны имэйл эсвэл нууц үг буруу байна.";
-      if (error.code === 'auth/user-not-found') {
-        friendlyMessage = "Хэрэглэгч олдсонгүй. Бүртгэлтэй имэйл хаягаа оруулна уу.";
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-email') {
+        friendlyMessage = "Хэрэглэгч олдсонгүй эсвэл имэйл буруу байна. Бүртгэлтэй имэйл хаягаа оруулна уу.";
       } else if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
         friendlyMessage = "Имэйл эсвэл нууц үг буруу байна.";
       } else if (error.code === 'auth/too-many-requests') {
         friendlyMessage = "Хэт олон удаагийн буруу оролдлого. Түр хүлээгээд дахин оролдоно уу.";
       } else if (error.message) {
-        friendlyMessage = error.message;
+        friendlyMessage = `Алдаа: ${error.message} (Код: ${error.code})`;
       }
-      toast({ title: "Нэвтрэхэд алдаа гарлаа", description: friendlyMessage, variant: "destructive" });
-      setLoading(false); // Ensure loading is false on error
-    } 
-    // setLoading(false) will be handled by onAuthStateChanged if login is successful
+      toast({ title: "Нэвтрэхэд алдаа гарлаа", description: friendlyMessage, variant: "destructive", duration: 7000 });
+      // setLoading(false) is handled by onAuthStateChanged or here if error
+      setLoading(false); 
+    }
   }, [toast]);
 
   const logout = useCallback(async () => {
@@ -157,14 +167,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log("AuthContext: Attempting logout.");
     try {
       await firebaseSignOut(auth);
-      // onAuthStateChanged will set currentUser to null
-      router.push('/');
+      setCurrentUser(null); // Explicitly set currentUser to null
+      router.push('/'); // Redirect to login page
       console.log("AuthContext: Logout successful. Navigated to /.");
+      toast({ title: "Системээс гарлаа", description: "Та амжилттай системээс гарлаа.", duration: 3000});
     } catch (error: any) {
       console.error("AuthContext: Firebase logout error:", error);
       toast({ title: "Гарахад алдаа гарлаа", description: error.message, variant: "destructive" });
     } finally {
-      setLoading(false);
+      // setLoading(false); // onAuthStateChanged will set loading to false after currentUser becomes null
     }
   }, [router, toast]);
 
