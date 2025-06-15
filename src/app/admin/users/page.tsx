@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -41,7 +42,7 @@ export default function UsersPage() {
 
   useEffect(() => {
     if (currentUser && currentUser.role !== UserRole.SUPER_ADMIN) {
-      addDebugMessage(`useEffect[currentUser]: Access Denied. Current role: ${currentUser.role}. Redirecting.`);
+      addDebugMessage(`useEffect[currentUser]: Access Denied. Current role: ${currentUser.role} (ID: ${currentUser.id}). Redirecting.`);
       toast({ title: "Access Denied", description: "You do not have permission to manage users.", variant: "destructive" });
       router.push('/admin/dashboard');
       setIsLoading(false); 
@@ -76,7 +77,13 @@ export default function UsersPage() {
     } catch (error: any) {
       console.error("Error fetching users from Firestore:", error);
       addDebugMessage(`fetchUsers: Firestore Error - Code: ${error.code}, Message: ${error.message}`);
-      toast({ title: "Error fetching users", description: `Failed to retrieve user data: ${error.message}. Pleace check firestore rules and console for details.`, variant: "destructive" });
+      let errorTitle = "Error fetching users";
+      let errorMessage = `Failed to retrieve user data: ${error.message}. Please check console for details.`;
+      if (error.code === 'permission-denied' || (error.message && error.message.toLowerCase().includes('permission-denied'))) {
+        errorTitle = "Firestore Permission Denied";
+        errorMessage = `Failed to retrieve user list. This usually means the currently logged-in admin (${currentUser?.email}, ID: ${currentUser?.id}) does not have 'list' permission for the 'users' collection. Please verify: 1. Your Firestore Security Rules grant 'list' access to Super Admins. 2. Your admin user document in Firestore has 'role: "Super Admin"'.`;
+      }
+      toast({ title: errorTitle, description: errorMessage, variant: "destructive", duration: 15000 });
     } finally {
       setIsLoading(false);
       addDebugMessage("fetchUsers: Fetch attempt finished.");
@@ -89,12 +96,12 @@ export default function UsersPage() {
             addDebugMessage(`useEffect[currentUser, fetchUsers]: currentUser is Super Admin (ID: ${currentUser.id}). Calling fetchUsers.`);
             fetchUsers();
         } else {
-            addDebugMessage(`useEffect[currentUser, fetchUsers]: currentUser is NOT Super Admin (role: ${currentUser.role}, ID: ${currentUser.id}). Not fetching users. isLoading set to false.`);
+            addDebugMessage(`useEffect[currentUser, fetchUsers]: currentUser (ID: ${currentUser.id}) is NOT Super Admin (role: ${currentUser.role}). Not fetching users. isLoading set to false.`);
             setIsLoading(false);
         }
     } else {
-        addDebugMessage("useEffect[currentUser, fetchUsers]: currentUser is null (auth provider might be loading).");
-        // Keep isLoading true until currentUser is resolved or fetch is attempted
+        addDebugMessage("useEffect[currentUser, fetchUsers]: currentUser is null (auth provider might be loading or has changed).");
+        setIsLoading(true); // Keep loading until auth state is clear
     }
   }, [currentUser, fetchUsers, addDebugMessage]);
 
@@ -114,20 +121,23 @@ export default function UsersPage() {
       toast({ title: "Error", description: "You cannot delete your own account.", variant: "destructive" });
       return;
     }
+    // Add check to prevent deleting other Super Admins if current user is not also a Super Admin (already covered by role check for page access)
+    addDebugMessage(`Attempting to delete user: ${userId} (${userName}) by admin: ${currentUser?.id}`);
     try {
       await deleteDoc(doc(db, "users", userId));
       setUsers(prev => prev.filter(u => u.id !== userId));
       toast({ title: "User Firestore Record Deleted", description: `Firestore record for user \"${userName}\" has been removed.` });
       toast({
         title: "Important: Auth User Deletion",
-        description: "User record removed from database. For full deletion, the authentication record needs to be removed by an administrator via backend tools or a Cloud Function.",
+        description: `User record for ${userName} removed from Firestore. For full deletion, the Firebase Authentication record (UID: ${userId}) needs to be removed by an administrator via backend tools or a Cloud Function.`,
         variant: "default",
         duration: 10000,
       });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting user from Firestore:", error);
-      toast({ title: "Error", description: "Failed to delete user from Firestore.", variant: "destructive" });
+      addDebugMessage(`Error deleting user ${userId} from Firestore: ${error.code} - ${error.message}`);
+      toast({ title: "Error", description: `Failed to delete user ${userName} from Firestore. Check permissions.`, variant: "destructive" });
     }
   };
   
@@ -142,7 +152,8 @@ export default function UsersPage() {
     }
   };
   
-  if (isLoading && !currentUser) { 
+  // Show loading skeletons if isLoading is true, even if currentUser is present
+  if (isLoading) { 
      return (
       <>
         <PageHeader title="User Management" description="Manage admin accounts and their roles.">
@@ -164,7 +175,7 @@ export default function UsersPage() {
               <Skeleton className="h-12 w-full" />
             </div>
             <div className="mt-4 p-2 border rounded bg-muted/50">
-                <p className="text-xs font-semibold">Debug Log (Initial Loading State):</p>
+                <p className="text-xs font-semibold">Debug Log (Loading State):</p>
                 <pre className="text-xs max-h-40 overflow-auto">{debugMessages.join("\n")}</pre>
             </div>
           </CardContent>
@@ -173,8 +184,32 @@ export default function UsersPage() {
     );
   }
 
-  if (currentUser && currentUser.role !== UserRole.SUPER_ADMIN && !isLoading) { 
-    return <div className="p-4"><p>Access Denied. You do not have permission to view this page. Redirecting...</p></div>;
+  // If not loading, and currentUser is present but not Super Admin, show access denied.
+  if (currentUser && currentUser.role !== UserRole.SUPER_ADMIN) { 
+    // This case should ideally be caught by useEffect redirect, but as a fallback render.
+    return (
+        <div className="p-4">
+            <p>Access Denied. You do not have permission to view this page.</p>
+            <Card className="mt-4">
+                <CardHeader><CardTitle className="text-sm font-headline">Debug Information (Access Denied)</CardTitle></CardHeader>
+                <CardContent><pre className="text-xs bg-muted p-2 rounded max-h-60 overflow-auto">{debugMessages.join("\n")}</pre></CardContent>
+            </Card>
+        </div>
+    );
+  }
+  
+  // If not loading, and currentUser is null (e.g. logged out, or auth state changed to non-admin),
+  // the useEffect should redirect, but if it hasn't yet, show minimal UI or redirect indication.
+  if (!currentUser) {
+      return (
+        <div className="p-4">
+            <p>Authenticating or redirecting...</p>
+             <Card className="mt-4">
+                <CardHeader><CardTitle className="text-sm font-headline">Debug Information (No Current User)</CardTitle></CardHeader>
+                <CardContent><pre className="text-xs bg-muted p-2 rounded max-h-60 overflow-auto">{debugMessages.join("\n")}</pre></CardContent>
+            </Card>
+        </div>
+      );
   }
 
 
@@ -213,13 +248,8 @@ export default function UsersPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {isLoading ? ( 
-            <div className="space-y-4">
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-12 w-full" />
-            </div>
-          ) : filteredUsers.length > 0 ? (
+          {/* Content is rendered only if not loading AND currentUser is Super Admin (implicit from checks above) */}
+          {filteredUsers.length > 0 ? (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -327,3 +357,4 @@ export default function UsersPage() {
     </TooltipProvider>
   );
 }
+
