@@ -25,7 +25,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 
 export default function UsersPage() {
-  const { currentUser } = useAuth();
+  const { currentUser, loading: authLoading } = useAuth(); // Renamed loading to authLoading
   const router = useRouter();
   const { toast } = useToast();
 
@@ -41,13 +41,13 @@ export default function UsersPage() {
   }, []);
 
   useEffect(() => {
-    if (currentUser && currentUser.role !== UserRole.SUPER_ADMIN) {
+    if (!authLoading && currentUser && currentUser.role !== UserRole.SUPER_ADMIN) {
       addDebugMessage(`useEffect[currentUser]: Access Denied. Current role: ${currentUser.role} (ID: ${currentUser.id}). Redirecting to dashboard.`);
       toast({ title: "Access Denied", description: "You do not have permission to manage users.", variant: "destructive" });
       router.push('/admin/dashboard');
       setIsLoading(false); 
     }
-  }, [currentUser, router, toast, addDebugMessage]);
+  }, [currentUser, authLoading, router, toast, addDebugMessage]);
 
   const fetchUsers = useCallback(async () => {
     addDebugMessage(`fetchUsers called. CurrentUser: ${currentUser ? `${currentUser.email} (Role: ${currentUser.role}, ID: ${currentUser.id})` : 'null'}`);
@@ -91,20 +91,22 @@ export default function UsersPage() {
   }, [currentUser, toast, addDebugMessage]); 
 
   useEffect(() => {
-    if (currentUser) { 
+    if (!authLoading && currentUser) { 
         if (currentUser.role === UserRole.SUPER_ADMIN) {
             addDebugMessage(`useEffect[currentUser, fetchUsers]: currentUser is Super Admin (ID: ${currentUser.id}). Calling fetchUsers.`);
             fetchUsers();
         } else {
             addDebugMessage(`useEffect[currentUser, fetchUsers]: currentUser (ID: ${currentUser.id}) is NOT Super Admin (role: ${currentUser.role}). Not fetching users. isLoading set to false.`);
-            // This case should be handled by the first useEffect which redirects.
             setIsLoading(false);
         }
+    } else if (!authLoading && !currentUser) {
+        addDebugMessage("useEffect[currentUser, fetchUsers]: currentUser is null and auth is not loading. Redirecting to /.");
+        router.push('/'); 
     } else {
-        addDebugMessage("useEffect[currentUser, fetchUsers]: currentUser is null (auth provider might be loading or user logged out).");
+        addDebugMessage("useEffect[currentUser, fetchUsers]: authLoading is true. Waiting for auth state...");
         setIsLoading(true); 
     }
-  }, [currentUser, fetchUsers, addDebugMessage]);
+  }, [currentUser, fetchUsers, addDebugMessage, authLoading, router]);
 
 
   const filteredUsers = useMemo(() => {
@@ -152,7 +154,7 @@ export default function UsersPage() {
     }
   };
   
-  if (isLoading) { 
+  if (isLoading || authLoading) { 
      return (
       <>
         <PageHeader title="User Management" description="Manage admin accounts and their roles.">
@@ -183,7 +185,7 @@ export default function UsersPage() {
     );
   }
 
-  if (currentUser && currentUser.role !== UserRole.SUPER_ADMIN) { 
+  if (!authLoading && currentUser && currentUser.role !== UserRole.SUPER_ADMIN) { 
     return (
         <div className="p-4">
             <p>Access Denied. You do not have permission to view this page.</p>
@@ -195,7 +197,7 @@ export default function UsersPage() {
     );
   }
   
-  if (!currentUser && !isLoading) { // Should be caught by AdminLayout, but as a safeguard.
+  if (!authLoading && !currentUser) { 
       return (
         <div className="p-4">
             <p>User not authenticated. Redirecting to login might be in progress...</p>
@@ -328,10 +330,10 @@ export default function UsersPage() {
               <UsersIcon className="mx-auto h-12 w-12 text-muted-foreground" /> 
               <h3 className="mt-4 text-lg font-semibold">No users found</h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                {users.length === 0 && !isLoading && !searchTerm && roleFilter === 'all' ? "No users exist in the database. Ensure Firestore rules grant 'list' access to your Super Admin user AND your Super Admin user's document in Firestore has 'role: \"Super Admin\"'." : 
+                {users.length === 0 && !isLoading && !authLoading && !searchTerm && roleFilter === 'all' ? "No users exist in the database or access was denied. Ensure Firestore rules grant 'list' access to your Super Admin user AND your Super Admin user's document in Firestore has 'role: \"Super Admin\"'." : 
                 (searchTerm || roleFilter !== 'all' ? "Try adjusting your search or filter." : "Get started by adding a new user.")}
               </p>
-              {!(searchTerm || roleFilter !== 'all') && users.length === 0 && !isLoading && (
+              {!(searchTerm || roleFilter !== 'all') && users.length === 0 && !isLoading && !authLoading && (
                 <Button asChild className="mt-4">
                   <Link href="/admin/users/new">
                     <PlusCircle className="mr-2 h-4 w-4" /> Add User

@@ -9,14 +9,14 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { UserRole } from '@/types';
 import { auth, db } from '@/lib/firebase';
-import { createUserWithEmailAndPassword, signOut as firebaseSignOut } from 'firebase/auth';
-// import { doc, setDoc, serverTimestamp } from 'firebase/firestore'; // Temporarily removed
+import { createUserWithEmailAndPassword, signOut as firebaseSignOut, updateProfile } from 'firebase/auth';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function NewUserPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { currentUser: adminUser, loading: adminAuthLoading } = useAuth();
+  const { currentUser: adminUser, loading: adminAuthLoading, logout: adminContextLogout } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [debugMessages, setDebugMessages] = useState<string[]>([]);
 
@@ -51,35 +51,38 @@ export default function NewUserPage() {
       return;
     }
 
+    let newUserAuth;
     try {
       addDebugMessage("Step 1: Attempting to create user in Firebase Authentication...");
       const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
-      const newUserAuth = userCredential.user;
+      newUserAuth = userCredential.user;
       addDebugMessage(`Step 1 Success: Auth user created. UID: ${newUserAuth.uid}, Email: ${newUserAuth.email}.`);
       
+      addDebugMessage("Step 2: Attempting to update Firebase Auth profile (displayName, photoURL) for new user...");
+      const photoURL = `https://placehold.co/100x100.png?text=${data.name.substring(0,2).toUpperCase()}&bg=FF5733&txt=FFFFFF`;
+      await updateProfile(newUserAuth, { displayName: data.name, photoURL: photoURL });
+      addDebugMessage("Step 2 Success: Firebase Auth profile updated for new user.");
+
+      // Firestore document creation for the new user is NOW REMOVED FROM HERE.
+      // It will be handled by AuthContext when the new user logs in for the first time,
+      // or by an admin manually, or via a future Cloud Function.
+      addDebugMessage("Step 3: Firestore document creation for new user is deferred/removed from this page.");
+
       toast({
         title: "User Authentication Created",
-        description: `User "${data.name}" (${data.email}) has been created in Firebase Authentication.`,
-        duration: 5000,
+        description: `User "${data.name}" (${data.email}) has been created in Firebase Authentication. Auth profile updated. You will be signed out.`,
+        duration: 7000,
       });
 
-      // Firestore document creation for the new user is deferred.
-      // AuthContext will attempt to create a basic doc when the new user eventually logs in.
-      // Or an admin can create/update it via User Management if they can list users.
-      addDebugMessage("Step 2: Firestore document creation for new user is deferred.");
-
-      addDebugMessage("Step 3: Signing out the newly created user session to restore admin control flow...");
+      addDebugMessage("Step 4: Signing out the newly created user session to allow admin to re-login...");
       await firebaseSignOut(auth); // This signs out the NEWLY created user
-      addDebugMessage("Step 3 Success: New user session signed out.");
-
-      toast({
-        title: "Admin Session Management",
-        description: "New user created. You've been signed out to ensure session integrity. Please log in again to continue.",
-        variant: "default",
-        duration: 10000,
-      });
+      addDebugMessage("Step 4 Success: New user session signed out.");
       
-      router.push('/'); // Redirect admin to login page
+      // The AuthContext will detect this sign-out and currentUser will become null.
+      // AdminLayout will then redirect to '/'.
+      // No need to call adminContextLogout() here as onAuthStateChanged handles it.
+      
+      router.push('/'); // Redirect admin to login page to re-authenticate
 
     } catch (error: any) {
       addDebugMessage(`Error during user creation process: Name: ${error.name}, Code: ${error.code}, Message: ${error.message}`);
@@ -122,7 +125,6 @@ export default function NewUserPage() {
   }
 
   if (!adminAuthLoading && adminUser && adminUser.role !== UserRole.SUPER_ADMIN && !isSubmitting) {
-    // This should ideally not be reached if useEffect redirects.
     return (
       <div className="p-4">
         <p>Access Denied. You do not have permission to view this page.</p>
@@ -149,7 +151,7 @@ export default function NewUserPage() {
     <>
       <PageHeader
         title="Add New User"
-        description="Create a new administrator account. You will be asked to log in again after creation."
+        description="Create a new user account. After creation, you will be signed out and need to log in again."
       />
       <UserForm onSubmit={handleSubmit} isSubmitting={isSubmitting} isEditing={false} />
       <Card className="mt-4">
