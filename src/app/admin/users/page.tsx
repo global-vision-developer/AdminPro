@@ -25,7 +25,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 
 export default function UsersPage() {
-  const { currentUser, loading: authLoading } = useAuth(); // Renamed loading to authLoading
+  const { currentUser, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -42,7 +42,7 @@ export default function UsersPage() {
 
   useEffect(() => {
     if (!authLoading && currentUser && currentUser.role !== UserRole.SUPER_ADMIN) {
-      addDebugMessage(`useEffect[currentUser]: Access Denied. Current role: ${currentUser.role} (ID: ${currentUser.id}). Redirecting to dashboard.`);
+      addDebugMessage(`useEffect[currentUser access check]: Access Denied. Current user: ${currentUser.email} (Role: ${currentUser.role}, ID: ${currentUser.id}). Redirecting to dashboard.`);
       toast({ title: "Access Denied", description: "You do not have permission to manage users.", variant: "destructive" });
       router.push('/admin/dashboard');
       setIsLoading(false); 
@@ -50,17 +50,26 @@ export default function UsersPage() {
   }, [currentUser, authLoading, router, toast, addDebugMessage]);
 
   const fetchUsers = useCallback(async () => {
-    addDebugMessage(`fetchUsers called. CurrentUser: ${currentUser ? `${currentUser.email} (Role: ${currentUser.role}, ID: ${currentUser.id})` : 'null'}`);
+    const localCurrentUser = auth.currentUser; // Directly check Firebase Auth state for current operation
+    const contextUserForLog = currentUser; // For logging what AuthContext thinks
     
-    if (!currentUser || currentUser.role !== UserRole.SUPER_ADMIN) {
-      addDebugMessage("fetchUsers: currentUser is null or not Super Admin. Aborting fetch.");
+    addDebugMessage(`fetchUsers called. AuthContext currentUser: ${contextUserForLog ? `${contextUserForLog.email} (Role: ${contextUserForLog.role}, ID: ${contextUserForLog.id})` : 'null'}. Actual Firebase Auth UID for op: ${localCurrentUser ? localCurrentUser.uid : 'null (Firebase Auth)'}`);
+    
+    if (!localCurrentUser || (contextUserForLog && contextUserForLog.role !== UserRole.SUPER_ADMIN)) {
+      addDebugMessage(`fetchUsers: Pre-condition failed. Firebase Auth UID: ${localCurrentUser?.uid}. AuthContext Role: ${contextUserForLog?.role}. Aborting fetch.`);
       setIsLoading(false);
+      if (!localCurrentUser) {
+          toast({title: "Authentication Error", description: "No authenticated user found for fetching user list. Please re-login.", variant: "destructive"});
+          router.push('/');
+      } else if (contextUserForLog && contextUserForLog.role !== UserRole.SUPER_ADMIN) {
+          // This case is already handled by the useEffect above, but good to log.
+      }
       return;
     }
 
     setIsLoading(true);
     setUsers([]); 
-    addDebugMessage("fetchUsers: Attempting to fetch users from Firestore...");
+    addDebugMessage(`fetchUsers: Attempting to fetch users from Firestore as Super Admin (UID: ${localCurrentUser.uid})...`);
     try {
       const usersCollectionRef = collection(db, "users");
       const q = query(usersCollectionRef, orderBy("name", "asc")); 
@@ -72,41 +81,43 @@ export default function UsersPage() {
       setUsers(fetchedUsersData);
       addDebugMessage(`fetchUsers: Success. Fetched ${fetchedUsersData.length} users.`);
       if (fetchedUsersData.length === 0) {
-        addDebugMessage("fetchUsers: No users returned from Firestore query, but query itself was successful (no error thrown). Check collection content and rules if unexpected.");
+        addDebugMessage("fetchUsers: No users returned from Firestore query. Check collection content and Firestore Rules for 'list' on '/users' collection, ensuring it allows access for the Super Admin.");
       }
     } catch (error: any) {
       console.error("Error fetching users from Firestore:", error);
-      addDebugMessage(`fetchUsers: Firestore Error - Code: ${error.code}, Message: ${error.message}`);
+      addDebugMessage(`fetchUsers: Firestore Error - UID performing op: ${localCurrentUser.uid}, Code: ${error.code}, Message: ${error.message}`);
       let errorTitle = "Error fetching users";
       let errorMessage = `Failed to retrieve user data: ${error.message}.`;
       if (error.code === 'permission-denied' || (error.message && error.message.toLowerCase().includes('permission-denied'))) {
         errorTitle = "Firestore Permission Denied";
-        errorMessage = `Failed to retrieve user list. This usually means the currently logged-in admin (${currentUser?.email}, ID: ${currentUser?.id}) does not have 'list' permission for the 'users' collection. Please verify: 1. Your Firestore Security Rules grant 'list' access to Super Admins. 2. Your admin user document in Firestore has 'role: "Super Admin"'. Check Firebase console.`;
+        errorMessage = `Failed to list users. This means the logged-in Super Admin (UID: ${localCurrentUser.uid}) does not have 'list' permission on the '/users' collection according to Firestore Rules. Verify Rules: 1. 'match /users { allow list: if isSuperAdmin(); }' is present. 2. 'isSuperAdmin()' function correctly checks 'role == "Super Admin"' for UID ${localCurrentUser.uid} in its Firestore document. 3. The Firestore document /users/${localCurrentUser.uid} has 'role: "Super Admin"'.`;
       }
       toast({ title: errorTitle, description: errorMessage, variant: "destructive", duration: 20000 });
     } finally {
       setIsLoading(false);
       addDebugMessage("fetchUsers: Fetch attempt finished.");
     }
-  }, [currentUser, toast, addDebugMessage]); 
+  }, [currentUser, toast, addDebugMessage, router]); // currentUser from AuthContext still used for initial checks
 
   useEffect(() => {
     if (!authLoading && currentUser) { 
         if (currentUser.role === UserRole.SUPER_ADMIN) {
-            addDebugMessage(`useEffect[currentUser, fetchUsers]: currentUser is Super Admin (ID: ${currentUser.id}). Calling fetchUsers.`);
+            addDebugMessage(`useEffect[currentUser, fetchUsers]: AuthContext currentUser is Super Admin (ID: ${currentUser.id}). Calling fetchUsers.`);
             fetchUsers();
         } else {
-            addDebugMessage(`useEffect[currentUser, fetchUsers]: currentUser (ID: ${currentUser.id}) is NOT Super Admin (role: ${currentUser.role}). Not fetching users. isLoading set to false.`);
+            // This case is handled by the other useEffect that redirects non-Super Admins.
+            addDebugMessage(`useEffect[currentUser, fetchUsers]: AuthContext currentUser (ID: ${currentUser.id}) is NOT Super Admin (role: ${currentUser.role}). Not fetching users. isLoading set to false.`);
             setIsLoading(false);
         }
     } else if (!authLoading && !currentUser) {
-        addDebugMessage("useEffect[currentUser, fetchUsers]: currentUser is null and auth is not loading. Redirecting to /.");
-        router.push('/'); 
+        addDebugMessage("useEffect[currentUser, fetchUsers]: AuthContext currentUser is null and auth is not loading. Redirecting to / might be handled by AdminLayout.");
+        // AdminLayout will handle redirect if currentUser becomes null
+        setIsLoading(false); // Ensure loading is false if no user
     } else {
         addDebugMessage("useEffect[currentUser, fetchUsers]: authLoading is true. Waiting for auth state...");
         setIsLoading(true); 
     }
-  }, [currentUser, fetchUsers, addDebugMessage, authLoading, router]);
+  }, [currentUser, authLoading, fetchUsers, addDebugMessage]);
 
 
   const filteredUsers = useMemo(() => {
@@ -185,12 +196,13 @@ export default function UsersPage() {
     );
   }
 
+  // This check should ideally be covered by AdminLayout, but good as a fallback.
   if (!authLoading && currentUser && currentUser.role !== UserRole.SUPER_ADMIN) { 
     return (
         <div className="p-4">
             <p>Access Denied. You do not have permission to view this page.</p>
             <Card className="mt-4">
-                <CardHeader><CardTitle className="text-sm font-headline">Debug Information (Access Denied)</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-sm font-headline">Debug Information (Access Denied State)</CardTitle></CardHeader>
                 <CardContent><pre className="text-xs bg-muted p-2 rounded max-h-60 overflow-auto whitespace-pre-wrap break-all">{debugMessages.join("\n")}</pre></CardContent>
             </Card>
         </div>
@@ -198,11 +210,12 @@ export default function UsersPage() {
   }
   
   if (!authLoading && !currentUser) { 
+      // This case should be handled by AdminLayout redirecting to login page.
       return (
         <div className="p-4">
             <p>User not authenticated. Redirecting to login might be in progress...</p>
              <Card className="mt-4">
-                <CardHeader><CardTitle className="text-sm font-headline">Debug Information (No Current User)</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-sm font-headline">Debug Information (No Current User State)</CardTitle></CardHeader>
                 <CardContent><pre className="text-xs bg-muted p-2 rounded max-h-60 overflow-auto whitespace-pre-wrap break-all">{debugMessages.join("\n")}</pre></CardContent>
             </Card>
         </div>
@@ -330,7 +343,7 @@ export default function UsersPage() {
               <UsersIcon className="mx-auto h-12 w-12 text-muted-foreground" /> 
               <h3 className="mt-4 text-lg font-semibold">No users found</h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                {users.length === 0 && !isLoading && !authLoading && !searchTerm && roleFilter === 'all' ? "No users exist in the database or access was denied. Ensure Firestore rules grant 'list' access to your Super Admin user AND your Super Admin user's document in Firestore has 'role: \"Super Admin\"'." : 
+                {users.length === 0 && !isLoading && !authLoading && !searchTerm && roleFilter === 'all' ? "No users exist in the database, or access was denied. Ensure Firestore rules grant 'list' access to your Super Admin user AND your Super Admin user's document in Firestore has 'role: \"Super Admin\"'." : 
                 (searchTerm || roleFilter !== 'all' ? "Try adjusting your search or filter." : "Get started by adding a new user.")}
               </p>
               {!(searchTerm || roleFilter !== 'all') && users.length === 0 && !isLoading && !authLoading && (
@@ -353,3 +366,4 @@ export default function UsersPage() {
     </TooltipProvider>
   );
 }
+    
