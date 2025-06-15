@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { UserRole } from "@/types";
 import { Users, Library, Newspaper, Activity } from "lucide-react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button"; // Added import for Button
+import { Button } from "@/components/ui/button";
 
 export default function DashboardPage() {
   const { currentUser } = useAuth();
@@ -29,8 +29,7 @@ export default function DashboardPage() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {summaryCards.map((card) => 
           (!card.roles || card.roles.includes(currentUser.role)) && (
-          <Link href={card.href} key={card.title} legacyBehavior>
-            <a className="hover:no-underline">
+          <Link href={card.href} key={card.title} className="hover:no-underline">
               <Card className="hover:shadow-lg transition-shadow duration-200 cursor-pointer border-l-4 border-primary">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -45,7 +44,6 @@ export default function DashboardPage() {
                   </p>
                 </CardContent>
               </Card>
-            </a>
           </Link>
         ))}
       </div>
@@ -56,16 +54,16 @@ export default function DashboardPage() {
         <CardContent className="flex flex-wrap gap-4">
           {currentUser.role === UserRole.SUPER_ADMIN || currentUser.role === UserRole.SUB_ADMIN ? (
             <>
-              <Link href="/admin/categories/new" legacyBehavior>
+              <Link href="/admin/categories/new">
                 <Button variant="outline"><Library className="mr-2 h-4 w-4" /> Create Category</Button>
               </Link>
-              <Link href="/admin/entries/new" legacyBehavior>
+              <Link href="/admin/entries/new">
                 <Button variant="outline"><Newspaper className="mr-2 h-4 w-4" /> Create Entry</Button>
               </Link>
             </>
           ) : null}
           {currentUser.role === UserRole.SUPER_ADMIN && (
-            <Link href="/admin/users/new" legacyBehavior>
+            <Link href="/admin/users/new">
               <Button variant="outline"><Users className="mr-2 h-4 w-4" /> Add User</Button>
             </Link>
           )}
