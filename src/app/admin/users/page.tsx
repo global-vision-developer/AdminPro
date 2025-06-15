@@ -95,7 +95,7 @@ export default function UsersPage() {
         }
     } else {
         addDebugMessage("useEffect[currentUser, fetchUsers]: currentUser is null (auth provider might be loading). isLoading set to true.");
-        setIsLoading(true); 
+        // setIsLoading(true); // Keep it true until currentUser is resolved or fetch is attempted
     }
   }, [currentUser, fetchUsers, addDebugMessage]);
 
@@ -174,8 +174,9 @@ export default function UsersPage() {
     );
   }
 
-  if (currentUser && currentUser.role !== UserRole.SUPER_ADMIN) { 
-    return <div className="p-4"><p>Access Denied. Redirecting...</p></div>;
+  if (currentUser && currentUser.role !== UserRole.SUPER_ADMIN && !isLoading) { 
+    // This check is now more robust as isLoading would be false after initial auth check.
+    return <div className="p-4"><p>Access Denied. You do not have permission to view this page. Redirecting...</p></div>;
   }
 
 
@@ -214,7 +215,7 @@ export default function UsersPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {isLoading && users.length === 0 ? ( 
+          {isLoading ? ( // Show skeletons if actively loading, even if users array is temporarily empty
             <div className="space-y-4">
               <Skeleton className="h-12 w-full" />
               <Skeleton className="h-12 w-full" />
@@ -300,12 +301,12 @@ export default function UsersPage() {
                 </TableBody>
               </Table>
             </div>
-          ) : (
+          ) : ( // This case means isLoading is false AND filteredUsers.length is 0
              <div className="text-center py-12">
               <UsersIcon className="mx-auto h-12 w-12 text-muted-foreground" /> 
               <h3 className="mt-4 text-lg font-semibold">No users found</h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                {users.length === 0 && !isLoading ? "No users exist in the database or you may not have permission to view them." : 
+                {users.length === 0 && !isLoading ? "No users exist in the database. Ensure Firestore rules allow listing and your Super Admin user has the correct role in Firestore." : 
                 (searchTerm || roleFilter !== 'all' ? "Try adjusting your search or filter." : "Get started by adding a new user.")}
               </p>
               {!(searchTerm || roleFilter !== 'all') && users.length === 0 && !isLoading && (
@@ -328,3 +329,4 @@ export default function UsersPage() {
     </TooltipProvider>
   );
 }
+
