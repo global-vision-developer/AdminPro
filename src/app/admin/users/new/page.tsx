@@ -46,7 +46,7 @@ export default function NewUserPage() {
         email: data.email,
         role: data.role,
         avatar: userAvatar,
-        createdAt: serverTimestamp(),
+        createdAt: serverTimestamp(), // Use server timestamp
         updatedAt: serverTimestamp(),
       };
       
