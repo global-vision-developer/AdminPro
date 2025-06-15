@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { UserRole } from "@/types";
 import { Users, Library, Newspaper, Activity } from "lucide-react";
 import Link from "next/link";
+import { Button } from "@/components/ui/button"; // Added import for Button
 
 export default function DashboardPage() {
   const { currentUser } = useAuth();
