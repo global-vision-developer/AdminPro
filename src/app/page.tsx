@@ -11,13 +11,12 @@ import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import Image from "next/image";
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Имэйл хаяг буруу байна." }),
   password: z.string().min(6, { message: "Нууц үг дор хаяж 6 тэмдэгттэй байх ёстой." }),
-  name: z.string().optional(), // Optional name field for new users if they sign up
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -32,7 +31,6 @@ export default function LoginPage() {
     defaultValues: {
       email: "",
       password: "",
-      name: "",
     },
   });
   
@@ -52,7 +50,8 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginFormValues) => {
     setIsSubmitting(true);
-    await login(data.email, data.password, data.name);
+    // Pass only email and password to the login function
+    await login(data.email, data.password); 
     // AuthContext handles navigation or error display
     setIsSubmitting(false); 
   };
@@ -113,40 +112,20 @@ export default function LoginPage() {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel htmlFor="name">Нэр (Шинээр бүртгүүлэх бол)</FormLabel>
-                    <FormControl>
-                      <Input
-                        id="name"
-                        type="text"
-                        placeholder="Таны нэр"
-                        {...field}
-                        className="h-11 text-base"
-                      />
-                    </FormControl>
-                    <FormDescription>Хэрэв бүртгэлгүй бол энэ нэрээр шинэ бүртгэл үүснэ.</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
               <Button type="submit" className="w-full h-11 text-lg" disabled={isSubmitting || loading}>
                 {isSubmitting || loading ? (
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                 ) : (
                   <LogIn className="mr-2 h-5 w-5" />
                 )}
-                Нэвтрэх / Бүртгүүлэх
+                Нэвтрэх
               </Button>
             </form>
           </Form>
         </CardContent>
         <CardFooter className="flex flex-col items-center text-xs text-muted-foreground pt-6">
           <p>Туршилтаар: 'super@example.com' эсвэл 'sub@example.com' ашиглана уу.</p>
-          <p>Нууц үг: 'password' (эсвэл өөрийн хүссэн 6-с дээш тэмдэгттэй нууц үг)</p>
+          <p>Нууц үг: 'password'</p>
         </CardFooter>
       </Card>
       <p className="mt-8 text-center text-sm text-muted-foreground">

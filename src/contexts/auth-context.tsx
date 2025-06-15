@@ -9,28 +9,23 @@ import {
   getAuth, 
   onAuthStateChanged, 
   signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
+  // createUserWithEmailAndPassword, // No longer creating user from login page
   signOut as firebaseSignOut,
   updateProfile,
   type User as FirebaseUser
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase'; // Import db from Firebase config
 import { useToast } from '@/hooks/use-toast';
-import { doc, getDoc, setDoc } from 'firebase/firestore'; // Firestore imports
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'; // Firestore imports
 
 interface AuthContextType {
   currentUser: UserProfile | null;
-  login: (email: string, password_or_name?: string, optional_name_for_signup?: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>; // name parameter removed
   logout: () => Promise<void>;
   loading: boolean;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-// Эрх хуваарилалт Firestore-оос хийгдэнэ.
-// Шинээр бүртгүүлсэн хэрэглэгчид анхдагчаар SUB_ADMIN эрхтэй болно.
-// SUPER_ADMIN эрхийг Firestore-д гараар тохируулж өгнө.
-// Жишээ: Firestore-д 'users/{uid}' document дотор 'role': 'Super Admin' гэж хадгална.
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -52,16 +47,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           if (userDocSnap.exists()) {
             const userData = userDocSnap.data();
-            userRole = userData.role as UserRole || UserRole.SUB_ADMIN; // Use Firestore role
-            profileName = userData.name || profileName; // Prefer Firestore name
-            profileAvatar = userData.avatar || profileAvatar; // Prefer Firestore avatar
+            userRole = userData.role as UserRole || UserRole.SUB_ADMIN; 
+            profileName = userData.name || profileName; 
+            profileAvatar = userData.avatar || profileAvatar;
 
-            // Ensure Firebase Auth profile is up-to-date with Firestore data
             if (firebaseUser.displayName !== profileName || firebaseUser.photoURL !== profileAvatar) {
-              await updateProfile(firebaseUser, { displayName: profileName, photoURL: profileAvatar });
+              // Ensure Firebase Auth profile is up-to-date with Firestore data (name/avatar) if it was changed in Firestore
+              try {
+                  await updateProfile(firebaseUser, { displayName: profileName, photoURL: profileAvatar });
+              } catch (profileUpdateError) {
+                  console.warn("Could not update Firebase Auth profile:", profileUpdateError);
+                  // Non-critical, proceed with Firestore data
+              }
             }
           } else {
-            // Document doesn't exist, create it for new user or first-time setup for existing auth user
+            // Document doesn't exist, create it for new user (e.g., created via Admin Panel, or first time Firebase Auth user logs into this app)
+            // Note: User creation from login page is removed, so this branch is for users created elsewhere.
             const nameForDoc = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User';
             const avatarForDoc = firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${nameForDoc.substring(0,2).toUpperCase()}`;
             
@@ -71,9 +72,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               name: nameForDoc,
               role: userRole, // Default role (SUB_ADMIN)
               avatar: avatarForDoc,
-              createdAt: new Date().toISOString(),
+              createdAt: serverTimestamp(), // Use server timestamp
+              updatedAt: serverTimestamp(),
             });
-            // Update local vars for UserProfile object that will be set
             profileName = nameForDoc;
             profileAvatar = avatarForDoc;
           }
@@ -89,9 +90,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch (error) {
           console.error("Error fetching/setting user data from Firestore:", error);
           toast({ title: "Алдаа гарлаа", description: "Хэрэглэгчийн эрх, мэдээллийг Firestore-оос уншихад/хадгалахад алдаа гарлаа.", variant: "destructive" });
-          // Fallback or force logout
           setCurrentUser(null);
-          await firebaseSignOut(auth); // Optional: force logout on critical error
+          try {
+            await firebaseSignOut(auth);
+          } catch (signOutError) {
+            console.error("Error signing out after Firestore error:", signOutError);
+          }
         }
       } else {
         setCurrentUser(null);
@@ -100,45 +104,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     return () => unsubscribe();
-  }, [toast]); // Added toast to dependency array
+  }, [toast]);
 
-  const login = useCallback(async (email: string, password?: string, name?: string) => {
-    if (!password) {
-      toast({ title: "Нууц үг оруулаагүй байна", description: "Нэвтрэхийн тулд нууц үгээ оруулна уу.", variant: "destructive"});
-      setLoading(false); // Ensure loading is false if we return early
-      return;
-    }
+  // Login function now only accepts email and password, and only attempts to sign in.
+  const login = useCallback(async (email: string, password: string) => {
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
       // onAuthStateChanged will handle setting user and Firestore interaction
       router.push('/admin/dashboard');
     } catch (error: any) {
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-        try {
-          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-          if (userCredential.user) {
-            const displayName = name || email.split('@')[0];
-            const photoURL = `https://placehold.co/100x100.png?text=${(displayName).substring(0,2).toUpperCase()}`;
-            await updateProfile(userCredential.user, { displayName, photoURL });
-            // onAuthStateChanged will now handle creating the Firestore document with default SUB_ADMIN role
-            toast({ title: "Бүртгэл амжилттай", description: `${displayName} нэрээр шинэ хэрэглэгч үүслээ.` });
-          }
-          router.push('/admin/dashboard');
-        } catch (creationError: any) {
-          console.error("Firebase user creation error:", creationError);
-          toast({ title: "Бүртгэл үүсгэхэд алдаа гарлаа", description: creationError.message, variant: "destructive" });
-        }
-      } else {
-        console.error("Firebase login error:", error);
-        let friendlyMessage = "Нэвтрэхэд алдаа гарлаа. Таны имэйл эсвэл нууц үг буруу байж магадгүй.";
-        if (error.code === 'auth/too-many-requests') {
-            friendlyMessage = "Хэт олон удаагийн буруу оролдлого. Түр хүлээгээд дахин оролдоно уу."
-        } else if (error.message) {
-            friendlyMessage = error.message;
-        }
-        toast({ title: "Нэвтрэхэд алдаа гарлаа", description: friendlyMessage, variant: "destructive" });
+      console.error("Firebase login error:", error);
+      let friendlyMessage = "Нэвтрэхэд алдаа гарлаа. Таны имэйл эсвэл нууц үг буруу байна.";
+      if (error.code === 'auth/user-not-found') {
+        friendlyMessage = "Хэрэглэгч олдсонгүй. Бүртгэлтэй имэйл хаягаа оруулна уу.";
+      } else if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        friendlyMessage = "Имэйл эсвэл нууц үг буруу байна.";
+      } else if (error.code === 'auth/too-many-requests') {
+        friendlyMessage = "Хэт олон удаагийн буруу оролдлого. Түр хүлээгээд дахин оролдоно уу.";
+      } else if (error.message) {
+        friendlyMessage = error.message;
       }
+      toast({ title: "Нэвтрэхэд алдаа гарлаа", description: friendlyMessage, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -148,7 +135,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
     try {
       await firebaseSignOut(auth);
-      setCurrentUser(null); // Explicitly set current user to null
+      setCurrentUser(null); 
       router.push('/');
     } catch (error: any) {
       console.error("Firebase logout error:", error);
