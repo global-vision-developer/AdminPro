@@ -9,18 +9,17 @@ import {
   getAuth, 
   onAuthStateChanged, 
   signInWithEmailAndPassword, 
-  // createUserWithEmailAndPassword, // No longer creating user from login page
   signOut as firebaseSignOut,
   updateProfile,
   type User as FirebaseUser
 } from 'firebase/auth';
-import { auth, db } from '@/lib/firebase'; // Import db from Firebase config
+import { auth, db } from '@/lib/firebase'; 
 import { useToast } from '@/hooks/use-toast';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'; // Firestore imports
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'; 
 
 interface AuthContextType {
   currentUser: UserProfile | null;
-  login: (email: string, password: string) => Promise<void>; // name parameter removed
+  login: (email: string, password: string) => Promise<void>; 
   logout: () => Promise<void>;
   loading: boolean;
 }
@@ -41,7 +40,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           const userDocSnap = await getDoc(userDocRef);
 
-          let userRole: UserRole = UserRole.SUB_ADMIN; // Default role
+          let userRole: UserRole = UserRole.SUB_ADMIN; 
           let profileName = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User';
           let profileAvatar = firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${(profileName).substring(0,2).toUpperCase()}`;
           
@@ -52,27 +51,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             profileAvatar = userData.avatar || profileAvatar;
 
             if (firebaseUser.displayName !== profileName || firebaseUser.photoURL !== profileAvatar) {
-              // Ensure Firebase Auth profile is up-to-date with Firestore data (name/avatar) if it was changed in Firestore
               try {
                   await updateProfile(firebaseUser, { displayName: profileName, photoURL: profileAvatar });
               } catch (profileUpdateError) {
                   console.warn("Could not update Firebase Auth profile:", profileUpdateError);
-                  // Non-critical, proceed with Firestore data
               }
             }
           } else {
-            // Document doesn't exist, create it for new user (e.g., created via Admin Panel, or first time Firebase Auth user logs into this app)
-            // Note: User creation from login page is removed, so this branch is for users created elsewhere.
             const nameForDoc = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User';
             const avatarForDoc = firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${nameForDoc.substring(0,2).toUpperCase()}`;
             
+            // This setDoc call is critical and needs Firestore 'create' permission
+            // for the currently logged-in user (request.auth.uid) on the path /users/{firebaseUser.uid}.
+            // If this is an admin creating another user, the admin's UID (request.auth.uid) must have 'create' permission.
+            // If this is a new user signing up themselves (not applicable in this admin panel directly on this page), 
+            // then their own UID (request.auth.uid) would need 'create' permission.
+            // Given the context, this usually runs for the user who just authenticated.
             await setDoc(userDocRef, {
               uid: firebaseUser.uid,
               email: firebaseUser.email,
               name: nameForDoc,
-              role: userRole, // Default role (SUB_ADMIN)
+              role: userRole, 
               avatar: avatarForDoc,
-              createdAt: serverTimestamp(), // Use server timestamp
+              createdAt: serverTimestamp(), 
               updatedAt: serverTimestamp(),
             });
             profileName = nameForDoc;
@@ -87,9 +88,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             avatar: profileAvatar,
           };
           setCurrentUser(userProfile);
-        } catch (error) {
+        } catch (error: any) {
           console.error("Error fetching/setting user data from Firestore:", error);
-          toast({ title: "Алдаа гарлаа", description: "Хэрэглэгчийн эрх, мэдээллийг Firestore-оос уншихад/хадгалахад алдаа гарлаа.", variant: "destructive" });
+          let firestoreErrorMsg = "Хэрэглэгчийн эрх, мэдээллийг Firestore-оос уншихад/хадгалахад алдаа гарлаа.";
+          if (error.code === 'permission-denied' || (error.message && error.message.toLowerCase().includes('permission-denied'))) {
+            firestoreErrorMsg = "Firestore Permission Denied: Хэрэглэгчийн мэдээллийг унших/хадгалах зөвшөөрөлгүй байна. Firebase Console дээрх Firestore Rules болон нэвтэрсэн хэрэглэгчийн 'role' талбарыг шалгана уу.";
+          }
+          toast({ title: "Алдаа гарлаа", description: firestoreErrorMsg, variant: "destructive", duration: 10000 });
           setCurrentUser(null);
           try {
             await firebaseSignOut(auth);
@@ -104,14 +109,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     return () => unsubscribe();
-  }, [toast]);
+  }, [toast]); // Removed router from dependencies as it's not directly used in onAuthStateChanged's core logic causing re-runs.
 
-  // Login function now only accepts email and password, and only attempts to sign in.
   const login = useCallback(async (email: string, password: string) => {
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // onAuthStateChanged will handle setting user and Firestore interaction
       router.push('/admin/dashboard');
     } catch (error: any) {
       console.error("Firebase login error:", error);
@@ -151,3 +154,4 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     </AuthContext.Provider>
   );
 };
+
