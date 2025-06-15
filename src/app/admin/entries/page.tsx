@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { PlusCircle, Edit, Trash2, Eye, Search, ListFilter, CalendarClock, CheckCircle, Edit3 } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Eye, Search, ListFilter, CalendarClock, CheckCircle, Edit3, Newspaper } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { PageHeader } from '@/components/admin/page-header';
