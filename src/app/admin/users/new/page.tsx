@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/admin/page-header';
 import { UserForm, type UserFormValues } from '../components/user-form';
@@ -17,17 +17,27 @@ export default function NewUserPage() {
   const { toast } = useToast();
   const { currentUser: adminUser } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [debugMessages, setDebugMessages] = useState<string[]>([]);
+
+  const addDebugMessage = useCallback((message: string) => {
+    console.log("DEBUG (NewUserPage):", message);
+    setDebugMessages(prev => [...prev.slice(-15), `${new Date().toLocaleTimeString()}: ${message}`]);
+  }, []);
+
 
   useEffect(() => {
     if (adminUser && adminUser.role !== UserRole.SUPER_ADMIN) {
+      addDebugMessage(`Access Denied. Current role: ${adminUser.role}. Redirecting.`);
       toast({ title: "Access Denied", description: "You do not have permission to add users.", variant: "destructive" });
       router.push('/admin/dashboard');
     }
-  }, [adminUser, router, toast]);
+  }, [adminUser, router, toast, addDebugMessage]);
 
   const handleSubmit = async (data: UserFormValues) => {
     setIsSubmitting(true);
+    addDebugMessage(`handleSubmit called with email: ${data.email}`);
     if (!data.password) {
+        addDebugMessage("Password is required error triggered.");
         toast({ title: "Error", description: "Password is required to create a new user.", variant: "destructive" });
         setIsSubmitting(false);
         return;
@@ -36,13 +46,13 @@ export default function NewUserPage() {
     let newUserAuth: FirebaseUser | null = null;
 
     try {
-      // Step 1: Create user in Firebase Authentication
+      addDebugMessage("Step 1: Attempting to create user in Firebase Authentication...");
       const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
       newUserAuth = userCredential.user;
+      addDebugMessage(`Step 1 Success: Auth user created. UID: ${newUserAuth.uid}`);
 
-      // Step 2: Prepare user profile for Firestore
-      const userAvatar = `https://placehold.co/100x100.png?text=${data.name.substring(0,2).toUpperCase()}&bg=FF5733&txt=FFFFFF`
-
+      addDebugMessage("Step 2: Preparing user profile for Firestore...");
+      const userAvatar = `https://placehold.co/100x100.png?text=${data.name.substring(0,2).toUpperCase()}&bg=FF5733&txt=FFFFFF`;
       const userProfileForFirestore: Omit<UserProfile, 'id'> & { createdAt: any, updatedAt: any, uid: string } = {
         uid: newUserAuth.uid,
         name: data.name,
@@ -52,15 +62,18 @@ export default function NewUserPage() {
         createdAt: serverTimestamp(), 
         updatedAt: serverTimestamp(),
       };
+      addDebugMessage(`Step 2 Success: Firestore profile data prepared: ${JSON.stringify(userProfileForFirestore)}`);
       
-      // Step 3: Update Firebase Auth profile (displayName, photoURL)
+      addDebugMessage("Step 3: Attempting to update Firebase Auth profile (displayName, photoURL)...");
       await updateProfile(newUserAuth, {
           displayName: data.name,
           photoURL: userAvatar
       });
+      addDebugMessage("Step 3 Success: Firebase Auth profile updated.");
 
-      // Step 4: Create user document in Firestore
+      addDebugMessage(`Step 4: Attempting to create user document in Firestore for UID: ${newUserAuth.uid}...`);
       await setDoc(doc(db, "users", newUserAuth.uid), userProfileForFirestore);
+      addDebugMessage("Step 4 Success: Firestore document created.");
 
       toast({
         title: "User Created",
@@ -69,6 +82,7 @@ export default function NewUserPage() {
       router.push('/admin/users');
 
     } catch (error: any) {
+      addDebugMessage(`Error during user creation process: Name: ${error.name}, Code: ${error.code}, Message: ${error.message}`);
       console.error("Failed to create user:", error);
       let errorMessage = "An unexpected error occurred. Please try again.";
       let errorTitle = "Error Creating User";
@@ -87,12 +101,15 @@ export default function NewUserPage() {
             errorMessage = "The email address is not valid. Please enter a correct email format.";
             errorTitle = "Invalid Email";
             break;
+          // This case is for Firestore permission denied AFTER auth user is created
           case 'permission-denied': 
              errorTitle = "Firestore Permission Denied";
-             errorMessage = `Failed to save user profile to database for ${data.email}. User created in Auth, but profile not saved. Please check Firestore rules.`;
+             errorMessage = `Failed to save user profile to database for ${data.email}. User might be created in Auth, but profile not saved. Please check Firestore rules for 'create' on '/users/{userId}'.`;
              if (newUserAuth) {
-               console.warn("Auth user created but Firestore profile creation failed. UID:", newUserAuth.uid);
-               errorMessage += ` Auth User UID: ${newUserAuth.uid} (may need manual cleanup if profile cannot be saved).`;
+               errorMessage += ` Auth User UID: ${newUserAuth.uid}.`;
+               addDebugMessage(`Firestore permission-denied for UID ${newUserAuth.uid} after Auth success.`);
+             } else {
+               addDebugMessage(`Firestore permission-denied, and newUserAuth object is null. This might be an Auth error re-interpreted or Firestore rules for a different operation.`);
              }
             break;
           default:
@@ -110,11 +127,13 @@ export default function NewUserPage() {
       });
     } finally {
         setIsSubmitting(false);
+        addDebugMessage("handleSubmit finished.");
     }
   };
   
   if (adminUser && adminUser.role !== UserRole.SUPER_ADMIN && !isSubmitting) {
-    return <div className="p-4"><p>Access Denied. Redirecting...</p></div>;
+     // This state should ideally not be reached if routing from useEffect works
+    return <div className="p-4"><p>Access Denied. Redirecting...</p> <pre className="text-xs bg-muted p-2 rounded max-h-60 overflow-auto">{debugMessages.join("\n")}</pre></div>;
   }
 
   return (
@@ -124,6 +143,12 @@ export default function NewUserPage() {
         description="Create a new administrator account and assign a role."
       />
       <UserForm onSubmit={handleSubmit} isSubmitting={isSubmitting} isEditing={false} />
+      <Card className="mt-4">
+        <CardHeader><CardTitle className="text-sm font-headline">Debug Information (New User Page)</CardTitle></CardHeader>
+        <CardContent>
+            <pre className="text-xs bg-muted p-2 rounded max-h-60 overflow-auto">{debugMessages.join("\n")}</pre>
+        </CardContent>
+      </Card>
     </>
   );
 }
