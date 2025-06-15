@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -50,7 +49,7 @@ export default function UsersPage() {
   }, [currentUser, router, toast, addDebugMessage]);
 
   const fetchUsers = useCallback(async () => {
-    addDebugMessage(`fetchUsers called. CurrentUser status: ${currentUser ? currentUser.email + ' (' + currentUser.role + ')' : 'null'}`);
+    addDebugMessage(`fetchUsers called. CurrentUser: ${currentUser ? `${currentUser.email} (Role: ${currentUser.role}, ID: ${currentUser.id})` : 'null'}`);
     
     if (!currentUser || currentUser.role !== UserRole.SUPER_ADMIN) {
       addDebugMessage("fetchUsers: currentUser is null or not Super Admin. Aborting fetch.");
@@ -87,15 +86,15 @@ export default function UsersPage() {
   useEffect(() => {
     if (currentUser) { 
         if (currentUser.role === UserRole.SUPER_ADMIN) {
-            addDebugMessage("useEffect[currentUser, fetchUsers]: currentUser is Super Admin. Calling fetchUsers.");
+            addDebugMessage(`useEffect[currentUser, fetchUsers]: currentUser is Super Admin (ID: ${currentUser.id}). Calling fetchUsers.`);
             fetchUsers();
         } else {
-            addDebugMessage(`useEffect[currentUser, fetchUsers]: currentUser is NOT Super Admin (role: ${currentUser.role}). Not fetching users. isLoading set to false.`);
+            addDebugMessage(`useEffect[currentUser, fetchUsers]: currentUser is NOT Super Admin (role: ${currentUser.role}, ID: ${currentUser.id}). Not fetching users. isLoading set to false.`);
             setIsLoading(false);
         }
     } else {
-        addDebugMessage("useEffect[currentUser, fetchUsers]: currentUser is null (auth provider might be loading). isLoading set to true.");
-        // setIsLoading(true); // Keep it true until currentUser is resolved or fetch is attempted
+        addDebugMessage("useEffect[currentUser, fetchUsers]: currentUser is null (auth provider might be loading).");
+        // Keep isLoading true until currentUser is resolved or fetch is attempted
     }
   }, [currentUser, fetchUsers, addDebugMessage]);
 
@@ -118,7 +117,7 @@ export default function UsersPage() {
     try {
       await deleteDoc(doc(db, "users", userId));
       setUsers(prev => prev.filter(u => u.id !== userId));
-      toast({ title: "User Firestore Record Deleted", description: `Firestore record for user "${userName}" has been removed.` });
+      toast({ title: "User Firestore Record Deleted", description: `Firestore record for user \"${userName}\" has been removed.` });
       toast({
         title: "Important: Auth User Deletion",
         description: "User record removed from database. For full deletion, the authentication record needs to be removed by an administrator via backend tools or a Cloud Function.",
@@ -175,7 +174,6 @@ export default function UsersPage() {
   }
 
   if (currentUser && currentUser.role !== UserRole.SUPER_ADMIN && !isLoading) { 
-    // This check is now more robust as isLoading would be false after initial auth check.
     return <div className="p-4"><p>Access Denied. You do not have permission to view this page. Redirecting...</p></div>;
   }
 
@@ -215,7 +213,7 @@ export default function UsersPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {isLoading ? ( // Show skeletons if actively loading, even if users array is temporarily empty
+          {isLoading ? ( 
             <div className="space-y-4">
               <Skeleton className="h-12 w-full" />
               <Skeleton className="h-12 w-full" />
@@ -238,7 +236,7 @@ export default function UsersPage() {
                     <TableRow key={user.id}>
                       <TableCell className="hidden sm:table-cell">
                         <Avatar>
-                          <AvatarImage src={user.avatar} alt={user.name} data-ai-hint="avatar" />
+                          <AvatarImage src={user.avatar} alt={user.name} data-ai-hint="avatar person" />
                           <AvatarFallback>{user.name ? user.name.substring(0, 2).toUpperCase() : 'N/A'}</AvatarFallback>
                         </Avatar>
                       </TableCell>
@@ -301,7 +299,7 @@ export default function UsersPage() {
                 </TableBody>
               </Table>
             </div>
-          ) : ( // This case means isLoading is false AND filteredUsers.length is 0
+          ) : ( 
              <div className="text-center py-12">
               <UsersIcon className="mx-auto h-12 w-12 text-muted-foreground" /> 
               <h3 className="mt-4 text-lg font-semibold">No users found</h3>
@@ -329,4 +327,3 @@ export default function UsersPage() {
     </TooltipProvider>
   );
 }
-
