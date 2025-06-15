@@ -68,22 +68,27 @@ export default function NewUserPage() {
       console.error("Failed to create user:", error);
       let errorMessage = "Failed to create user. Please try again.";
       if (error.code === 'auth/email-already-in-use') {
-        errorMessage = "This email address is already in use by another account.";
+        errorMessage = "This email address is already in use by another account. Please use a different email.";
       } else if (error.code === 'auth/weak-password') {
-        errorMessage = "The password is too weak.";
+        errorMessage = "The password is too weak. Please choose a stronger password (at least 6 characters).";
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = "The email address is not valid. Please enter a correct email format.";
       }
       toast({
-        title: "Error",
+        title: "Error Creating User",
         description: errorMessage,
         variant: "destructive",
       });
-      setIsSubmitting(false);
+    } finally {
+        setIsSubmitting(false);
     }
   };
   
-  if (adminUser?.role !== UserRole.SUPER_ADMIN) {
+  if (adminUser && adminUser.role !== UserRole.SUPER_ADMIN && !isSubmitting) { // also check !isSubmitting to prevent flicker on redirect
+    // useEffect already handles redirect, this is an additional guard
     return <div className="p-4"><p>Access Denied. Redirecting...</p></div>;
   }
+
 
   return (
     <>
@@ -95,3 +100,4 @@ export default function NewUserPage() {
     </>
   );
 }
+
