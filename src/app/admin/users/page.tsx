@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
-import { PlusCircle, Edit, Trash2, UserCog, ShieldCheck, ShieldAlert, Search, Users as UsersIcon } from 'lucide-react'; // Renamed Users to UsersIcon
+import { PlusCircle, Edit, Trash2, UserCog, ShieldCheck, ShieldAlert, Search, Users as UsersIcon } from 'lucide-react'; 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; 
 import { PageHeader } from '@/components/admin/page-header';
@@ -35,19 +35,19 @@ export default function UsersPage() {
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
   const [debugMessages, setDebugMessages] = useState<string[]>([]);
 
+  const addDebugMessage = useCallback((message: string) => {
+    console.log("DEBUG (UsersPage):", message); 
+    setDebugMessages(prev => [...prev.slice(-15), `${new Date().toLocaleTimeString()}: ${message}`]);
+  }, []);
+
   useEffect(() => {
-    // Initial check: if currentUser is loaded and not SUPER_ADMIN, redirect immediately.
     if (currentUser && currentUser.role !== UserRole.SUPER_ADMIN) {
+      addDebugMessage(`useEffect[currentUser]: Access Denied. Current role: ${currentUser.role}. Redirecting.`);
       toast({ title: "Access Denied", description: "You do not have permission to manage users.", variant: "destructive" });
       router.push('/admin/dashboard');
-      setIsLoading(false); // Stop loading if redirecting
+      setIsLoading(false); 
     }
-  }, [currentUser, router, toast]);
-
-  const addDebugMessage = (message: string) => {
-    console.log("DEBUG (UsersPage):", message); // Also log to actual console
-    setDebugMessages(prev => [...prev.slice(-10), `${new Date().toLocaleTimeString()}: ${message}`]); // Keep last 10 messages
-  };
+  }, [currentUser, router, toast, addDebugMessage]);
 
   const fetchUsers = useCallback(async () => {
     addDebugMessage(`fetchUsers called. CurrentUser status: ${currentUser ? currentUser.email + ' (' + currentUser.role + ')' : 'null'}`);
@@ -59,7 +59,7 @@ export default function UsersPage() {
     }
 
     setIsLoading(true);
-    setUsers([]); // Clear previous users before fetching
+    setUsers([]); 
     addDebugMessage("fetchUsers: Attempting to fetch users from Firestore...");
     try {
       const usersCollectionRef = collection(db, "users");
@@ -77,31 +77,27 @@ export default function UsersPage() {
     } catch (error: any) {
       console.error("Error fetching users from Firestore:", error);
       addDebugMessage(`fetchUsers: Firestore Error - Code: ${error.code}, Message: ${error.message}`);
-      toast({ title: "Error fetching users", description: `Failed to retrieve user data: ${error.message}. Please check Firestore rules and console for details.`, variant: "destructive" });
+      toast({ title: "Error fetching users", description: `Failed to retrieve user data: ${error.message}. Pleace check firestore rules and console for details.`, variant: "destructive" });
     } finally {
       setIsLoading(false);
       addDebugMessage("fetchUsers: Fetch attempt finished.");
     }
-  }, [currentUser, toast]); // addDebugMessage is stable
+  }, [currentUser, toast, addDebugMessage]); 
 
   useEffect(() => {
-    // Fetch users only if currentUser is loaded and is a SUPER_ADMIN
-    // This effect runs when currentUser or fetchUsers changes.
-    if (currentUser) { // currentUser is not null
+    if (currentUser) { 
         if (currentUser.role === UserRole.SUPER_ADMIN) {
             addDebugMessage("useEffect[currentUser, fetchUsers]: currentUser is Super Admin. Calling fetchUsers.");
             fetchUsers();
         } else {
-            // Handled by the other useEffect for immediate redirection, but stop loading here too.
-            addDebugMessage("useEffect[currentUser, fetchUsers]: currentUser is NOT Super Admin. Setting isLoading to false.");
+            addDebugMessage(`useEffect[currentUser, fetchUsers]: currentUser is NOT Super Admin (role: ${currentUser.role}). Not fetching users. isLoading set to false.`);
             setIsLoading(false);
         }
     } else {
-        // currentUser is still null (Auth provider might still be loading)
-        addDebugMessage("useEffect[currentUser, fetchUsers]: currentUser is null. Waiting for AuthProvider. Setting isLoading to true.");
-        setIsLoading(true); // Explicitly set loading if current user is not yet determined
+        addDebugMessage("useEffect[currentUser, fetchUsers]: currentUser is null (auth provider might be loading). isLoading set to true.");
+        setIsLoading(true); 
     }
-  }, [currentUser, fetchUsers]); // fetchUsers is memoized by useCallback
+  }, [currentUser, fetchUsers, addDebugMessage]);
 
 
   const filteredUsers = useMemo(() => {
@@ -147,8 +143,7 @@ export default function UsersPage() {
     }
   };
   
-  // Show skeleton while auth provider is determining currentUser OR if actively fetching users
-  if (isLoading || !currentUser) { // If still loading OR currentUser is null (auth context hasn't resolved user yet)
+  if (isLoading && !currentUser) { 
      return (
       <>
         <PageHeader title="User Management" description="Manage admin accounts and their roles.">
@@ -169,9 +164,8 @@ export default function UsersPage() {
               <Skeleton className="h-12 w-full" />
               <Skeleton className="h-12 w-full" />
             </div>
-             {/* Temporary Debug Info Area */}
             <div className="mt-4 p-2 border rounded bg-muted/50">
-                <p className="text-xs font-semibold">Debug Log (Loading State):</p>
+                <p className="text-xs font-semibold">Debug Log (Initial Loading State):</p>
                 <pre className="text-xs max-h-40 overflow-auto">{debugMessages.join("\n")}</pre>
             </div>
           </CardContent>
@@ -180,8 +174,7 @@ export default function UsersPage() {
     );
   }
 
-  // This check is for after currentUser is loaded, but they are not Super Admin (and redirection hasn't happened yet)
-  if (currentUser.role !== UserRole.SUPER_ADMIN) { 
+  if (currentUser && currentUser.role !== UserRole.SUPER_ADMIN) { 
     return <div className="p-4"><p>Access Denied. Redirecting...</p></div>;
   }
 
@@ -221,8 +214,7 @@ export default function UsersPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {/* This specific isLoading check is for the data fetching part inside the component AFTER role check and currentUser is confirmed */}
-          {isLoading && users.length === 0 ? ( // Show skeleton if loading and no users are yet set
+          {isLoading && users.length === 0 ? ( 
             <div className="space-y-4">
               <Skeleton className="h-12 w-full" />
               <Skeleton className="h-12 w-full" />
@@ -269,7 +261,7 @@ export default function UsersPage() {
                             </TooltipTrigger>
                             <TooltipContent>Edit User / Change Role</TooltipContent>
                           </Tooltip>
-                          {user.id !== currentUser?.id && ( // currentUser will be defined here due to earlier checks
+                          {user.id !== currentUser?.id && ( 
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                  <Tooltip>
@@ -310,7 +302,7 @@ export default function UsersPage() {
             </div>
           ) : (
              <div className="text-center py-12">
-              <UsersIcon className="mx-auto h-12 w-12 text-muted-foreground" /> {/* Renamed Users to UsersIcon here */}
+              <UsersIcon className="mx-auto h-12 w-12 text-muted-foreground" /> 
               <h3 className="mt-4 text-lg font-semibold">No users found</h3>
               <p className="mt-1 text-sm text-muted-foreground">
                 {users.length === 0 && !isLoading ? "No users exist in the database or you may not have permission to view them." : 
@@ -327,9 +319,8 @@ export default function UsersPage() {
           )}
         </CardContent>
       </Card>
-        {/* Temporary Debug Info Area */}
         <Card className="mt-4">
-            <CardHeader><CardTitle className="text-sm">Debug Information (Users Page)</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-sm font-headline">Debug Information (Users Page)</CardTitle></CardHeader>
             <CardContent>
                 <pre className="text-xs bg-muted p-2 rounded max-h-60 overflow-auto">{debugMessages.join("\n")}</pre>
             </CardContent>
