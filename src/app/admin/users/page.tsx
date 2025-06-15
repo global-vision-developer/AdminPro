@@ -3,9 +3,9 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
-import { PlusCircle, Edit, Trash2, UserCog, ShieldCheck, ShieldAlert, Search, Loader2, Users } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, UserCog, ShieldCheck, ShieldAlert, Search, Users } from 'lucide-react'; // Removed Loader2 as isLoading handles it
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card'; // Removed CardTitle, CardDescription as not used
+import { Card, CardContent, CardHeader } from '@/components/ui/card'; 
 import { PageHeader } from '@/components/admin/page-header';
 import type { UserProfile } from '@/types';
 import { UserRole } from '@/types';
@@ -42,34 +42,45 @@ export default function UsersPage() {
   }, [currentUser, router, toast]);
 
   const fetchUsers = useCallback(async () => {
-    if (currentUser?.role !== UserRole.SUPER_ADMIN) return;
+    if (!currentUser || currentUser.role !== UserRole.SUPER_ADMIN) {
+        setIsLoading(false); // Ensure loading is false if not super admin
+        return;
+    }
     setIsLoading(true);
     try {
       const usersCollectionRef = collection(db, "users");
-      const q = query(usersCollectionRef, orderBy("name", "asc")); // Optional: order by name
+      const q = query(usersCollectionRef, orderBy("name", "asc")); 
       const querySnapshot = await getDocs(q);
       const fetchedUsers: UserProfile[] = [];
       querySnapshot.forEach((doc) => {
-        // Assuming doc.id is the user's uid
         fetchedUsers.push({ id: doc.id, ...doc.data() } as UserProfile);
       });
       setUsers(fetchedUsers);
     } catch (error) {
       console.error("Error fetching users:", error);
-      toast({ title: "Error", description: "Failed to fetch users from Firestore.", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to fetch users from Firestore. Check console and Firestore rules.", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
-  }, [currentUser?.role, toast]);
+  }, [currentUser, toast]); // currentUser dependency is important here
 
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    // Fetch users only if currentUser is loaded and is a SUPER_ADMIN
+    if (currentUser && currentUser.role === UserRole.SUPER_ADMIN) {
+      fetchUsers();
+    } else if (currentUser && currentUser.role !== UserRole.SUPER_ADMIN) {
+      // If user is loaded but not super admin, stop loading and let the other useEffect handle redirection
+      setIsLoading(false);
+    }
+    // If currentUser is null (still loading in AuthContext), wait for it.
+  }, [currentUser, fetchUsers]);
+
 
   const filteredUsers = useMemo(() => {
     return users.filter(user => {
-      const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            user.email.toLowerCase().includes(searchTerm.toLowerCase());
+      const nameMatch = user.name ? user.name.toLowerCase().includes(searchTerm.toLowerCase()) : false;
+      const emailMatch = user.email ? user.email.toLowerCase().includes(searchTerm.toLowerCase()) : false;
+      const matchesSearch = nameMatch || emailMatch;
       const matchesRole = roleFilter === 'all' || user.role === roleFilter;
       return matchesSearch && matchesRole;
     });
@@ -81,11 +92,9 @@ export default function UsersPage() {
       return;
     }
     try {
-      // Delete user document from Firestore
       await deleteDoc(doc(db, "users", userId));
       setUsers(prev => prev.filter(u => u.id !== userId));
       toast({ title: "User Firestore Record Deleted", description: `Firestore record for user "${userName}" has been removed.` });
-      console.warn(`User with ID ${userId} was deleted from Firestore. For complete deletion, the Firebase Auth user should also be deleted, ideally via a Cloud Function.`);
       toast({
         title: "Important: Auth User Deletion",
         description: "User record removed from database. For full deletion, the authentication record needs to be removed by an administrator via backend tools or a Cloud Function.",
@@ -106,13 +115,42 @@ export default function UsersPage() {
       case UserRole.SUB_ADMIN:
         return <Badge variant="secondary" className="text-foreground"><ShieldAlert className="mr-1 h-3 w-3" />Sub Admin</Badge>;
       default:
-        return <Badge variant="outline">{role}</Badge>;
+        return <Badge variant="outline">{String(role)}</Badge>;
     }
   };
 
-  if (currentUser?.role !== UserRole.SUPER_ADMIN && !isLoading) { // Check isLoading to prevent flash of content
+  if (currentUser?.role !== UserRole.SUPER_ADMIN && !isLoading && currentUser) { 
     return <div className="p-4"><p>Access Denied. Redirecting...</p></div>;
   }
+  
+  // Show skeleton while currentUser is being determined by AuthProvider, or if fetchUsers is loading
+  if (isLoading || !currentUser) {
+     return (
+      <>
+        <PageHeader title="User Management" description="Manage admin accounts and their roles.">
+           <Button disabled>
+            <PlusCircle className="mr-2 h-4 w-4" /> Add New User
+          </Button>
+        </PageHeader>
+        <Card className="shadow-lg">
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+              <Skeleton className="h-10 w-full sm:max-w-xs" />
+              <Skeleton className="h-10 w-full sm:w-[180px]" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+            </div>
+          </CardContent>
+        </Card>
+      </>
+    );
+  }
+
 
   return (
     <TooltipProvider>
@@ -149,7 +187,8 @@ export default function UsersPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {/* This loading check is more for the data fetching part inside the component after role check */}
+          {isLoading && users.length === 0 ? (
             <div className="space-y-4">
               <Skeleton className="h-12 w-full" />
               <Skeleton className="h-12 w-full" />
@@ -173,12 +212,12 @@ export default function UsersPage() {
                       <TableCell className="hidden sm:table-cell">
                         <Avatar>
                           <AvatarImage src={user.avatar} alt={user.name} data-ai-hint="avatar" />
-                          <AvatarFallback>{user.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                          <AvatarFallback>{user.name ? user.name.substring(0, 2).toUpperCase() : 'N/A'}</AvatarFallback>
                         </Avatar>
                       </TableCell>
                       <TableCell className="font-medium">
                         <Link href={`/admin/users/${user.id}/edit`} className="hover:underline text-primary">
-                          {user.name}
+                          {user.name || 'N/A'}
                         </Link>
                         <p className="text-xs text-muted-foreground md:hidden">{user.email}</p>
                       </TableCell>
