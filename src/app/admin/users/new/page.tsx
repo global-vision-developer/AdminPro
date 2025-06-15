@@ -8,8 +8,9 @@ import { UserForm, type UserFormValues } from '../components/user-form';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { UserRole } from '@/types';
-import { auth } from '@/lib/firebase'; // db removed as we are not writing to Firestore here
+import { auth, db } from '@/lib/firebase';
 import { createUserWithEmailAndPassword, updateProfile, signOut as firebaseSignOut } from 'firebase/auth';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function NewUserPage() {
@@ -34,7 +35,7 @@ export default function NewUserPage() {
 
   const handleSubmit = async (data: UserFormValues) => {
     setIsSubmitting(true);
-    addDebugMessage(`handleSubmit called with email: ${data.email}. Admin context: ${adminUser?.email} (Role: ${adminUser?.role}, UID: ${adminUser?.id})`);
+    addDebugMessage(`handleSubmit called with email: ${data.email}. Admin performing this action: ${adminUser?.email} (Role: ${adminUser?.role}, UID: ${adminUser?.id})`);
 
     if (!adminUser || adminUser.role !== UserRole.SUPER_ADMIN) {
       addDebugMessage("Critical Error: handleSubmit called but adminUser is not Super Admin or is null.");
@@ -62,16 +63,16 @@ export default function NewUserPage() {
       await updateProfile(newUserAuth, { displayName: data.name, photoURL: photoURL });
       addDebugMessage("Step 2 Success: Firebase Auth profile updated for new user.");
 
-      addDebugMessage("Step 3: Firestore document creation for the new user is SKIPPED in NewUserPage.tsx. It will be handled on the new user's first login via AuthContext, or by an admin manually.");
-
+      addDebugMessage("Step 3: Firestore document creation for the new user will be handled by AuthContext on their first login, or by an admin manually. Not attempting creation in NewUserPage.tsx.");
+      
       toast({
         title: "User Authentication Created",
-        description: `User "${data.name}" (${data.email}) created in Firebase Auth. Auth state has now switched to this new user. You might be redirected if this new user lacks permissions for the current page.`,
+        description: `User "${data.name}" (${data.email}) created in Firebase Auth. You will be redirected. The Auth session is now for the new user.`,
         duration: 10000,
       });
       
-      addDebugMessage("Step 4: Navigating to /admin/users. The AuthContext will now reflect the new user. If they are not an admin, AdminLayout will redirect them.");
-      router.push('/admin/users'); // Navigate away. AdminLayout will handle redirect if new user has no permission.
+      addDebugMessage("Step 4: Navigating to /admin/users. The AuthContext will now reflect the new user. If they are not an admin, AdminLayout may redirect them to login.");
+      router.push('/admin/users');
 
     } catch (error: any) {
       addDebugMessage(`Error during user creation process: Name: ${error.name}, Code: ${error.code}, Message: ${error.message}`);
@@ -114,7 +115,6 @@ export default function NewUserPage() {
   }
 
   if (!adminAuthLoading && adminUser && adminUser.role !== UserRole.SUPER_ADMIN && !isSubmitting) {
-    // This check might be too late if auth state already switched
     return (
       <div className="p-4">
         <p>Access Denied. You do not have permission to view this page.</p>
@@ -127,7 +127,6 @@ export default function NewUserPage() {
   }
   
   if (!adminUser && !adminAuthLoading) {
-     // This state occurs if admin was signed out, or if new user session is active but not yet processed by AuthContext fully
      return (
       <div className="p-4">
         <p>Admin user not authenticated or session has changed. Redirecting to login might be in progress...</p>
@@ -142,7 +141,7 @@ export default function NewUserPage() {
     <>
       <PageHeader
         title="Add New User"
-        description="Create a new user account. Firestore document will be created upon the new user's first login."
+        description="Create a new Firebase Authentication user. Firestore document will be created upon the new user's first login."
       />
       <UserForm onSubmit={handleSubmit} isSubmitting={isSubmitting} isEditing={false} />
       <Card className="mt-4">
@@ -154,4 +153,5 @@ export default function NewUserPage() {
     </>
   );
 }
+
     

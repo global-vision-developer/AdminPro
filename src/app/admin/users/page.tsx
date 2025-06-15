@@ -19,7 +19,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { db, auth } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase'; // Ensure auth is imported
 import { collection, getDocs, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -50,8 +50,8 @@ export default function UsersPage() {
   }, [currentUser, authLoading, router, toast, addDebugMessage]);
 
   const fetchUsers = useCallback(async () => {
-    const localCurrentUser = auth.currentUser;
-    const contextUserForLog = currentUser;
+    const localCurrentUser = auth.currentUser; 
+    const contextUserForLog = currentUser; 
 
     addDebugMessage(`fetchUsers called. AuthContext currentUser: ${contextUserForLog ? `${contextUserForLog.email} (Role: ${contextUserForLog.role}, ID: ${contextUserForLog.id})` : 'null'}. Actual Firebase Auth UID for op: ${localCurrentUser ? localCurrentUser.uid : 'null (Firebase Auth)'}`);
 
@@ -90,7 +90,7 @@ export default function UsersPage() {
         errorTitle = "Firestore Permission Denied";
         errorMessage = `Failed to list users. UID: ${localCurrentUser.uid}. Ensure Firestore Rules grant 'list' on '/users' FOR a user whose document at '/users/${localCurrentUser.uid}' has 'role: "Super Admin"'. Also, check the rule for 'get' on '/users/${localCurrentUser.uid}' used internally by isSuperAdmin().`;
       }
-      toast({ title: errorTitle, description: errorMessage, variant: "destructive", duration: 30000 }); // Increased duration
+      toast({ title: errorTitle, description: errorMessage, variant: "destructive", duration: 30000 });
     } finally {
       setIsLoading(false);
       addDebugMessage("fetchUsers: Fetch attempt finished.");
@@ -133,6 +133,8 @@ export default function UsersPage() {
     }
     addDebugMessage(`Attempting to delete user: ${userId} (${userName}) by admin: ${currentUser?.id}`);
     try {
+      // IMPORTANT: Deleting the Firestore document DOES NOT delete the Firebase Auth user.
+      // That requires Admin SDK, typically in a Cloud Function.
       await deleteDoc(doc(db, "users", userId));
       setUsers(prev => prev.filter(u => u.id !== userId));
       toast({ title: "User Firestore Record Deleted", description: `Firestore record for user \"${userName}\" has been removed.` });

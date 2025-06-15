@@ -42,11 +42,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log(`AuthContext: Attempting to get Firestore doc for UID: ${firebaseUser.uid} from path: ${userDocRef.path}`);
         try {
           const userDocSnap = await getDoc(userDocRef);
-          console.log(`AuthContext: Firestore docSnap exists for ${firebaseUser.uid}? ${userDocSnap.exists()}. Read by UID: ${auth.currentUser?.uid} (if different, problem!)`);
+          console.log(`AuthContext: Firestore docSnap exists for ${firebaseUser.uid}? ${userDocSnap.exists()}. Read by UID: ${auth.currentUser?.uid}`);
 
           let userRoleFromFirestore: UserRole = UserRole.SUB_ADMIN; // Default if new or no role field
           let profileName = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User';
-          let profileAvatar = firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${(profileName).substring(0,2).toUpperCase()}`;
+          let profileAvatar = firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${(profileName).substring(0,2).toUpperCase()}&bg=FF5733&txt=FFFFFF`
           
           if (userDocSnap.exists()) {
             const userData = userDocSnap.data();
@@ -56,10 +56,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             profileAvatar = userData.avatar || profileAvatar;
             console.log(`AuthContext: Role from Firestore for ${firebaseUser.uid}: '${userData.role}'. Parsed as: '${userRoleFromFirestore}'`);
 
-            // Sync Auth profile if Firestore has different info (e.g., admin updated name)
             if (firebaseUser.displayName !== profileName || firebaseUser.photoURL !== profileAvatar) {
               try {
-                  console.log(`AuthContext: Auth profile for ${firebaseUser.uid} out of sync (Auth: ${firebaseUser.displayName}, Firestore: ${profileName}). Updating Auth profile...`);
+                  console.log(`AuthContext: Auth profile for ${firebaseUser.uid} out of sync (Auth DisplayName: ${firebaseUser.displayName}, Firestore Name: ${profileName}; Auth PhotoURL: ${firebaseUser.photoURL}, Firestore Avatar: ${profileAvatar}). Updating Auth profile...`);
                   await updateProfile(firebaseUser, { displayName: profileName, photoURL: profileAvatar });
                   console.log(`AuthContext: Auth profile updated successfully for ${firebaseUser.uid}.`);
               } catch (profileUpdateError) {
@@ -67,40 +66,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               }
             }
           } else {
-            // This is likely a new user signing in for the first time after admin created their Auth account.
-            // Or a user whose Firestore document was deleted.
             console.log(`AuthContext: No Firestore document for ${firebaseUser.uid}. This user might be new or their Firestore doc is missing. Attempting to create one with default role '${UserRole.SUB_ADMIN}'.`);
-            const nameForDoc = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User';
-            const avatarForDoc = firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${nameForDoc.substring(0,2).toUpperCase()}`;
+            const nameForDoc = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'New User';
+            const avatarForDoc = firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${nameForDoc.substring(0,2).toUpperCase()}&bg=FF5733&txt=FFFFFF`;
             
-            // IMPORTANT: Firestore rules must allow a user to create their OWN document, or this will fail.
-            // Or, this logic should only run if it's a truly new user (e.g. check creationTime vs lastLoginTime).
-            // For simplicity now, we assume if doc doesn't exist, we try to create with default role.
-            // This creation attempt MIGHT fail if Firestore rules don't permit self-creation with a specific role.
             try {
-              await setDoc(userDocRef, {
-                uid: firebaseUser.uid, // Ensure uid is stored
+              const newFirestoreDocData = {
+                uid: firebaseUser.uid, // Explicitly store UID
                 email: firebaseUser.email,
                 name: nameForDoc,
-                role: UserRole.SUB_ADMIN, // New users get Sub Admin by default, Super Admin must be set manually or by another Super Admin.
+                role: UserRole.SUB_ADMIN, 
                 avatar: avatarForDoc,
                 createdAt: serverTimestamp(), 
                 updatedAt: serverTimestamp(),
-              });
+              };
+              await setDoc(userDocRef, newFirestoreDocData);
               profileName = nameForDoc;
               profileAvatar = avatarForDoc;
-              userRoleFromFirestore = UserRole.SUB_ADMIN; // Role that was attempted to be set
-              console.log(`AuthContext: Firestore document CREATED for ${firebaseUser.uid} with default role: ${userRoleFromFirestore}. This attempt was made by UID: ${firebaseUser.uid} (self-creation).`);
-              toast({title: "Profile Created", description: `Your user profile has been initialized in Firestore with role: ${userRoleFromFirestore}.`, duration: 5000});
+              userRoleFromFirestore = UserRole.SUB_ADMIN; 
+              console.log(`AuthContext: Firestore document CREATED for ${firebaseUser.uid} with default role: ${userRoleFromFirestore} by user ${firebaseUser.uid} (self-creation). Data:`, JSON.stringify(newFirestoreDocData));
+              toast({title: "Profile Initialized", description: `Your user profile has been initialized in Firestore with role: ${userRoleFromFirestore}.`, duration: 7000});
             } catch (firestoreSetError: any) {
-                console.error(`AuthContext: FAILED to create Firestore document for user ${firebaseUser.uid}. Error:`, firestoreSetError);
+                console.error(`AuthContext: FAILED to create Firestore document for user ${firebaseUser.uid} during self-creation attempt. Error:`, firestoreSetError);
                 toast({ 
                     title: "Firestore Profile Creation Failed", 
-                    description: `User account for ${firebaseUser.email} exists in Auth, but Firestore profile creation failed (UID: ${firebaseUser.uid}). Error: ${firestoreSetError.message}. This might be due to Firestore rules. An admin may need to assign a role. Defaulting role display.`, 
+                    description: `User account for ${firebaseUser.email} exists in Auth, but Firestore profile creation attempt failed (UID: ${firebaseUser.uid}). Error: ${firestoreSetError.message}. This might be due to Firestore rules not allowing self-creation for new users. An admin may need to assign a role. Defaulting role display.`, 
                     variant: "destructive", 
-                    duration: 15000 
+                    duration: 20000 
                 });
-                // Proceed with a default role for the context, but user data is incomplete in Firestore.
             }
           }
 
@@ -108,7 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             id: firebaseUser.uid,
             name: profileName,
             email: firebaseUser.email || '',
-            role: userRoleFromFirestore, // Use role derived from Firestore or default set
+            role: userRoleFromFirestore, 
             avatar: profileAvatar,
           };
           setCurrentUser(userProfile);
@@ -124,15 +117,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           toast({ title: "Алдаа гарлаа (AuthContext)", description: firestoreErrorMsg, variant: "destructive", duration: 20000 });
           setCurrentUser(null); 
-          try {
-            // If critical data cannot be obtained, logging out might be safer to prevent inconsistent state.
-            // However, this could lead to logout loops if the issue is persistent on login.
-            // For now, we set currentUser to null and let UI redirect if necessary.
-            console.warn("AuthContext: Critical error led to currentUser being set to null. User might be logged out or redirected.");
-            // await firebaseSignOut(auth); // Consider if automatic sign out is desired here.
-          } catch (signOutError) {
-            console.error("AuthContext: Error signing out after Firestore error:", signOutError);
-          }
+          console.warn("AuthContext: Critical error led to currentUser being set to null. User might be logged out or redirected.");
         }
       } else {
         setCurrentUser(null);
@@ -153,8 +138,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log(`AuthContext: Attempting login for ${email}`);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      console.log(`AuthContext: Login successful for ${email}. onAuthStateChanged will handle setting user data and navigation is handled by AdminLayout/page logic.`);
-      // router.push('/admin/dashboard'); // Let onAuthStateChanged and page logic handle redirect
+      console.log(`AuthContext: Login successful for ${email}. onAuthStateChanged will handle setting user data.`);
     } catch (error: any) {
       console.error("AuthContext: Firebase login error:", error);
       let friendlyMessage = "Нэвтрэхэд алдаа гарлаа. Таны имэйл эсвэл нууц үг буруу байна.";
@@ -170,7 +154,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toast({ title: "Нэвтрэхэд алдаа гарлаа", description: friendlyMessage, variant: "destructive", duration: 7000 });
       setLoading(false); 
     }
-    // setLoading(false) is handled by onAuthStateChanged after successful login or here on error
   }, [toast]);
 
   const logout = useCallback(async () => {
@@ -179,15 +162,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log(`AuthContext: Attempting logout for user: ${currentAuthUserBeforeLogout?.email} (UID: ${currentAuthUserBeforeLogout?.uid})`);
     try {
       await firebaseSignOut(auth);
-      // setCurrentUser(null); // onAuthStateChanged will set currentUser to null
       router.push('/'); 
       console.log("AuthContext: Logout successful. Navigated to /. onAuthStateChanged will confirm currentUser is null.");
       toast({ title: "Системээс гарлаа", description: "Та амжилттай системээс гарлаа.", duration: 3000});
     } catch (error: any) {
       console.error("AuthContext: Firebase logout error:", error);
       toast({ title: "Гарахад алдаа гарлаа", description: error.message, variant: "destructive" });
-    } finally {
-      // setLoading(false); // onAuthStateChanged will set loading to false after currentUser becomes null
     }
   }, [router, toast]);
 
@@ -197,4 +177,5 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     </AuthContext.Provider>
   );
 };
+
     
