@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -98,7 +99,7 @@ export function EntryForm({ initialData, categories, onSubmit, isSubmitting }: E
       },
   });
   
-  useEffect(()_ => {
+  useEffect(() => {
      const newSchema = generateSchema(selectedCategory?.fields);
      setCurrentSchema(newSchema);
      
@@ -429,3 +430,4 @@ export function EntryForm({ initialData, categories, onSubmit, isSubmitting }: E
     </Form>
   );
 }
+
