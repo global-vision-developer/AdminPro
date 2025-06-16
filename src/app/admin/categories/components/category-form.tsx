@@ -20,6 +20,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { slugify } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useRouter } from 'next/navigation'; // Import useRouter
 
 // Schema for individual field definition (client-side, includes client ID)
 const fieldDefinitionClientSchema = z.object({
@@ -52,6 +53,7 @@ interface CategoryFormProps {
 
 export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onFormSuccess }: CategoryFormProps) {
   const { toast } = useToast();
+  const router = useRouter(); // Initialize router
   const [isFieldFormOpen, setIsFieldFormOpen] = useState(false);
   const [editingFieldIndex, setEditingFieldIndex] = useState<number | null>(null);
 
@@ -327,17 +329,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
           </Card>
 
           <div className="flex justify-end space-x-2 pt-6 border-t">
-            <Button type="button" variant="outline" disabled={isSubmittingGlobal} onClick={() => form.reset(initialData ? {
-                name: initialData.name,
-                slug: initialData.slug,
-                description: initialData.description || '',
-                fields: initialData.fields.map(f => ({ ...f, id: f.id || uuidv4(), key: f.key || slugify(f.label) }))
-              } : { 
-                name: '', 
-                slug: '', 
-                description: '', 
-                fields: defaultFieldsForNewCategory // Reset to default fields
-              })}>Cancel</Button>
+            <Button type="button" variant="outline" disabled={isSubmittingGlobal} onClick={() => router.back()}>Cancel</Button>
             <Button type="submit" disabled={isSubmittingGlobal}>
               {isSubmittingGlobal ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
