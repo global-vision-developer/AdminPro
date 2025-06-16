@@ -2,7 +2,7 @@
 "use server";
 
 import { db } from "@/lib/firebase";
-import type { Category, FieldDefinition } from "@/types"; // Updated to use FieldDefinition
+import type { Category, FieldDefinition } from "@/types";
 import {
   collection,
   addDoc,
@@ -18,6 +18,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { revalidatePath } from "next/cache";
+import { slugify } from "@/lib/utils"; // Import slugify
 
 const CATEGORIES_COLLECTION = "categories";
 
@@ -25,20 +26,19 @@ interface CategoryFirestoreData {
   name: string;
   slug: string;
   description?: string;
-  fields: FieldDefinition[]; // Storing FieldDefinition directly
+  fields: FieldDefinition[];
   createdAt: Timestamp | ReturnType<typeof serverTimestamp>;
   updatedAt: Timestamp | ReturnType<typeof serverTimestamp>;
 }
 
 
-// Omit id for creation, slug and description are now part of Category type
 export async function addCategory(
   categoryData: Pick<Category, "name" | "slug" | "description" | "fields">
 ): Promise<{ id: string } | { error: string }> {
   try {
     const dataToSave: Omit<CategoryFirestoreData, "createdAt" | "updatedAt"> & { createdAt: any, updatedAt: any } = {
       name: categoryData.name,
-      slug: categoryData.slug,
+      slug: categoryData.slug || slugify(categoryData.name), // Ensure slug exists
       description: categoryData.description || "",
       fields: categoryData.fields,
       createdAt: serverTimestamp(),
@@ -61,20 +61,22 @@ export async function getCategories(): Promise<Category[]> {
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map((doc) => {
       const data = doc.data();
+      if (!data.name || typeof data.name !== 'string') {
+        console.warn(`Category document with ID ${doc.id} is missing a valid name. Skipping.`);
+        return null; 
+      }
       return {
         id: doc.id,
         name: data.name,
-        slug: data.slug,
-        description: data.description,
+        slug: data.slug || slugify(data.name), // Ensure slug exists or generate it
+        description: data.description || '',
         fields: data.fields || [],
         createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : undefined,
         updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().toISOString() : undefined,
       } as Category;
-    });
+    }).filter(Boolean) as Category[]; // Filter out nulls if any category was invalid
   } catch (e: any) {
     console.error("Error getting categories: ", e);
-    // Consider throwing the error or returning a specific error object
-    // For now, returning empty array to avoid breaking UI too much
     return [];
   }
 }
@@ -85,11 +87,15 @@ export async function getCategory(id: string): Promise<Category | null> {
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
       const data = docSnap.data();
+      if (!data.name || typeof data.name !== 'string') {
+        console.error(`Category document with ID ${id} is missing a valid name.`);
+        return null; 
+      }
       return {
         id: docSnap.id,
         name: data.name,
-        slug: data.slug,
-        description: data.description,
+        slug: data.slug || slugify(data.name), // Ensure slug exists or generate it
+        description: data.description || '',
         fields: data.fields || [],
         createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : undefined,
         updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().toISOString() : undefined,
@@ -109,10 +115,11 @@ export async function updateCategory(
   try {
     const docRef = doc(db, CATEGORIES_COLLECTION, id);
     
-    // Construct data for Firestore update, ensuring serverTimestamp for updatedAt
     const dataToUpdate: Record<string, any> = { ...categoryData };
+    if (categoryData.name && !categoryData.slug) { // If name changes and slug isn't provided, update slug
+        dataToUpdate.slug = slugify(categoryData.name);
+    }
     
-    // Remove client-side string versions of timestamps if they exist in partial data
     delete dataToUpdate.createdAt; 
     delete dataToUpdate.updatedAt;
 
@@ -133,8 +140,6 @@ export async function updateCategory(
 
 export async function deleteCategory(id: string): Promise<{ success: boolean } | { error: string }> {
   try {
-    // Consider also deleting all entries associated with this category, or archiving them.
-    // This is a destructive operation. For now, just deleting the category.
     const docRef = doc(db, CATEGORIES_COLLECTION, id);
     await deleteDoc(docRef);
     revalidatePath("/admin/categories");
