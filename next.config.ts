@@ -25,10 +25,16 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'www.ubhotel.mn', // Ensured this pattern is present
+        hostname: 'www.ubhotel.mn', 
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'images.trvl-media.com', // Added this new hostname
+        port: '',
+        pathname: '/**',
+      }
     ],
   },
   experimental: {

@@ -30,6 +30,12 @@ const nextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'images.trvl-media.com', // Added this new hostname
+        port: '',
+        pathname: '/**',
+      }
     ],
   },
   experimental: {
