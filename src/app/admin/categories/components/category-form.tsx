@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogClose, DialogFooter } from "@/components/ui/dialog"; // Added DialogFooter
 import type { Category, FieldDefinition } from '@/types';
 import { FieldType } from '@/types';
 import { PlusCircle, Trash2, Save, Loader2, XCircle, Edit3 } from 'lucide-react';
@@ -25,7 +25,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 const fieldDefinitionClientSchema = z.object({
   id: z.string().default(() => uuidv4()), // Client-side unique ID
   label: z.string().min(1, "Field label is required."),
-  key: z.string().min(1, "Field key is required (auto-generated from label)."),
+  key: z.string().min(1, "Field key is required (auto-generated from label).").regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Key must be lowercase alphanumeric with hyphens."),
   type: z.nativeEnum(FieldType),
   required: z.boolean().default(false),
   placeholder: z.string().optional().default(''),
@@ -61,7 +61,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
       name: initialData.name,
       slug: initialData.slug,
       description: initialData.description || '',
-      fields: initialData.fields.map(f => ({ ...f, id: f.id || uuidv4() })) // Ensure client IDs
+      fields: initialData.fields.map(f => ({ ...f, id: f.id || uuidv4(), key: f.key || slugify(f.label) })) // Ensure client IDs and keys
     } : {
       name: '',
       slug: '',
@@ -84,16 +84,27 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
     }
   };
   
-  const handleLabelChangeForFieldKey = (fieldLabel: string, fieldIndex: number) => {
-    const newKey = slugify(fieldLabel);
-    form.setValue(`fields.${fieldIndex}.key`, newKey, { shouldValidate: true, shouldDirty: true });
-  };
-
   const handleSaveField = (fieldData: FieldFormValues) => {
+    // Ensure key is correctly formatted (slugified)
+    const finalFieldData = { ...fieldData, key: slugify(fieldData.label) };
+
+    // Check for duplicate keys within the current category's fields being edited
+    const otherFields = fields.filter((_, idx) => idx !== editingFieldIndex);
+    if (otherFields.some(f => f.key === finalFieldData.key)) {
+      toast({
+        title: "Error: Duplicate Field Key",
+        description: `The field key "${finalFieldData.key}" (from label "${finalFieldData.label}") already exists in this category. Please use a unique label.`,
+        variant: "destructive",
+      });
+      // Keep the field form open with current values for correction
+      fieldFormMethods.setError("label", {type: "manual", message: "This label results in a duplicate key."})
+      return; 
+    }
+
     if (editingFieldIndex !== null) {
-      update(editingFieldIndex, fieldData);
+      update(editingFieldIndex, finalFieldData);
     } else {
-      append(fieldData);
+      append(finalFieldData);
     }
     setIsFieldFormOpen(false);
     setEditingFieldIndex(null);
@@ -102,16 +113,14 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
   const openFieldForm = (index?: number) => {
     if (index !== undefined && fields[index]) {
       setEditingFieldIndex(index);
-      // fieldForm.reset(fields[index]); // Reset fieldForm with existing data
     } else {
       setEditingFieldIndex(null);
-      // fieldForm.reset({ id: uuidv4(), label: '', key: '', type: FieldType.TEXT, required: false, placeholder: '', description: '' });
     }
     setIsFieldFormOpen(true);
   };
 
   const handleFormSubmit = async (data: CategoryFormValues) => {
-    // Check for duplicate field keys before submitting
+    // Final check for duplicate field keys before submitting the whole category
     const fieldKeys = new Set<string>();
     for (const f of data.fields) {
       if (fieldKeys.has(f.key)) {
@@ -139,16 +148,22 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
         description: `Category ${initialData ? "updated" : "created"} successfully.`,
       });
       if (onFormSuccess) onFormSuccess();
-      form.reset(); // Reset form after successful submission
+      form.reset(initialData ? { // Reset to initial data on edit success, or empty on create success
+        name: initialData.name,
+        slug: initialData.slug,
+        description: initialData.description || '',
+        fields: initialData.fields.map(f => ({ ...f, id: f.id || uuidv4(), key: f.key || slugify(f.label) }))
+      } : {
+        name: '',
+        slug: '',
+        description: '',
+        fields: [],
+      }); 
     }
-    // If onSubmit doesn't return anything, or returns void, no toast is shown here.
-    // Caller is responsible for toasts if needed.
   };
   
-  // Field Form Logic (inside CategoryForm)
   const fieldFormMethods = useForm<FieldFormValues>({
     resolver: zodResolver(fieldDefinitionClientSchema),
-    // defaultValues are set when dialog opens
   });
 
   useEffect(() => {
@@ -234,26 +249,28 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                   No fields defined yet. Click "Add New Field" to get started.
                 </p>
               )}
-              <div className="space-y-3">
-                {fields.map((fieldItem, index) => (
-                  <div key={fieldItem.fieldFormId} className="flex items-center justify-between p-3 border rounded-md bg-background shadow-sm hover:shadow-md transition-shadow">
-                    <div>
-                      <p className="font-medium text-foreground">{fieldItem.label}</p>
-                      <p className="text-xs text-muted-foreground">Type: {fieldItem.type} | Key: <span className="font-mono bg-muted px-1 rounded">{fieldItem.key}</span></p>
-                      {fieldItem.description && <p className="text-xs text-muted-foreground mt-1">Desc: {fieldItem.description.substring(0,50)}...</p>}
+              <ScrollArea className={fields.length > 3 ? "h-72" : ""}>
+                <div className="space-y-3 pr-3">
+                  {fields.map((fieldItem, index) => (
+                    <div key={fieldItem.fieldFormId} className="flex items-center justify-between p-3 border rounded-md bg-background shadow-sm hover:shadow-md transition-shadow">
+                      <div>
+                        <p className="font-medium text-foreground">{fieldItem.label}</p>
+                        <p className="text-xs text-muted-foreground">Type: {fieldItem.type} | Key: <span className="font-mono bg-muted px-1 rounded">{fieldItem.key}</span> {fieldItem.required && <span className="text-destructive font-semibold">(required)</span>}</p>
+                        {fieldItem.description && <p className="text-xs text-muted-foreground mt-1">Desc: {fieldItem.description.substring(0,50)}{fieldItem.description.length > 50 ? '...' : ''}</p>}
+                      </div>
+                      <div className="flex gap-1">
+                        <Button type="button" variant="ghost" size="icon" onClick={() => openFieldForm(index)} aria-label="Edit field">
+                          <Edit3 className="h-4 w-4" />
+                        </Button>
+                        <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-destructive hover:text-destructive/90" aria-label="Remove field">
+                          <XCircle className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex gap-1">
-                      <Button type="button" variant="ghost" size="icon" onClick={() => openFieldForm(index)} aria-label="Edit field">
-                        <Edit3 className="h-4 w-4" />
-                      </Button>
-                      <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-destructive hover:text-destructive/90" aria-label="Remove field">
-                        <XCircle className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-               <Button type="button" variant="outline" onClick={() => openFieldForm()} className="w-full">
+                  ))}
+                </div>
+              </ScrollArea>
+               <Button type="button" variant="outline" onClick={() => openFieldForm()} className="w-full mt-4">
                  <PlusCircle className="mr-2 h-4 w-4" /> Add New Field
                </Button>
                {form.formState.errors.fields && !form.formState.errors.fields.root && (
@@ -266,7 +283,12 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
           </Card>
 
           <div className="flex justify-end space-x-2 pt-6 border-t">
-            <Button type="button" variant="outline" disabled={isSubmittingGlobal} onClick={() => form.reset()}>Cancel</Button>
+            <Button type="button" variant="outline" disabled={isSubmittingGlobal} onClick={() => form.reset(initialData ? {
+                name: initialData.name,
+                slug: initialData.slug,
+                description: initialData.description || '',
+                fields: initialData.fields.map(f => ({ ...f, id: f.id || uuidv4(), key: f.key || slugify(f.label) }))
+              } : { name: '', slug: '', description: '', fields: [] })}>Cancel</Button>
             <Button type="submit" disabled={isSubmittingGlobal}>
               {isSubmittingGlobal ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -280,12 +302,18 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
       </Form>
 
       {/* Field Form Dialog */}
-      <Dialog open={isFieldFormOpen} onOpenChange={setIsFieldFormOpen}>
+      <Dialog open={isFieldFormOpen} onOpenChange={(open) => {
+        if (!open) {
+          setEditingFieldIndex(null); // Clear editing index when dialog closes
+          fieldFormMethods.clearErrors(); // Clear any validation errors from field form
+        }
+        setIsFieldFormOpen(open);
+      }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="font-headline">{editingFieldIndex !== null ? "Edit Field" : "Add New Field"}</DialogTitle>
             <DialogDescription>
-              Define the properties for this field. The 'Field Key' will be auto-generated from the label.
+              Define the properties for this field. The 'Field Key' will be auto-generated from the label. Ensure field labels are unique within the category.
             </DialogDescription>
           </DialogHeader>
           <Form {...fieldFormMethods}>
@@ -301,9 +329,9 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                         placeholder="e.g., Author Name, Product Price" 
                         {...field} 
                         onChange={(e) => {
-                           field.onChange(e); // RHF's original onChange
+                           field.onChange(e); 
                            const newKey = slugify(e.target.value);
-                           fieldFormMethods.setValue('key', newKey); // Auto-fill key
+                           fieldFormMethods.setValue('key', newKey, { shouldValidate: true });
                         }}
                       />
                     </FormControl>
@@ -320,7 +348,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                     <FormControl>
                       <Input placeholder="auto-generated-key" {...field} readOnly className="bg-muted/50" />
                     </FormControl>
-                    <FormDescription>This unique key is used in the database. It's generated from the label.</FormDescription>
+                    <FormDescription>This unique key is used in the database. It's generated from the label and must be unique.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -354,7 +382,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                   <FormItem>
                     <FormLabel>Placeholder (Optional)</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., Enter the title here" {...field} />
+                      <Input placeholder="e.g., Enter the title here" {...field} value={field.value || ''}/>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -367,7 +395,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                   <FormItem>
                     <FormLabel>Field Description/Help Text (Optional)</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="A short explanation of what this field is for." {...field} />
+                      <Textarea placeholder="A short explanation of what this field is for." {...field} value={field.value || ''}/>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -405,3 +433,5 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
     </>
   );
 }
+
+    
