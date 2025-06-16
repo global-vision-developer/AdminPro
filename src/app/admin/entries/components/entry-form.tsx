@@ -117,7 +117,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
 
   const form = useForm<z.infer<typeof currentSchema>>({
     resolver: zodResolver(currentSchema),
-    mode: 'onTouched',
+    mode: 'onChange', 
     defaultValues: initialData ? {
         title: initialData.title || '',
         status: initialData.status,
@@ -165,6 +165,8 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
             if (field.type === FieldType.BOOLEAN) defaultDataForReset[field.key] = false;
             else if (field.type === FieldType.NUMBER) defaultDataForReset[field.key] = undefined;
             else if (field.type === FieldType.DATE) defaultDataForReset[field.key] = undefined;
+            // For new forms, non-boolean/number/date fields (like TEXT, TEXTAREA) should default to empty string
+            // to ensure they are controlled components from the start.
             else defaultDataForReset[field.key] = '';
         }
     });
@@ -176,7 +178,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
       data: defaultDataForReset,
     }, {
       keepDirtyValues: false,
-      keepErrors: false,
+      keepErrors: false, 
     });
   }, [selectedCategory, initialData, generateSchema, form]);
 
@@ -371,7 +373,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                           <FormLabel>{catField.label}{catField.required && <span className="text-destructive">*</span>}</FormLabel>
                           {catField.description && <FormDescription>{catField.description}</FormDescription>}
                           <FormControl>
-                            <div>
+                            <div> {/* Removed React.Fragment, using div instead */}
                               {catField.type === FieldType.TEXT && <Input placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} {...formHookField} value={formHookField.value ?? ''} />}
                               {catField.type === FieldType.TEXTAREA && <Textarea placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} {...formHookField} value={formHookField.value ?? ''} rows={5} />}
                               {catField.type === FieldType.NUMBER && <Input type="number" placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} {...formHookField} value={formHookField.value === undefined || formHookField.value === null ? '' : String(formHookField.value)} onChange={e => formHookField.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}/>}
