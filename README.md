@@ -59,6 +59,25 @@ Stores individual content entries belonging to a specific category.
 
 This structure is designed to be scalable and flexible, allowing for dynamic content types based on category definitions. Firestore security rules should be configured to protect this data appropriately (e.g., only authenticated admins can write to `admins`, `categories`, `entries`).
 
+## Firestore Indexes
+
+As you build queries for Firestore, you might encounter errors like "The query requires an index." This means you need to create a composite index in your Firebase console for that specific query to work efficiently.
+
+### Required Indexes:
+
+1.  **For the `entries` collection (used in `src/lib/actions/entryActions.ts` -> `getEntries`):**
+    *   **Fields to index:**
+        *   `categoryId` (Ascending)
+        *   `createdAt` (Descending)
+    *   **Collection:** `entries`
+    *   **Purpose:** Allows filtering entries by `categoryId` and ordering them by `createdAt`.
+    *   **Creation Link (from a typical error):** The error message in the Next.js console or Firebase Functions logs will usually provide a direct link to create the missing index. It will look similar to this:
+        `https://console.firebase.google.com/v1/r/project/YOUR_PROJECT_ID/firestore/indexes?create_composite=...`
+
+Always check the Firebase console or your server logs for specific index creation links if you encounter these errors.
+
+## Firestore Security Rules
+
 **Example Firestore Security Rules Snippet (Conceptual):**
 ```firestore
 rules_version = '2';
@@ -89,3 +108,19 @@ service cloud.firestore {
 }
 ```
 *Remember to tailor security rules to your specific application needs.*
+
+## Environment Variables
+
+Ensure you have a `.env.local` file in the root of your project with your Firebase project configuration:
+
+```env
+NEXT_PUBLIC_FIREBASE_API_KEY=YOUR_API_KEY
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=YOUR_AUTH_DOMAIN
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=YOUR_PROJECT_ID
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=YOUR_STORAGE_BUCKET
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=YOUR_MESSAGING_SENDER_ID
+NEXT_PUBLIC_FIREBASE_APP_ID=YOUR_APP_ID
+NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=YOUR_MEASUREMENT_ID (optional)
+```
+Replace `YOUR_...` with your actual Firebase project credentials.
+Remember to restart your development server (`npm run dev`) after creating or modifying `.env.local`.
