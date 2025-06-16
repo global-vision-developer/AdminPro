@@ -15,12 +15,14 @@ import {
   query,
   orderBy,
   Timestamp,
-  writeBatch,
+  writeBatch, // Import writeBatch
+  where // Import where
 } from "firebase/firestore";
 import { revalidatePath } from "next/cache";
 import { slugify } from "@/lib/utils"; // Import slugify
 
 const CATEGORIES_COLLECTION = "categories";
+const ENTRIES_COLLECTION = "entries";
 
 interface CategoryFirestoreData {
   name: string;
@@ -140,13 +142,33 @@ export async function updateCategory(
 
 export async function deleteCategory(id: string): Promise<{ success: boolean } | { error: string }> {
   try {
-    const docRef = doc(db, CATEGORIES_COLLECTION, id);
-    await deleteDoc(docRef);
+    const categoryDocRef = doc(db, CATEGORIES_COLLECTION, id);
+    const batch = writeBatch(db);
+
+    // Find and delete all entries associated with this category
+    const entriesRef = collection(db, ENTRIES_COLLECTION);
+    const entriesQuery = query(entriesRef, where("categoryId", "==", id));
+    const entriesSnapshot = await getDocs(entriesQuery);
+
+    entriesSnapshot.forEach((entryDoc) => {
+      batch.delete(doc(db, ENTRIES_COLLECTION, entryDoc.id));
+    });
+
+    // Delete the category document itself
+    batch.delete(categoryDocRef);
+
+    // Commit the batch
+    await batch.commit();
+
     revalidatePath("/admin/categories");
-    revalidatePath("/admin/entries");
+    revalidatePath("/admin/entries"); // Revalidate entries as well, since they've been deleted
     return { success: true };
   } catch (e: any) {
-    console.error("Error deleting category: ", e);
-    return { error: e.message || "Failed to delete category." };
+    console.error("Error deleting category and its entries: ", e);
+    // Provide a more specific error message if the batch commit fails due to size or other reasons
+    if (e.message && e.message.includes("maximum 500 writes")) {
+        return { error: "Failed to delete category: Too many associated entries to delete at once. Please reduce entries or contact support." };
+    }
+    return { error: e.message || "Failed to delete category and its entries." };
   }
 }

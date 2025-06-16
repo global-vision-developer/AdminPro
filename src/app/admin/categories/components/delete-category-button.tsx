@@ -24,7 +24,7 @@ export function DeleteCategoryButton({ categoryId, categoryName }: DeleteCategor
     if (result.success) {
       toast({
         title: "Category Deleted",
-        description: `Category "${categoryName}" has been successfully deleted.`,
+        description: `Category "${categoryName}" and all its associated entries have been successfully deleted.`,
       });
       // No need to call router.refresh() due to revalidatePath in action
     } else if (result.error) {
@@ -52,7 +52,7 @@ export function DeleteCategoryButton({ categoryId, categoryName }: DeleteCategor
         <AlertDialogHeader>
           <AlertDialogTitle>Are you sure?</AlertDialogTitle>
           <AlertDialogDescription>
-            This action cannot be undone. This will permanently delete the category "{categoryName}" and all associated entries (future functionality).
+            This action cannot be undone. This will permanently delete the category "{categoryName}" and all its associated entries.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
