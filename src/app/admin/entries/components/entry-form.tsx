@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription as UiCardDescription } from '@/components/ui/card'; // Renamed CardDescription to avoid conflict
+import { Card, CardContent, CardHeader, CardTitle, CardDescription as UiCardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -41,13 +41,11 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
 
-  // Dynamic Zod schema generation based on selectedCategory.fields
   const generateSchema = useCallback((fields: FieldDefinition[] = []) => {
     const shape: Record<string, z.ZodTypeAny> = {
-      title: z.string().min(1, "Entry Title is required."), // Top-level title field
+      title: z.string().min(1, "Entry Title is required."),
       status: z.enum(['draft', 'published', 'scheduled']).default('draft'),
       publishAt: z.date().optional().nullable(),
-      // categoryId is handled separately, not part of this dynamic data schema
     };
 
     fields.forEach(field => {
@@ -80,7 +78,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
       } else {
         fieldSchema = fieldSchema.optional().nullable();
       }
-      shape[`data.${field.key}`] = fieldSchema; // Use field.key for data object
+      shape[`data.${field.key}`] = fieldSchema;
     });
     return z.object(shape);
   }, []);
@@ -103,8 +101,8 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
   });
   
    useEffect(() => {
-    const newSchema = generateSchema(selectedCategory?.fields);
-    setCurrentSchema(newSchema);
+     const newSchema = generateSchema(selectedCategory?.fields);
+     setCurrentSchema(newSchema);
     
     const defaultData: Record<string, any> = {};
     selectedCategory?.fields.forEach(field => {
@@ -117,8 +115,8 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
             }
         } else {
             if (field.type === FieldType.BOOLEAN) defaultData[field.key] = false;
-            else if (field.type === FieldType.NUMBER) defaultData[field.key] = undefined; // Or 0 if preferred
-            else defaultData[field.key] = ''; // Default for text/textarea
+            else if (field.type === FieldType.NUMBER) defaultData[field.key] = undefined; 
+            else defaultData[field.key] = ''; 
         }
     });
 
@@ -140,9 +138,8 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
       return;
     }
     const formData = form.getValues().data;
-    let entryContent = form.getValues().title + "\n"; // Include main title
+    let entryContent = form.getValues().title + "\n";
 
-    // Attempt to find a primary content field or concatenate text fields
     const contentField = selectedCategory.fields.find(f => f.type === FieldType.TEXTAREA && (f.label.toLowerCase().includes('content') || f.label.toLowerCase().includes('body')));
     if (contentField && formData[contentField.key]) {
       entryContent += String(formData[contentField.key]);
@@ -178,10 +175,10 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
     setIsSubmitting(true);
     const submissionPayload = {
         title: data.title,
-        categoryId: selectedCategory.id, // Add selectedCategoryId
-        categoryName: selectedCategory.name, // Add selectedCategoryName
+        categoryId: selectedCategory.id, 
+        categoryName: selectedCategory.name, 
         status: data.status,
-        publishAt: data.publishAt ? data.publishAt.toISOString() : null, // Ensure null if not set
+        publishAt: data.status === 'scheduled' && data.publishAt ? data.publishAt.toISOString() : null, 
         data: data.data,
     };
 
@@ -196,8 +193,8 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
     if (result && "id" in result && result.id) {
         toast({ title: "Success", description: `Entry ${initialData ? 'updated' : 'created'} successfully.`});
         if (onSubmitSuccess) onSubmitSuccess();
-        else router.push(`/admin/entries?category=${selectedCategory.id}`); // Default redirect
-         form.reset({ // Reset form to initial-like state for the current category
+        else router.push(`/admin/entries?category=${selectedCategory.id}`);
+         form.reset({ 
             title: '',
             status: 'draft',
             publishAt: undefined,
@@ -223,7 +220,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
               <CardContent className="space-y-6">
                  <FormField
                     control={form.control}
-                    name="title" // Top-level title
+                    name="title" 
                     render={({ field }) => (
                         <FormItem>
                         <FormLabel>Entry Title</FormLabel>
@@ -238,15 +235,15 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
 
                 {selectedCategory?.fields.map(catField => (
                   <FormField
-                    key={catField.id} // Use catField.id (unique client ID) for key in map
+                    key={catField.id} 
                     control={form.control}
-                    name={`data.${catField.key}`} // Data stored under field's key
-                    render={({ field: formHookField }) => ( // Renamed to avoid conflict
+                    name={`data.${catField.key}`} 
+                    render={({ field: formHookField }) => ( 
                       <FormItem>
                         <FormLabel>{catField.label}{catField.required && <span className="text-destructive">*</span>}</FormLabel>
                         {catField.description && <FormDescription>{catField.description}</FormDescription>}
                         <FormControl>
-                          <>
+                          <div>
                             {catField.type === FieldType.TEXT && <Input placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} {...formHookField} value={formHookField.value || ''} />}
                             {catField.type === FieldType.TEXTAREA && <Textarea placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} {...formHookField} value={formHookField.value || ''} rows={5} />}
                             {catField.type === FieldType.NUMBER && <Input type="number" placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} {...formHookField} value={formHookField.value || ''} onChange={e => formHookField.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}/>}
@@ -282,7 +279,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                                 </PopoverContent>
                               </Popover>
                             )}
-                          </>
+                          </div>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -359,6 +356,13 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                   <FormField
                     control={form.control}
                     name="publishAt"
+                    rules={{ 
+                        validate: value => {
+                            if (!value) return "Publish date and time is required for scheduled entries.";
+                            if (value < new Date(new Date().setHours(0,0,0,0))) return "Publish date cannot be in the past.";
+                            return true;
+                        }
+                    }}
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
                         <FormLabel>Publish Date & Time</FormLabel>
@@ -385,7 +389,13 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                             <Calendar
                               mode="single"
                               selected={field.value}
-                              onSelect={field.onChange}
+                              onSelect={(date) => {
+                                if (date) {
+                                  const currentTime = field.value ? new Date(field.value) : new Date();
+                                  date.setHours(currentTime.getHours(), currentTime.getMinutes());
+                                }
+                                field.onChange(date);
+                              }}
                               disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) }
                               initialFocus
                             />
@@ -439,3 +449,4 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
     </Form>
   );
 }
+
