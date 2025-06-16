@@ -117,46 +117,61 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
 
   const formSchema = useMemo(() => generateSchema(selectedCategory?.fields), [selectedCategory]);
   
+  const getComputedDefaultValues = () => {
+    const defaultDataValues: Record<string, any> = {};
+    selectedCategory?.fields?.forEach(field => {
+        if (field.description?.includes(USER_ONLY_FIELD_MARKER)) {
+            if (initialData?.data && initialData.data.hasOwnProperty(field.key)) {
+                 defaultDataValues[field.key] = initialData.data[field.key];
+            } else {
+                 defaultDataValues[field.key] = undefined; 
+            }
+            return;
+        }
+
+        const initialValueFromData = initialData?.data?.[field.key];
+
+        if (initialValueFromData !== undefined && initialValueFromData !== null) {
+            if (field.type === FieldType.DATE && typeof initialValueFromData === 'string') {
+                try { defaultDataValues[field.key] = parseISO(initialValueFromData); } catch (e) { defaultDataValues[field.key] = undefined; }
+            } else if (field.type === FieldType.NUMBER) {
+                 defaultDataValues[field.key] = (initialValueFromData === '' || initialValueFromData === null || initialValueFromData === undefined) ? undefined : initialValueFromData;
+            } else {
+                defaultDataValues[field.key] = initialValueFromData;
+            }
+        } else { 
+            if (field.type === FieldType.BOOLEAN) defaultDataValues[field.key] = false;
+            else if (field.type === FieldType.NUMBER) defaultDataValues[field.key] = undefined; 
+            else if (field.type === FieldType.DATE) defaultDataValues[field.key] = undefined;
+            else defaultDataValues[field.key] = '';
+        }
+    });
+    
+    let publishAtDate: Date | null = null;
+    if (initialData?.publishAt) {
+        try {
+            if (typeof initialData.publishAt === 'string' && initialData.publishAt.trim() !== '') {
+                publishAtDate = parseISO(initialData.publishAt);
+            } else if (initialData.publishAt instanceof Date) { 
+                publishAtDate = initialData.publishAt;
+            }
+        } catch (e) {
+            console.error("Error parsing initialData.publishAt in EntryForm defaultValues:", initialData.publishAt, e);
+        }
+    }
+
+    return {
+        title: initialData?.title || '',
+        status: initialData?.status || 'draft',
+        publishAt: publishAtDate,
+        data: defaultDataValues,
+    };
+  };
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     mode: 'onChange',
-    defaultValues: () => {
-        const defaultDataValues: Record<string, any> = {};
-        selectedCategory?.fields?.forEach(field => {
-            if (field.description?.includes(USER_ONLY_FIELD_MARKER)) {
-                if (initialData?.data && initialData.data.hasOwnProperty(field.key)) {
-                     defaultDataValues[field.key] = initialData.data[field.key];
-                } else {
-                     defaultDataValues[field.key] = undefined; 
-                }
-                return;
-            }
-    
-            const initialValueFromData = initialData?.data?.[field.key];
-    
-            if (initialValueFromData !== undefined && initialValueFromData !== null) {
-                if (field.type === FieldType.DATE && typeof initialValueFromData === 'string') {
-                    try { defaultDataValues[field.key] = parseISO(initialValueFromData); } catch (e) { defaultDataValues[field.key] = undefined; }
-                } else if (field.type === FieldType.NUMBER) {
-                     defaultDataValues[field.key] = (initialValueFromData === '' || initialValueFromData === null || initialValueFromData === undefined) ? undefined : initialValueFromData;
-                } else {
-                    defaultDataValues[field.key] = initialValueFromData;
-                }
-            } else { 
-                if (field.type === FieldType.BOOLEAN) defaultDataValues[field.key] = false;
-                else if (field.type === FieldType.NUMBER) defaultDataValues[field.key] = undefined; 
-                else if (field.type === FieldType.DATE) defaultDataValues[field.key] = undefined;
-                else defaultDataValues[field.key] = '';
-            }
-        });
-        
-        return {
-            title: initialData?.title || '',
-            status: initialData?.status || 'draft',
-            publishAt: initialData?.publishAt ? parseISO(initialData.publishAt) : null,
-            data: defaultDataValues,
-        };
-    }
+    defaultValues: getComputedDefaultValues(),
   });
   
   const handleGetSuggestions = async () => {
@@ -259,7 +274,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         else router.push(`/admin/entries?category=${selectedCategory.id}`);
         
         if(!initialData) {
-            form.reset(form.formState.defaultValues);
+           form.reset(getComputedDefaultValues()); // Reset with new defaults
         }
 
     } else if (result && "error" in result && result.error) {
@@ -268,7 +283,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
   };
 
   const handleCancel = () => {
-    form.reset(form.formState.defaultValues);
+    form.reset(getComputedDefaultValues()); // Reset with current defaults
     router.back();
   };
 
@@ -328,7 +343,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                       control={form.control}
                       name={`data.${catField.key}`}
                       render={({ field: formHookField }) => {
-                        const { formItemId } = useFormField(); // Get ID for associating label with checkbox
+                        const { formItemId } = useFormField(); 
                         return (
                             <FormItem>
                             <FormLabel>{catField.label}{catField.required && <span className="text-destructive">*</span>}</FormLabel>
@@ -374,11 +389,11 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                                     {...formHookField}
                                     checked={!!formHookField.value} 
                                     onCheckedChange={formHookField.onChange}
-                                    // id={formItemId} // FormControl passes it
+                                    id={formItemId}
                                     />
                                 </FormControl>
                                 <label
-                                    htmlFor={formItemId} // Use the ID from FormControl
+                                    htmlFor={formItemId} 
                                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                                 >
                                     {catField.placeholder || 'Enable'}
