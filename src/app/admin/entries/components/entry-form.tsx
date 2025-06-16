@@ -68,18 +68,20 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
           break;
         case FieldType.NUMBER:
           if (field.required) {
-            fieldSchema = z.coerce
-              .number({
-                required_error: `${field.label} талбарыг заавал бөглөнө үү.`,
-                invalid_type_error: `${field.label} тоон утга байх ёстой.`,
-              });
+            fieldSchema = z.preprocess(
+              (val) => (val === "" ? undefined : val), // Treat empty string from input as undefined for validation
+              z.coerce.number({
+                  required_error: `${field.label} талбарыг заавал бөглөнө үү.`,
+                  invalid_type_error: `${field.label} тоон утга байх ёстой.`,
+              }).refine(val => val !== undefined, { message: `${field.label} талбарыг заавал бөглөнө үү.` }) // Ensure it's not undefined after preprocess
+            );
           } else {
-            fieldSchema = z.coerce
-              .number({
-                invalid_type_error: `${field.label} тоон утга байх ёстой.`,
-              })
-              .optional()
-              .nullable();
+            fieldSchema = z.preprocess(
+              (val) => (val === "" ? undefined : val),
+              z.coerce.number({
+                  invalid_type_error: `${field.label} тоон утга байх ёстой.`,
+              }).optional().nullable()
+            );
           }
           break;
         case FieldType.DATE:
@@ -117,58 +119,57 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
 
   const form = useForm<z.infer<typeof currentSchema>>({
     resolver: zodResolver(currentSchema),
-    mode: 'onChange', 
+    mode: 'onChange',
     defaultValues: initialData ? {
         title: initialData.title || '',
         status: initialData.status,
         publishAt: initialData.publishAt ? parseISO(initialData.publishAt) : undefined,
-        data: initialData.data || {},
+        data: initialData.data || {}, // Numbers will be numbers here from Firestore
       } : {
         title: '',
         status: 'draft',
         publishAt: undefined,
-        data: {},
+        data: {}, // Will be populated by useEffect
       },
   });
 
-   useEffect(() => {
-     const newSchema = generateSchema(selectedCategory?.fields);
-     setCurrentSchema(newSchema);
+  useEffect(() => {
+    const newSchema = generateSchema(selectedCategory?.fields);
+    setCurrentSchema(newSchema);
 
     const defaultDataForReset: Record<string, any> = {};
     selectedCategory?.fields.forEach(field => {
-        if (field.description?.includes(USER_ONLY_FIELD_MARKER)) {
-            if (initialData?.data?.[field.key] !== undefined) {
-                 if (field.type === FieldType.DATE && typeof initialData.data[field.key] === 'string') {
-                 } else {
-                 }
-            }
-            return;
-        }
-
-        const initialValueFromData = initialData?.data?.[field.key];
-
-        if (initialValueFromData !== undefined && initialValueFromData !== null) {
-            if (field.type === FieldType.DATE && typeof initialValueFromData === 'string') {
-                try {
-                    defaultDataForReset[field.key] = parseISO(initialValueFromData);
-                } catch (e) {
-                    defaultDataForReset[field.key] = undefined;
-                }
-            } else if (field.type === FieldType.NUMBER && (typeof initialValueFromData === 'string' && initialValueFromData.trim() === '')) {
-                defaultDataForReset[field.key] = undefined;
-            }
-             else {
-                defaultDataForReset[field.key] = initialValueFromData;
-            }
+      if (field.description?.includes(USER_ONLY_FIELD_MARKER)) {
+        if (initialData?.data?.[field.key] !== undefined && initialData?.data?.[field.key] !== null) {
+          defaultDataForReset[field.key] = initialData.data[field.key];
         } else {
-            if (field.type === FieldType.BOOLEAN) defaultDataForReset[field.key] = false;
-            else if (field.type === FieldType.NUMBER) defaultDataForReset[field.key] = undefined;
-            else if (field.type === FieldType.DATE) defaultDataForReset[field.key] = undefined;
-            // For new forms, non-boolean/number/date fields (like TEXT, TEXTAREA) should default to empty string
-            // to ensure they are controlled components from the start.
-            else defaultDataForReset[field.key] = '';
+            defaultDataForReset[field.key] = undefined;
         }
+        return;
+      }
+
+      const initialValueFromData = initialData?.data?.[field.key];
+
+      if (initialValueFromData !== undefined && initialValueFromData !== null) {
+        if (field.type === FieldType.DATE && typeof initialValueFromData === 'string') {
+          try {
+            defaultDataForReset[field.key] = parseISO(initialValueFromData);
+          } catch (e) {
+            defaultDataForReset[field.key] = undefined;
+          }
+        } else if (field.type === FieldType.NUMBER) {
+            // When editing, initialData.data[field.key] is already a number or null/undefined
+            defaultDataForReset[field.key] = initialValueFromData;
+        } else {
+          defaultDataForReset[field.key] = initialValueFromData;
+        }
+      } else {
+        // Set appropriate default values for new forms or when initialData is missing a field
+        if (field.type === FieldType.BOOLEAN) defaultDataForReset[field.key] = false;
+        else if (field.type === FieldType.NUMBER) defaultDataForReset[field.key] = undefined; // For new number field, start as undefined for zod
+        else if (field.type === FieldType.DATE) defaultDataForReset[field.key] = undefined;
+        else defaultDataForReset[field.key] = ''; // Text/Textarea default to empty string
+      }
     });
 
     form.reset({
@@ -178,7 +179,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
       data: defaultDataForReset,
     }, {
       keepDirtyValues: false,
-      keepErrors: false, 
+      keepErrors: false,
     });
   }, [selectedCategory, initialData, generateSchema, form]);
 
@@ -230,8 +231,12 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
       for (const key in formData.data) {
         const fieldDefinition = selectedCategory.fields.find(f => f.key === key);
         if (fieldDefinition && !fieldDefinition.description?.includes(USER_ONLY_FIELD_MARKER)) {
-          if (fieldDefinition.type === FieldType.NUMBER && typeof formData.data[key] === 'string') {
-            adminEditableData[key] = formData.data[key] === '' ? undefined : parseFloat(formData.data[key]);
+          if (fieldDefinition.type === FieldType.NUMBER) {
+             const value = formData.data[key];
+             // Zod schema already coerces to number or undefined/null
+             adminEditableData[key] = (value === null || value === undefined) ? null : value;
+          } else if (fieldDefinition.type === FieldType.DATE && formData.data[key] instanceof Date) {
+             adminEditableData[key] = (formData.data[key] as Date).toISOString();
           } else {
             adminEditableData[key] = formData.data[key];
           }
@@ -289,9 +294,9 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
 
         if (initialValueFromData !== undefined && initialValueFromData !== null) {
             if (field.type === FieldType.DATE && typeof initialValueFromData === 'string') {
-                 try { defaultDataForReset[field.key] = parseISO(initialValueFromData); } catch (e) { defaultDataForReset[field.key] = undefined; }
-            } else if (field.type === FieldType.NUMBER && (typeof initialValueFromData === 'string' && initialValueFromData.trim() === '')) {
-                defaultDataForReset[field.key] = undefined;
+                try { defaultDataForReset[field.key] = parseISO(initialValueFromData); } catch (e) { defaultDataForReset[field.key] = undefined; }
+            } else if (field.type === FieldType.NUMBER) {
+                defaultDataForReset[field.key] = initialValueFromData;
             }
             else {
                 defaultDataForReset[field.key] = initialValueFromData;
@@ -326,7 +331,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                 </UiCardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                 <FormField
+                  <FormField
                     control={form.control}
                     name="title"
                     render={({ field }) => (
@@ -339,7 +344,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                         <FormMessage />
                         </FormItem>
                     )}
-                 />
+                  />
 
                 {selectedCategory?.fields.map(catField => {
                   const isUserOnlyField = catField.description?.includes(USER_ONLY_FIELD_MARKER);
@@ -355,9 +360,9 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                         {catField.description && <FormDescription>{catField.description}</FormDescription>}
                         <div className="p-3 mt-1 text-sm text-muted-foreground border rounded-md bg-muted/30 shadow-sm">
                           Энэ талбарт админ утга оруулахгүй. Аппликейшний хэрэглэгчид бөглөнө.
-                           {initialData?.data?.[catField.key] && (
+                            {initialData?.data?.[catField.key] && (
                             <span className="block mt-1 text-xs italic"> (Одоогийн утга: {String(initialData.data[catField.key])})</span>
-                           )}
+                            )}
                         </div>
                       </FormItem>
                     );
@@ -373,10 +378,22 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                           <FormLabel>{catField.label}{catField.required && <span className="text-destructive">*</span>}</FormLabel>
                           {catField.description && <FormDescription>{catField.description}</FormDescription>}
                           <FormControl>
-                            <div> {/* Removed React.Fragment, using div instead */}
+                            <div>
                               {catField.type === FieldType.TEXT && <Input placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} {...formHookField} value={formHookField.value ?? ''} />}
                               {catField.type === FieldType.TEXTAREA && <Textarea placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} {...formHookField} value={formHookField.value ?? ''} rows={5} />}
-                              {catField.type === FieldType.NUMBER && <Input type="number" placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} {...formHookField} value={formHookField.value === undefined || formHookField.value === null ? '' : String(formHookField.value)} onChange={e => formHookField.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}/>}
+                              {catField.type === FieldType.NUMBER && (
+                                <Input
+                                  type="number" // Keep type="number" for browser behavior, but Zod handles string coercion
+                                  placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`}
+                                  // Input value is always string. formHookField.value can be number/undefined.
+                                  value={formHookField.value === undefined || formHookField.value === null ? '' : String(formHookField.value)}
+                                  onChange={e => {
+                                    // Send string to react-hook-form, Zod will coerce.
+                                    // Empty string means user cleared input, let Zod handle it as undefined via preprocess.
+                                    formHookField.onChange(e.target.value);
+                                  }}
+                                />
+                              )}
                               {catField.type === FieldType.BOOLEAN && (
                                 <div className="flex items-center space-x-2 h-10">
                                   <Checkbox id={`data.${catField.key}`} checked={!!formHookField.value} onCheckedChange={formHookField.onChange} />
@@ -419,7 +436,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                 })}
               </CardContent>
             </Card>
-             {selectedCategory && (
+              {selectedCategory && (
               <Card>
                 <CardHeader>
                   <CardTitle className="font-headline flex items-center"><Wand2 className="mr-2 h-5 w-5 text-primary"/>AI Content Suggestions</CardTitle>
@@ -566,10 +583,3 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
     </Form>
   );
 }
-    
-
-    
-
-    
-
-    
