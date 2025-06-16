@@ -10,11 +10,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription as UiCardDescription, CardFooter } from '@/components/ui/card'; // Renamed CardDescription to UiCardDescription
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogClose, DialogFooter } from "@/components/ui/dialog"; // Added DialogFooter
-import type { Category, FieldDefinition } from '@/types';
-import { FieldType } from '@/types';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogClose, DialogFooter } from "@/components/ui/dialog";
+import type { Category, FieldDefinition } from '@/types'; // Ensured FieldDefinition is imported
+import { FieldType } from '@/types'; // Ensured FieldType is imported
 import { PlusCircle, Trash2, Save, Loader2, XCircle, Edit3 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { slugify } from '@/lib/utils';
@@ -37,23 +37,71 @@ const categoryFormSchema = z.object({
   name: z.string().min(1, "Category name is required."),
   slug: z.string().min(1, "Slug is required.").regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug must be lowercase alphanumeric with hyphens."),
   description: z.string().optional().default(''),
-  fields: z.array(fieldDefinitionClientSchema).min(0, "You can save a category without fields initially."),
+  fields: z.array(fieldDefinitionClientSchema).min(0, "You can save a category without fields initially."), // FieldDefinition matches FieldDefinitionClientSchema structure
 });
 
 export type CategoryFormValues = z.infer<typeof categoryFormSchema>;
-type FieldFormValues = z.infer<typeof fieldDefinitionClientSchema>;
+type FieldFormValues = z.infer<typeof fieldDefinitionClientSchema>; // This is equivalent to FieldDefinition for form purposes
 
 interface CategoryFormProps {
-  initialData?: Category | null; // Firestore Category type
-  onSubmit: (data: CategoryFormValues) => Promise<{id?: string; error?: string} | {success?: boolean; error?: string } | void>; // onSubmit can now return result for toast
+  initialData?: Category | null; // Firestore Category type, which uses FieldDefinition[]
+  onSubmit: (data: CategoryFormValues) => Promise<{id?: string; error?: string} | {success?: boolean; error?: string } | void>;
   isSubmittingGlobal: boolean;
-  onFormSuccess?: () => void; // Optional: callback after successful submission and toast
+  onFormSuccess?: () => void;
 }
 
 export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onFormSuccess }: CategoryFormProps) {
   const { toast } = useToast();
   const [isFieldFormOpen, setIsFieldFormOpen] = useState(false);
-  const [editingFieldIndex, setEditingFieldIndex] = useState<number | null>(null); // Store index for editing
+  const [editingFieldIndex, setEditingFieldIndex] = useState<number | null>(null);
+
+  const defaultFieldsForNewCategory: FieldDefinition[] = [
+      {
+        id: uuidv4(),
+        label: 'Нүүр зураг URL',
+        key: 'nuur-zurag-url',
+        type: FieldType.TEXT,
+        required: false,
+        placeholder: 'https://example.com/image.png',
+        description: 'Энэ бичлэгийн гол нүүр зургийн интернет хаяг.'
+      },
+      {
+        id: uuidv4(),
+        label: 'Нэр',
+        key: 'ner',
+        type: FieldType.TEXT,
+        required: true,
+        placeholder: 'Бичлэгийн гарчиг эсвэл нэр',
+        description: 'Энэ бичлэгийн гол гарчиг буюу нэр.'
+      },
+      {
+        id: uuidv4(),
+        label: 'Хот',
+        key: 'khot',
+        type: FieldType.TEXT,
+        required: false,
+        placeholder: 'Жишээ нь: Улаанбаатар',
+        description: 'Бичлэгт холбогдох хотын нэр.'
+      },
+      {
+        id: uuidv4(),
+        label: 'Үнэлгээ',
+        key: 'unelgee',
+        type: FieldType.NUMBER,
+        required: false,
+        placeholder: 'Жишээ нь: 1-5',
+        description: 'Хэрэглэгчийн үнэлгээ (тоо). Энэ талбарыг админ бус, аппликейшний хэрэглэгчид бөглөнө.'
+      },
+      {
+        id: uuidv4(),
+        label: 'Сэтгэгдэл',
+        key: 'setgegdel',
+        type: FieldType.TEXTAREA,
+        required: false,
+        placeholder: 'Хэрэглэгчийн сэтгэгдлийг энд бичнэ үү.',
+        description: 'Хэрэглэгчдийн үлдээх сэтгэгдэл. Энэ талбарыг админ бус, аппликейшний хэрэглэгчид бөглөнө.'
+      }
+  ];
 
   const form = useForm<CategoryFormValues>({
     resolver: zodResolver(categoryFormSchema),
@@ -61,19 +109,19 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
       name: initialData.name,
       slug: initialData.slug,
       description: initialData.description || '',
-      fields: initialData.fields.map(f => ({ ...f, id: f.id || uuidv4(), key: f.key || slugify(f.label) })) // Ensure client IDs and keys
+      fields: initialData.fields.map(f => ({ ...f, id: f.id || uuidv4(), key: f.key || slugify(f.label) }))
     } : {
       name: '',
       slug: '',
       description: '',
-      fields: [],
+      fields: defaultFieldsForNewCategory,
     },
   });
 
   const { fields, append, remove, update } = useFieldArray({
     control: form.control,
     name: "fields",
-    keyName: "fieldFormId", // To avoid conflict with 'id' from FieldDefinition
+    keyName: "fieldFormId", 
   });
 
   const handleNameChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -85,10 +133,8 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
   };
   
   const handleSaveField = (fieldData: FieldFormValues) => {
-    // Ensure key is correctly formatted (slugified)
     const finalFieldData = { ...fieldData, key: slugify(fieldData.label) };
 
-    // Check for duplicate keys within the current category's fields being edited
     const otherFields = fields.filter((_, idx) => idx !== editingFieldIndex);
     if (otherFields.some(f => f.key === finalFieldData.key)) {
       toast({
@@ -96,7 +142,6 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
         description: `The field key "${finalFieldData.key}" (from label "${finalFieldData.label}") already exists in this category. Please use a unique label.`,
         variant: "destructive",
       });
-      // Keep the field form open with current values for correction
       fieldFormMethods.setError("label", {type: "manual", message: "This label results in a duplicate key."})
       return; 
     }
@@ -120,7 +165,6 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
   };
 
   const handleFormSubmit = async (data: CategoryFormValues) => {
-    // Final check for duplicate field keys before submitting the whole category
     const fieldKeys = new Set<string>();
     for (const f of data.fields) {
       if (fieldKeys.has(f.key)) {
@@ -148,7 +192,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
         description: `Category ${initialData ? "updated" : "created"} successfully.`,
       });
       if (onFormSuccess) onFormSuccess();
-      form.reset(initialData ? { // Reset to initial data on edit success, or empty on create success
+      form.reset(initialData ? { 
         name: initialData.name,
         slug: initialData.slug,
         description: initialData.description || '',
@@ -157,7 +201,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
         name: '',
         slug: '',
         description: '',
-        fields: [],
+        fields: defaultFieldsForNewCategory, // Reset to default fields for new form
       }); 
     }
   };
@@ -192,7 +236,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
           <Card>
             <CardHeader>
               <CardTitle className="font-headline">Category Details</CardTitle>
-              <CardDescription>Define the name, slug, and description for this category.</CardDescription>
+              <UiCardDescription>Define the name, slug, and description for this category.</UiCardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <FormField
@@ -241,7 +285,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
           <Card>
             <CardHeader>
               <CardTitle className="font-headline">Field Definitions</CardTitle>
-              <CardDescription>Define the data structure for entries in this category.</CardDescription>
+              <UiCardDescription>Define the data structure for entries in this category.</UiCardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {fields.length === 0 && (
@@ -288,7 +332,12 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                 slug: initialData.slug,
                 description: initialData.description || '',
                 fields: initialData.fields.map(f => ({ ...f, id: f.id || uuidv4(), key: f.key || slugify(f.label) }))
-              } : { name: '', slug: '', description: '', fields: [] })}>Cancel</Button>
+              } : { 
+                name: '', 
+                slug: '', 
+                description: '', 
+                fields: defaultFieldsForNewCategory // Reset to default fields
+              })}>Cancel</Button>
             <Button type="submit" disabled={isSubmittingGlobal}>
               {isSubmittingGlobal ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -304,8 +353,8 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
       {/* Field Form Dialog */}
       <Dialog open={isFieldFormOpen} onOpenChange={(open) => {
         if (!open) {
-          setEditingFieldIndex(null); // Clear editing index when dialog closes
-          fieldFormMethods.clearErrors(); // Clear any validation errors from field form
+          setEditingFieldIndex(null); 
+          fieldFormMethods.clearErrors(); 
         }
         setIsFieldFormOpen(open);
       }}>
