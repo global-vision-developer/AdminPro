@@ -45,7 +45,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
 
   const generateSchema = useCallback((fields: FieldDefinition[] = []) => {
     const shape: Record<string, z.ZodTypeAny> = {
-      title: z.string().nonempty({ message: "Entry Title is required." }),
+      title: z.string().nonempty({ message: "Бичлэгийн гарчгийг заавал бөглөнө үү." }),
       status: z.enum(['draft', 'published', 'scheduled']).default('draft'),
       publishAt: z.date().optional().nullable(),
     };
@@ -98,13 +98,22 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
       }
       shape[`data.${field.key}`] = fieldSchema;
     });
-    return z.object(shape);
+    return z.object(shape).refine(data => {
+      if (data.status === 'scheduled' && !data.publishAt) {
+        return false;
+      }
+      return true;
+    }, {
+      message: "Нийтлэх огноо, цагийг сонгоно уу.",
+      path: ["publishAt"], 
+    });
   }, []);
 
   const [currentSchema, setCurrentSchema] = useState(() => generateSchema(selectedCategory?.fields));
 
   const form = useForm<z.infer<typeof currentSchema>>({
     resolver: zodResolver(currentSchema),
+    mode: 'onTouched', // Added mode: 'onTouched'
     defaultValues: initialData ? {
         title: initialData.title || '',
         status: initialData.status,
@@ -124,7 +133,6 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
 
     const defaultDataForReset: Record<string, any> = {};
     selectedCategory?.fields.forEach(field => {
-        // Handle user-only fields (these won't be part of the form's controlled state for admin editing)
         if (field.description?.includes(USER_ONLY_FIELD_MARKER)) {
             if (initialData?.data?.[field.key] !== undefined) {
                  if (field.type === FieldType.DATE && typeof initialData.data[field.key] === 'string') {
@@ -133,24 +141,32 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                     // This data is for display only
                 }
             }
-            return; // Skip adding to form's controllable defaultData
+            return; 
         }
 
         const initialValueFromData = initialData?.data?.[field.key];
 
-        if (initialValueFromData !== undefined) {
+        if (initialValueFromData !== undefined && initialValueFromData !== null) {
             if (field.type === FieldType.DATE && typeof initialValueFromData === 'string') {
-                defaultDataForReset[field.key] = parseISO(initialValueFromData);
-            } else {
+                try {
+                    defaultDataForReset[field.key] = parseISO(initialValueFromData);
+                } catch (e) {
+                    defaultDataForReset[field.key] = undefined; // Invalid date string
+                }
+            } else if (field.type === FieldType.NUMBER && (typeof initialValueFromData === 'string' && initialValueFromData.trim() === '')) {
+                defaultDataForReset[field.key] = undefined;
+            }
+             else {
                 defaultDataForReset[field.key] = initialValueFromData;
             }
-        } else { // Setting defaults for a new form or if field didn't exist in initialData
+        } else { 
             if (field.type === FieldType.BOOLEAN) defaultDataForReset[field.key] = false;
-            else if (field.type === FieldType.NUMBER) defaultDataForReset[field.key] = undefined; // Keep undefined for non-filled numbers
-            else defaultDataForReset[field.key] = ''; // TEXT, TEXTAREA default to empty string
+            else if (field.type === FieldType.NUMBER) defaultDataForReset[field.key] = undefined; 
+            else if (field.type === FieldType.DATE) defaultDataForReset[field.key] = undefined;
+            else defaultDataForReset[field.key] = ''; 
         }
     });
-
+    
     form.reset({
       title: initialData?.title || '',
       status: initialData?.status || 'draft',
@@ -245,6 +261,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         selectedCategory.fields.filter(f => !f.description?.includes(USER_ONLY_FIELD_MARKER)).forEach(field => {
             if (field.type === FieldType.BOOLEAN) resetData[field.key] = false;
             else if (field.type === FieldType.NUMBER) resetData[field.key] = undefined;
+            else if (field.type === FieldType.DATE) resetData[field.key] = undefined;
             else resetData[field.key] = '';
         });
         form.reset({
@@ -252,12 +269,44 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
             status: 'draft',
             publishAt: undefined,
             data: resetData
-        });
+        }, { keepErrors: false });
 
     } else if (result && "error" in result && result.error) {
         toast({ title: "Error", description: result.error, variant: "destructive" });
     }
   };
+
+  const handleCancel = () => {
+    const defaultDataForReset: Record<string, any> = {};
+    selectedCategory.fields.forEach(field => {
+        if (field.description?.includes(USER_ONLY_FIELD_MARKER)) return;
+
+        const initialValueFromData = initialData?.data?.[field.key];
+
+        if (initialValueFromData !== undefined && initialValueFromData !== null) {
+            if (field.type === FieldType.DATE && typeof initialValueFromData === 'string') {
+                 try { defaultDataForReset[field.key] = parseISO(initialValueFromData); } catch (e) { defaultDataForReset[field.key] = undefined; }
+            } else if (field.type === FieldType.NUMBER && (typeof initialValueFromData === 'string' && initialValueFromData.trim() === '')) {
+                defaultDataForReset[field.key] = undefined;
+            }
+            else {
+                defaultDataForReset[field.key] = initialValueFromData;
+            }
+        } else { 
+            if (field.type === FieldType.BOOLEAN) defaultDataForReset[field.key] = false;
+            else if (field.type === FieldType.NUMBER) defaultDataForReset[field.key] = undefined;
+            else if (field.type === FieldType.DATE) defaultDataForReset[field.key] = undefined;
+            else defaultDataForReset[field.key] = '';
+        }
+    });
+    form.reset({
+        title: initialData?.title || '',
+        status: initialData?.status || 'draft',
+        publishAt: initialData?.publishAt ? parseISO(initialData.publishAt) : undefined,
+        data: defaultDataForReset
+    }, { keepErrors: false });
+  };
+
 
   return (
     <Form {...form}>
@@ -279,7 +328,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                         <FormItem>
                         <FormLabel>Entry Title</FormLabel>
                         <FormControl>
-                            <Input placeholder="Enter a representative title for this entry" {...field} />
+                            <Input placeholder="Enter a representative title for this entry" {...field} value={field.value ?? ''} />
                         </FormControl>
                         <FormDescription>This title is used for lists and overviews. If your category has a 'Title' field, it might be automatically populated from there too.</FormDescription>
                         <FormMessage />
@@ -433,13 +482,6 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                   <FormField
                     control={form.control}
                     name="publishAt"
-                    rules={{
-                        validate: value => {
-                            if (!value) return "Publish date and time is required for scheduled entries.";
-                            if (value < new Date(new Date().setHours(0,0,0,0))) return "Publish date cannot be in the past.";
-                            return true;
-                        }
-                    }}
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
                         <FormLabel>Publish Date & Time</FormLabel>
@@ -505,27 +547,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         </div>
 
         <div className="flex justify-end space-x-2 pt-8 border-t mt-8">
-          <Button type="button" variant="outline" disabled={isSubmitting} onClick={() => {
-                const resetDataForCancel: Record<string, any> = {};
-                selectedCategory.fields.filter(f => !f.description?.includes(USER_ONLY_FIELD_MARKER)).forEach(field => {
-                    const initialVal = initialData?.data?.[field.key];
-                    if (initialVal !== undefined) {
-                         if (field.type === FieldType.DATE && typeof initialVal === 'string') resetDataForCancel[field.key] = parseISO(initialVal);
-                         else resetDataForCancel[field.key] = initialVal;
-                    } else {
-                        if (field.type === FieldType.BOOLEAN) resetDataForCancel[field.key] = false;
-                        else if (field.type === FieldType.NUMBER) resetDataForCancel[field.key] = undefined;
-                        else resetDataForCancel[field.key] = '';
-                    }
-                });
-                form.reset({
-                    title: initialData?.title || '',
-                    status: initialData?.status || 'draft',
-                    publishAt: initialData?.publishAt ? parseISO(initialData.publishAt) : undefined,
-                    data: resetDataForCancel
-                });
-            }
-          }>Cancel</Button>
+          <Button type="button" variant="outline" disabled={isSubmitting} onClick={handleCancel}>Cancel</Button>
           <Button type="submit" disabled={isSubmitting || !selectedCategory}>
             {isSubmitting ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -539,6 +561,8 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
     </Form>
   );
 }
+    
+
     
 
     
