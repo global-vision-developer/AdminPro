@@ -16,7 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import type { Category, Entry, FieldDefinition } from '@/types';
 import { FieldType } from '@/types';
-import { CalendarIcon, Save, Loader2, Wand2, AlertTriangle, Info } from 'lucide-react';
+import { CalendarIcon, Save, Loader2, Wand2, AlertTriangle, Info, MessageSquareText, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
 import { suggestContent } from '@/ai/flows/suggest-content-on-schedule';
@@ -28,10 +28,12 @@ import { useToast } from '@/hooks/use-toast';
 
 interface EntryFormProps {
   initialData?: Entry | null;
-  categories: Category[]; // All categories for selection on new entry
-  selectedCategory: Category; // The category for which the form is being built
+  categories: Category[]; 
+  selectedCategory: Category; 
   onSubmitSuccess?: () => void;
 }
+
+const USER_ONLY_FIELD_MARKER = "аппликейшний хэрэглэгчид бөглөнө";
 
 export function EntryForm({ initialData, categories, selectedCategory, onSubmitSuccess }: EntryFormProps) {
   const router = useRouter();
@@ -49,6 +51,14 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
     };
 
     fields.forEach(field => {
+      // Skip schema generation for user-only fields for admin form validation
+      if (field.description?.includes(USER_ONLY_FIELD_MARKER)) {
+        // These fields are not directly editable by admin, so don't require them in admin form schema
+        // Or, make them completely optional if they need to be part of the form's type for some reason
+        shape[`data.${field.key}`] = z.any().optional().nullable();
+        return;
+      }
+
       let fieldSchema: z.ZodTypeAny;
       switch (field.type) {
         case FieldType.TEXT:
@@ -106,6 +116,20 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
     
     const defaultData: Record<string, any> = {};
     selectedCategory?.fields.forEach(field => {
+        // For user-only fields, we don't set a default value for admin input.
+        if (field.description?.includes(USER_ONLY_FIELD_MARKER)) {
+            if (initialData?.data?.[field.key] !== undefined) { // If editing and data exists, pass it for display
+                 if (field.type === FieldType.DATE && typeof initialData.data[field.key] === 'string') {
+                    defaultData[field.key] = parseISO(initialData.data[field.key]);
+                } else {
+                    defaultData[field.key] = initialData.data[field.key];
+                }
+            } else {
+                 defaultData[field.key] = undefined; 
+            }
+            return;
+        }
+
         const initialValue = initialData?.data?.[field.key];
         if (initialValue !== undefined) {
             if (field.type === FieldType.DATE && typeof initialValue === 'string') {
@@ -145,7 +169,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
       entryContent += String(formData[contentField.key]);
     } else {
       selectedCategory.fields.forEach(field => {
-        if ((field.type === FieldType.TEXT || field.type === FieldType.TEXTAREA) && formData[field.key]) {
+        if (!field.description?.includes(USER_ONLY_FIELD_MARKER) && (field.type === FieldType.TEXT || field.type === FieldType.TEXTAREA) && formData[field.key]) {
           entryContent += `\n${field.label}: ${formData[field.key]}`;
         }
       });
@@ -171,15 +195,27 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
   
   const watchStatus = form.watch('status');
 
-  const transformedSubmit = async (data: z.infer<typeof currentSchema>) => {
+  const transformedSubmit = async (formData: z.infer<typeof currentSchema>) => {
     setIsSubmitting(true);
+
+    // Filter out user-only fields from the data to be submitted
+    const adminEditableData: Record<string, any> = {};
+    if (formData.data) {
+      for (const key in formData.data) {
+        const fieldDefinition = selectedCategory.fields.find(f => f.key === key);
+        if (fieldDefinition && !fieldDefinition.description?.includes(USER_ONLY_FIELD_MARKER)) {
+          adminEditableData[key] = formData.data[key];
+        }
+      }
+    }
+    
     const submissionPayload = {
-        title: data.title,
+        title: formData.title,
         categoryId: selectedCategory.id, 
         categoryName: selectedCategory.name, 
-        status: data.status,
-        publishAt: data.status === 'scheduled' && data.publishAt ? data.publishAt.toISOString() : null, 
-        data: data.data,
+        status: formData.status,
+        publishAt: formData.status === 'scheduled' && formData.publishAt ? formData.publishAt.toISOString() : null, 
+        data: adminEditableData, // Send only admin-editable data
     };
 
     let result;
@@ -198,7 +234,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
             title: '',
             status: 'draft',
             publishAt: undefined,
-            data: Object.fromEntries(selectedCategory.fields.map(field => [field.key, field.type === FieldType.BOOLEAN ? false : '']))
+            data: Object.fromEntries(selectedCategory.fields.filter(f => !f.description?.includes(USER_ONLY_FIELD_MARKER)).map(field => [field.key, field.type === FieldType.BOOLEAN ? false : '']))
         });
     } else if (result && "error" in result && result.error) {
         toast({ title: "Error", description: result.error, variant: "destructive" });
@@ -214,7 +250,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
               <CardHeader>
                 <CardTitle className="font-headline">Entry Details</CardTitle>
                 <UiCardDescription>
-                  Content for category: <span className="font-semibold text-primary">{selectedCategory.name}</span>
+                  Content for category: <span className="font-semibold text-primary">{selectedCategory?.name || "N/A"}</span>
                 </UiCardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -233,59 +269,83 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                     )}
                  />
 
-                {selectedCategory?.fields.map(catField => (
-                  <FormField
-                    key={catField.id} 
-                    control={form.control}
-                    name={`data.${catField.key}`} 
-                    render={({ field: formHookField }) => ( 
-                      <FormItem>
-                        <FormLabel>{catField.label}{catField.required && <span className="text-destructive">*</span>}</FormLabel>
+                {selectedCategory?.fields.map(catField => {
+                  const isUserOnlyField = catField.description?.includes(USER_ONLY_FIELD_MARKER);
+                  const Icon = catField.key === 'unelgee' ? Star : catField.key === 'setgegdel' ? MessageSquareText : null;
+
+                  if (isUserOnlyField) {
+                    return (
+                      <FormItem key={catField.id}>
+                        <FormLabel className="flex items-center">
+                          {Icon && <Icon className="mr-2 h-4 w-4 text-muted-foreground" />}
+                          {catField.label}
+                        </FormLabel>
                         {catField.description && <FormDescription>{catField.description}</FormDescription>}
-                        <FormControl>
-                          <div>
-                            {catField.type === FieldType.TEXT && <Input placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} {...formHookField} value={formHookField.value || ''} />}
-                            {catField.type === FieldType.TEXTAREA && <Textarea placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} {...formHookField} value={formHookField.value || ''} rows={5} />}
-                            {catField.type === FieldType.NUMBER && <Input type="number" placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} {...formHookField} value={formHookField.value || ''} onChange={e => formHookField.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}/>}
-                            {catField.type === FieldType.BOOLEAN && (
-                              <div className="flex items-center space-x-2 h-10">
-                                <Checkbox id={`data.${catField.key}`} checked={formHookField.value} onCheckedChange={formHookField.onChange} />
-                                <label htmlFor={`data.${catField.key}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                  {catField.placeholder || 'Enable'}
-                                </label>
-                              </div>
-                            )}
-                            {catField.type === FieldType.DATE && (
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <Button
-                                    variant={"outline"}
-                                    className={cn(
-                                      "w-full justify-start text-left font-normal",
-                                      !formHookField.value && "text-muted-foreground"
-                                    )}
-                                  >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {formHookField.value ? format(formHookField.value instanceof Date ? formHookField.value : parseISO(formHookField.value as unknown as string), "PPP") : <span>{catField.placeholder || 'Pick a date'}</span>}
-                                  </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0">
-                                  <Calendar
-                                    mode="single"
-                                    selected={formHookField.value instanceof Date ? formHookField.value : (formHookField.value ? parseISO(formHookField.value as unknown as string) : undefined)}
-                                    onSelect={formHookField.onChange}
-                                    initialFocus
-                                  />
-                                </PopoverContent>
-                              </Popover>
-                            )}
-                          </div>
-                        </FormControl>
-                        <FormMessage />
+                        <div className="p-3 mt-1 text-sm text-muted-foreground border rounded-md bg-muted/30 shadow-sm">
+                          Энэ талбарт админ утга оруулахгүй. Аппликейшний хэрэглэгчид бөглөнө.
+                           {initialData?.data?.[catField.key] && (
+                            <span className="block mt-1 text-xs italic"> (Одоогийн утга: {String(initialData.data[catField.key])})</span>
+                           )}
+                        </div>
                       </FormItem>
-                    )}
-                  />
-                ))}
+                    );
+                  }
+
+                  // Render normal form field for admin
+                  return (
+                    <FormField
+                      key={catField.id} 
+                      control={form.control}
+                      name={`data.${catField.key}`} 
+                      render={({ field: formHookField }) => ( 
+                        <FormItem>
+                          <FormLabel>{catField.label}{catField.required && <span className="text-destructive">*</span>}</FormLabel>
+                          {catField.description && <FormDescription>{catField.description}</FormDescription>}
+                          <FormControl>
+                            <div>
+                              {catField.type === FieldType.TEXT && <Input placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} {...formHookField} value={formHookField.value || ''} />}
+                              {catField.type === FieldType.TEXTAREA && <Textarea placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} {...formHookField} value={formHookField.value || ''} rows={5} />}
+                              {catField.type === FieldType.NUMBER && <Input type="number" placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} {...formHookField} value={formHookField.value || ''} onChange={e => formHookField.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}/>}
+                              {catField.type === FieldType.BOOLEAN && (
+                                <div className="flex items-center space-x-2 h-10">
+                                  <Checkbox id={`data.${catField.key}`} checked={!!formHookField.value} onCheckedChange={formHookField.onChange} />
+                                  <label htmlFor={`data.${catField.key}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                    {catField.placeholder || 'Enable'}
+                                  </label>
+                                </div>
+                              )}
+                              {catField.type === FieldType.DATE && (
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      variant={"outline"}
+                                      className={cn(
+                                        "w-full justify-start text-left font-normal",
+                                        !formHookField.value && "text-muted-foreground"
+                                      )}
+                                    >
+                                      <CalendarIcon className="mr-2 h-4 w-4" />
+                                      {formHookField.value ? format(formHookField.value instanceof Date ? formHookField.value : parseISO(formHookField.value as unknown as string), "PPP") : <span>{catField.placeholder || 'Pick a date'}</span>}
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto p-0">
+                                    <Calendar
+                                      mode="single"
+                                      selected={formHookField.value instanceof Date ? formHookField.value : (formHookField.value ? parseISO(formHookField.value as unknown as string) : undefined)}
+                                      onSelect={formHookField.onChange}
+                                      initialFocus
+                                    />
+                                  </PopoverContent>
+                                </Popover>
+                              )}
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  );
+                })}
               </CardContent>
             </Card>
              {selectedCategory && (
@@ -433,8 +493,8 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                 status: initialData?.status || 'draft',
                 publishAt: initialData?.publishAt ? parseISO(initialData.publishAt) : undefined,
                 data: initialData?.data ? 
-                      Object.fromEntries(selectedCategory.fields.map(f => [f.key, initialData.data[f.key] || (f.type === FieldType.BOOLEAN ? false : '')])) 
-                      : Object.fromEntries(selectedCategory.fields.map(f => [f.key, f.type === FieldType.BOOLEAN ? false : '']))
+                      Object.fromEntries(selectedCategory.fields.filter(f => !f.description?.includes(USER_ONLY_FIELD_MARKER)).map(f => [f.key, initialData.data[f.key] || (f.type === FieldType.BOOLEAN ? false : '')])) 
+                      : Object.fromEntries(selectedCategory.fields.filter(f => !f.description?.includes(USER_ONLY_FIELD_MARKER)).map(f => [f.key, f.type === FieldType.BOOLEAN ? false : '']))
             })}>Cancel</Button>
           <Button type="submit" disabled={isSubmitting || !selectedCategory}>
             {isSubmitting ? (
@@ -450,3 +510,4 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
   );
 }
 
+    
