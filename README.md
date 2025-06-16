@@ -73,6 +73,9 @@ As you build queries for Firestore, you might encounter errors like "The query r
     *   **Purpose:** Allows filtering entries by `categoryId` and ordering them by `createdAt`.
     *   **Creation Link (from a typical error):** The error message in the Next.js console or Firebase Functions logs will usually provide a direct link to create the missing index. It will look similar to this:
         `https://console.firebase.google.com/v1/r/project/YOUR_PROJECT_ID/firestore/indexes?create_composite=...`
+    *   **Specific link for `setgelzuin-app` project (from your error):**
+        `https://console.firebase.google.com/v1/r/project/setgelzuin-app/firestore/indexes?create_composite=Ck5wcm9qZWN0cy9zZXRnZWx6dWluLWFwcC9kYXRhYmFzZXMvKGRlZmF1bHQpL2NvbGxlY3Rpb25Hcm91cHMvZW50cmllcy9pbmRleGVzL18QARoOCgpjYXRlZ29yeUlkEAEaDQoJY3JlYXRlZEF0EAIaDAoIX19uYW1lX18QAg`
+        Please use the link provided in **your specific error message** to create this index in the Firebase Console.
 
 Always check the Firebase console or your server logs for specific index creation links if you encounter these errors.
 
@@ -124,3 +127,5 @@ NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=YOUR_MEASUREMENT_ID (optional)
 ```
 Replace `YOUR_...` with your actual Firebase project credentials.
 Remember to restart your development server (`npm run dev`) after creating or modifying `.env.local`.
+
+```
