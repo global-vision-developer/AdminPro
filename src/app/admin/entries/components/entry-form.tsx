@@ -63,7 +63,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
           if (field.required) {
             fieldSchema = z.string().trim().min(1, { message: `${field.label} талбарыг заавал бөглөнө үү.` });
           } else {
-            fieldSchema = z.string().optional().nullable();
+            fieldSchema = z.string().optional().nullable().transform(val => val === null ? '' : val); // Ensure '' for empty optional text
           }
           break;
         case FieldType.NUMBER:
@@ -149,15 +149,15 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
             if (field.type === FieldType.DATE && typeof initialValueFromData === 'string') {
                 try { defaultDataValues[field.key] = parseISO(initialValueFromData); } catch (e) { defaultDataValues[field.key] = undefined; }
             } else if (field.type === FieldType.NUMBER) {
-                 defaultDataValues[field.key] = (initialValueFromData === '' || initialValueFromData === null || initialValueFromData === undefined) ? undefined : initialValueFromData; // Stored as number or undefined
+                 defaultDataValues[field.key] = (initialValueFromData === '' || initialValueFromData === null || initialValueFromData === undefined) ? undefined : initialValueFromData;
             } else {
                 defaultDataValues[field.key] = initialValueFromData;
             }
-        } else { // No initial data for this field (either new entry, or field newly added to category)
+        } else { 
             if (field.type === FieldType.BOOLEAN) defaultDataValues[field.key] = false;
             else if (field.type === FieldType.NUMBER) defaultDataValues[field.key] = undefined; 
             else if (field.type === FieldType.DATE) defaultDataValues[field.key] = undefined;
-            else defaultDataValues[field.key] = '';
+            else defaultDataValues[field.key] = ''; // TEXT, TEXTAREA
         }
     });
 
@@ -177,7 +177,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
       setAiError("Please ensure a category is selected.");
       return;
     }
-    const formDataValues = form.getValues(); // Get all form values
+    const formDataValues = form.getValues(); 
     let entryContent = formDataValues.title + "\n";
 
     const contentField = selectedCategory.fields.find(f => f.type === FieldType.TEXTAREA && (f.label.toLowerCase().includes('content') || f.label.toLowerCase().includes('body')));
@@ -224,20 +224,16 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
       }
 
       const key = field.key;
-      // formDataFromHook.data should contain the values managed by react-hook-form
       const valueFromForm = formDataFromHook.data ? formDataFromHook.data[key] : undefined;
       let valueToSave: any;
       
       switch (field.type) {
         case FieldType.NUMBER:
-          // Zod transform should have already converted to number or null if input was valid for number
-          // If valueFromForm is a number, use it. If it's null (from Zod transform of empty/invalid string), use null.
-          // Otherwise, if it's still something else (e.g. undefined, or an unparseable string that somehow bypassed Zod), default to null.
           if (typeof valueFromForm === 'number') {
             valueToSave = valueFromForm;
           } else if (valueFromForm === null) {
             valueToSave = null;
-          } else { // Fallback, should ideally be handled by Zod
+          } else { 
             valueToSave = null;
           }
           break;
@@ -303,14 +299,13 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
   };
 
   const handleCancel = () => {
-    // Reset to initialData if editing, or to blank if new
-    const resetDataValues: Record<string, any> = {};
+    const defaultDataValues: Record<string, any> = {};
     selectedCategory?.fields.forEach(field => {
         if (field.description?.includes(USER_ONLY_FIELD_MARKER)) {
             if (initialData?.data && initialData.data.hasOwnProperty(field.key)) {
-                 resetDataValues[field.key] = initialData.data[field.key];
+                 defaultDataValues[field.key] = initialData.data[field.key];
             } else {
-                 resetDataValues[field.key] = undefined;
+                 defaultDataValues[field.key] = undefined;
             }
             return;
         }
@@ -318,25 +313,25 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         const initialValue = initialData?.data?.[field.key];
         if (initialValue !== undefined && initialValue !== null) {
             if (field.type === FieldType.DATE && typeof initialValue === 'string') {
-                 try { resetDataValues[field.key] = parseISO(initialValue); } catch (e) { resetDataValues[field.key] = undefined; }
+                 try { defaultDataValues[field.key] = parseISO(initialValue); } catch (e) { defaultDataValues[field.key] = undefined; }
             } else if (field.type === FieldType.NUMBER) {
-                 resetDataValues[field.key] = (initialValue === '' || initialValue === null || initialValue === undefined) ? undefined : initialValue;
+                 defaultDataValues[field.key] = (initialValue === '' || initialValue === null || initialValue === undefined) ? undefined : initialValue;
             }
             else {
-                resetDataValues[field.key] = initialValue;
+                defaultDataValues[field.key] = initialValue;
             }
         } else {
-            if (field.type === FieldType.BOOLEAN) resetDataValues[field.key] = false;
-            else if (field.type === FieldType.NUMBER) resetDataValues[field.key] = undefined;
-            else if (field.type === FieldType.DATE) resetDataValues[field.key] = undefined;
-            else resetDataValues[field.key] = '';
+            if (field.type === FieldType.BOOLEAN) defaultDataValues[field.key] = false;
+            else if (field.type === FieldType.NUMBER) defaultDataValues[field.key] = undefined;
+            else if (field.type === FieldType.DATE) defaultDataValues[field.key] = undefined;
+            else defaultDataValues[field.key] = '';
         }
     });
     form.reset({
         title: initialData?.title || '',
         status: initialData?.status || 'draft',
         publishAt: initialData?.publishAt ? parseISO(initialData.publishAt) : undefined,
-        data: resetDataValues
+        data: defaultDataValues
     }, { keepErrors: false, keepDirtyValues: false });
     router.back();
   };
@@ -360,7 +355,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                         <FormItem>
                         <FormLabel>Entry Title</FormLabel>
                         <FormControl>
-                            <Input placeholder="Enter a representative title for this entry" {...field} value={field.value ?? ''} />
+                            <Input placeholder="Enter a representative title for this entry" {...field} />
                         </FormControl>
                         <FormDescription>This title is used for lists and overviews. If your category has a 'Title' field, it might be automatically populated from there too.</FormDescription>
                         <FormMessage />
@@ -400,37 +395,36 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                           <FormLabel>{catField.label}{catField.required && <span className="text-destructive">*</span>}</FormLabel>
                           {catField.description && <FormDescription>{catField.description}</FormDescription>}
                           <FormControl>
-                            <div>
+                            <>
                               {catField.type === FieldType.TEXT && (
                                 <Input 
                                   placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} 
-                                  {...formHookField} 
-                                  value={formHookField.value ?? ''} 
+                                  {...formHookField}
                                 />
                               )}
                               {catField.type === FieldType.TEXTAREA && (
                                 <Textarea 
                                   placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} 
-                                  {...formHookField} 
-                                  value={formHookField.value ?? ''} 
+                                  {...formHookField}
                                   rows={5}
                                 />
                               )}
                               {catField.type === FieldType.NUMBER && (
                                 <Input 
-                                  type="text" // Use text to allow empty string for Zod preprocess
+                                  type="text" 
                                   inputMode="numeric" 
                                   pattern="[0-9]*\.?[0-9]*"
                                   placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} 
                                   {...formHookField} 
+                                  onChange={e => formHookField.onChange(e.target.value === '' ? undefined : e.target.value)} 
                                   value={formHookField.value === undefined || formHookField.value === null ? '' : String(formHookField.value)}
-                                  onChange={e => formHookField.onChange(e.target.value)} // Pass string to Zod
                                 />
                               )}
                               {catField.type === FieldType.BOOLEAN && (
                                 <div className="flex items-center space-x-2 h-10">
                                   <Checkbox 
-                                    id={`data.${catField.key}`} 
+                                    id={`data.${catField.key}`}
+                                    {...formHookField}
                                     checked={!!formHookField.value} 
                                     onCheckedChange={formHookField.onChange}
                                   />
@@ -463,7 +457,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                                   </PopoverContent>
                                 </Popover>
                               )}
-                            </div>
+                            </>
                           </FormControl>
                           <FormMessage />
                         </FormItem>
