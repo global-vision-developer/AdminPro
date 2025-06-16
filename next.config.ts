@@ -37,7 +37,13 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'company.e-mart.mn', // Added this new hostname
+        hostname: 'company.e-mart.mn',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'cdn.prod.website-files.com', // Added this new hostname
         port: '',
         pathname: '/**',
       }
