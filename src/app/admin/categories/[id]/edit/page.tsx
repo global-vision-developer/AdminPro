@@ -9,6 +9,7 @@ import { CategoryForm, type CategoryFormValues } from '../../components/category
 import type { Category } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getCategory, updateCategory } from '@/lib/actions/categoryActions';
+import { Card, CardHeader, CardContent } from '@/components/ui/card'; // Added import
 
 export default function EditCategoryPage() {
   const router = useRouter();
