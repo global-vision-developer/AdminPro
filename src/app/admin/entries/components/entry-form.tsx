@@ -68,14 +68,18 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
           break;
         case FieldType.NUMBER:
           if (field.required) {
-            fieldSchema = z.number({
-              required_error: `${field.label} талбарыг заавал бөглөнө үү.`,
-              invalid_type_error: `${field.label} тоон утга байх ёстой.`,
-            });
+            fieldSchema = z.coerce
+              .number({
+                required_error: `${field.label} талбарыг заавал бөглөнө үү.`,
+                invalid_type_error: `${field.label} тоон утга байх ёстой.`,
+              });
           } else {
-            fieldSchema = z.number({
-              invalid_type_error: `${field.label} тоон утга байх ёстой.`,
-            }).optional().nullable();
+            fieldSchema = z.coerce
+              .number({
+                invalid_type_error: `${field.label} тоон утга байх ёстой.`,
+              })
+              .optional()
+              .nullable();
           }
           break;
         case FieldType.DATE:
@@ -105,7 +109,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
       return true;
     }, {
       message: "Нийтлэх огноо, цагийг сонгоно уу.",
-      path: ["publishAt"], 
+      path: ["publishAt"],
     });
   }, []);
 
@@ -113,7 +117,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
 
   const form = useForm<z.infer<typeof currentSchema>>({
     resolver: zodResolver(currentSchema),
-    mode: 'onTouched', // Added mode: 'onTouched'
+    mode: 'onTouched',
     defaultValues: initialData ? {
         title: initialData.title || '',
         status: initialData.status,
@@ -136,12 +140,10 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         if (field.description?.includes(USER_ONLY_FIELD_MARKER)) {
             if (initialData?.data?.[field.key] !== undefined) {
                  if (field.type === FieldType.DATE && typeof initialData.data[field.key] === 'string') {
-                    // This data is for display only if it exists, not for form control
-                } else {
-                    // This data is for display only
-                }
+                 } else {
+                 }
             }
-            return; 
+            return;
         }
 
         const initialValueFromData = initialData?.data?.[field.key];
@@ -151,7 +153,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                 try {
                     defaultDataForReset[field.key] = parseISO(initialValueFromData);
                 } catch (e) {
-                    defaultDataForReset[field.key] = undefined; // Invalid date string
+                    defaultDataForReset[field.key] = undefined;
                 }
             } else if (field.type === FieldType.NUMBER && (typeof initialValueFromData === 'string' && initialValueFromData.trim() === '')) {
                 defaultDataForReset[field.key] = undefined;
@@ -159,21 +161,21 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
              else {
                 defaultDataForReset[field.key] = initialValueFromData;
             }
-        } else { 
+        } else {
             if (field.type === FieldType.BOOLEAN) defaultDataForReset[field.key] = false;
-            else if (field.type === FieldType.NUMBER) defaultDataForReset[field.key] = undefined; 
+            else if (field.type === FieldType.NUMBER) defaultDataForReset[field.key] = undefined;
             else if (field.type === FieldType.DATE) defaultDataForReset[field.key] = undefined;
-            else defaultDataForReset[field.key] = ''; 
+            else defaultDataForReset[field.key] = '';
         }
     });
-    
+
     form.reset({
       title: initialData?.title || '',
       status: initialData?.status || 'draft',
       publishAt: initialData?.publishAt ? parseISO(initialData.publishAt) : undefined,
       data: defaultDataForReset,
     }, {
-      keepDirtyValues: false, 
+      keepDirtyValues: false,
       keepErrors: false,
     });
   }, [selectedCategory, initialData, generateSchema, form]);
@@ -256,7 +258,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         toast({ title: "Success", description: `Entry ${initialData ? 'updated' : 'created'} successfully.`});
         if (onSubmitSuccess) onSubmitSuccess();
         else router.push(`/admin/entries?category=${selectedCategory.id}`);
-        
+
         const resetData: Record<string, any> = {};
         selectedCategory.fields.filter(f => !f.description?.includes(USER_ONLY_FIELD_MARKER)).forEach(field => {
             if (field.type === FieldType.BOOLEAN) resetData[field.key] = false;
@@ -269,7 +271,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
             status: 'draft',
             publishAt: undefined,
             data: resetData
-        }, { keepErrors: false });
+        }, { keepErrors: false, keepDirtyValues: false });
 
     } else if (result && "error" in result && result.error) {
         toast({ title: "Error", description: result.error, variant: "destructive" });
@@ -292,7 +294,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
             else {
                 defaultDataForReset[field.key] = initialValueFromData;
             }
-        } else { 
+        } else {
             if (field.type === FieldType.BOOLEAN) defaultDataForReset[field.key] = false;
             else if (field.type === FieldType.NUMBER) defaultDataForReset[field.key] = undefined;
             else if (field.type === FieldType.DATE) defaultDataForReset[field.key] = undefined;
@@ -304,7 +306,8 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         status: initialData?.status || 'draft',
         publishAt: initialData?.publishAt ? parseISO(initialData.publishAt) : undefined,
         data: defaultDataForReset
-    }, { keepErrors: false });
+    }, { keepErrors: false, keepDirtyValues: false });
+    router.back();
   };
 
 
@@ -561,6 +564,8 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
     </Form>
   );
 }
+    
+
     
 
     
