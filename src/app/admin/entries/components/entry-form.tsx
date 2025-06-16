@@ -28,8 +28,8 @@ import { useToast } from '@/hooks/use-toast';
 
 interface EntryFormProps {
   initialData?: Entry | null;
-  categories: Category[]; 
-  selectedCategory: Category; 
+  categories: Category[];
+  selectedCategory: Category;
   onSubmitSuccess?: () => void;
 }
 
@@ -51,10 +51,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
     };
 
     fields.forEach(field => {
-      // Skip schema generation for user-only fields for admin form validation
       if (field.description?.includes(USER_ONLY_FIELD_MARKER)) {
-        // These fields are not directly editable by admin, so don't require them in admin form schema
-        // Or, make them completely optional if they need to be part of the form's type for some reason
         shape[`data.${field.key}`] = z.any().optional().nullable();
         return;
       }
@@ -63,30 +60,39 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
       switch (field.type) {
         case FieldType.TEXT:
         case FieldType.TEXTAREA:
-          fieldSchema = z.string();
+          if (field.required) {
+            fieldSchema = z.string().min(1, `${field.label} is required.`);
+          } else {
+            fieldSchema = z.string().optional().nullable();
+          }
           break;
         case FieldType.NUMBER:
-          fieldSchema = z.coerce.number();
+          if (field.required) {
+            fieldSchema = z.number({
+              required_error: `${field.label} is required.`,
+              invalid_type_error: `${field.label} must be a number.`,
+            });
+          } else {
+            // Allow optional numbers to be truly undefined/null if not provided
+            // The input's onChange will convert empty string to undefined for react-hook-form
+            fieldSchema = z.number().optional().nullable();
+          }
           break;
         case FieldType.DATE:
-          fieldSchema = z.date();
+          if (field.required) {
+            fieldSchema = z.date({
+              required_error: `${field.label} is required.`,
+              invalid_type_error: `${field.label} must be a valid date.`,
+            });
+          } else {
+            fieldSchema = z.date().optional().nullable();
+          }
           break;
         case FieldType.BOOLEAN:
-          fieldSchema = z.boolean();
+          fieldSchema = z.boolean().default(false);
           break;
         default:
           fieldSchema = z.any();
-      }
-      if (field.required) {
-        if (fieldSchema instanceof z.ZodString) {
-          fieldSchema = fieldSchema.min(1, `${field.label} is required.`);
-        } else {
-           fieldSchema = fieldSchema.refine(val => val !== undefined && val !== null && val !== '', {
-            message: `${field.label} is required.`,
-          });
-        }
-      } else {
-        fieldSchema = fieldSchema.optional().nullable();
       }
       shape[`data.${field.key}`] = fieldSchema;
     });
@@ -109,23 +115,22 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         data: {},
       },
   });
-  
+
    useEffect(() => {
      const newSchema = generateSchema(selectedCategory?.fields);
      setCurrentSchema(newSchema);
-    
+
     const defaultData: Record<string, any> = {};
     selectedCategory?.fields.forEach(field => {
-        // For user-only fields, we don't set a default value for admin input.
         if (field.description?.includes(USER_ONLY_FIELD_MARKER)) {
-            if (initialData?.data?.[field.key] !== undefined) { // If editing and data exists, pass it for display
+            if (initialData?.data?.[field.key] !== undefined) {
                  if (field.type === FieldType.DATE && typeof initialData.data[field.key] === 'string') {
                     defaultData[field.key] = parseISO(initialData.data[field.key]);
                 } else {
                     defaultData[field.key] = initialData.data[field.key];
                 }
             } else {
-                 defaultData[field.key] = undefined; 
+                 defaultData[field.key] = undefined;
             }
             return;
         }
@@ -139,8 +144,8 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
             }
         } else {
             if (field.type === FieldType.BOOLEAN) defaultData[field.key] = false;
-            else if (field.type === FieldType.NUMBER) defaultData[field.key] = undefined; 
-            else defaultData[field.key] = ''; 
+            else if (field.type === FieldType.NUMBER) defaultData[field.key] = undefined; // Use undefined for empty numbers
+            else defaultData[field.key] = '';
         }
     });
 
@@ -150,8 +155,8 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
       publishAt: initialData?.publishAt ? parseISO(initialData.publishAt) : undefined,
       data: defaultData,
     }, {
-      keepDirtyValues: false, 
-      keepErrors: false, 
+      keepDirtyValues: false,
+      keepErrors: false,
     });
   }, [selectedCategory, initialData, generateSchema, form]);
 
@@ -192,30 +197,34 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
     }
     setIsSuggesting(false);
   };
-  
+
   const watchStatus = form.watch('status');
 
   const transformedSubmit = async (formData: z.infer<typeof currentSchema>) => {
     setIsSubmitting(true);
 
-    // Filter out user-only fields from the data to be submitted
     const adminEditableData: Record<string, any> = {};
     if (formData.data) {
       for (const key in formData.data) {
         const fieldDefinition = selectedCategory.fields.find(f => f.key === key);
         if (fieldDefinition && !fieldDefinition.description?.includes(USER_ONLY_FIELD_MARKER)) {
-          adminEditableData[key] = formData.data[key];
+          // Ensure numbers are numbers, not strings, if form data is mixed
+          if (fieldDefinition.type === FieldType.NUMBER && typeof formData.data[key] === 'string') {
+            adminEditableData[key] = formData.data[key] === '' ? undefined : parseFloat(formData.data[key]);
+          } else {
+            adminEditableData[key] = formData.data[key];
+          }
         }
       }
     }
-    
+
     const submissionPayload = {
         title: formData.title,
-        categoryId: selectedCategory.id, 
-        categoryName: selectedCategory.name, 
+        categoryId: selectedCategory.id,
+        categoryName: selectedCategory.name,
         status: formData.status,
-        publishAt: formData.status === 'scheduled' && formData.publishAt ? formData.publishAt.toISOString() : null, 
-        data: adminEditableData, // Send only admin-editable data
+        publishAt: formData.status === 'scheduled' && formData.publishAt ? formData.publishAt.toISOString() : null,
+        data: adminEditableData,
     };
 
     let result;
@@ -230,11 +239,11 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         toast({ title: "Success", description: `Entry ${initialData ? 'updated' : 'created'} successfully.`});
         if (onSubmitSuccess) onSubmitSuccess();
         else router.push(`/admin/entries?category=${selectedCategory.id}`);
-         form.reset({ 
+         form.reset({
             title: '',
             status: 'draft',
             publishAt: undefined,
-            data: Object.fromEntries(selectedCategory.fields.filter(f => !f.description?.includes(USER_ONLY_FIELD_MARKER)).map(field => [field.key, field.type === FieldType.BOOLEAN ? false : '']))
+            data: Object.fromEntries(selectedCategory.fields.filter(f => !f.description?.includes(USER_ONLY_FIELD_MARKER)).map(field => [field.key, field.type === FieldType.BOOLEAN ? false : (field.type === FieldType.NUMBER ? undefined : '')]))
         });
     } else if (result && "error" in result && result.error) {
         toast({ title: "Error", description: result.error, variant: "destructive" });
@@ -250,13 +259,13 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
               <CardHeader>
                 <CardTitle className="font-headline">Entry Details</CardTitle>
                 <UiCardDescription>
-                  Content for category: <span className="font-semibold text-primary">{selectedCategory?.name || "N/A"}</span>
+                  Content for category: <span className="font-semibold text-primary">{selectedCategory.name}</span>
                 </UiCardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                  <FormField
                     control={form.control}
-                    name="title" 
+                    name="title"
                     render={({ field }) => (
                         <FormItem>
                         <FormLabel>Entry Title</FormLabel>
@@ -291,13 +300,12 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                     );
                   }
 
-                  // Render normal form field for admin
                   return (
                     <FormField
-                      key={catField.id} 
+                      key={catField.id}
                       control={form.control}
-                      name={`data.${catField.key}`} 
-                      render={({ field: formHookField }) => ( 
+                      name={`data.${catField.key}`}
+                      render={({ field: formHookField }) => (
                         <FormItem>
                           <FormLabel>{catField.label}{catField.required && <span className="text-destructive">*</span>}</FormLabel>
                           {catField.description && <FormDescription>{catField.description}</FormDescription>}
@@ -305,7 +313,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                             <div>
                               {catField.type === FieldType.TEXT && <Input placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} {...formHookField} value={formHookField.value || ''} />}
                               {catField.type === FieldType.TEXTAREA && <Textarea placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} {...formHookField} value={formHookField.value || ''} rows={5} />}
-                              {catField.type === FieldType.NUMBER && <Input type="number" placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} {...formHookField} value={formHookField.value || ''} onChange={e => formHookField.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}/>}
+                              {catField.type === FieldType.NUMBER && <Input type="number" placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} {...formHookField} value={formHookField.value === undefined || formHookField.value === null ? '' : String(formHookField.value)} onChange={e => formHookField.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}/>}
                               {catField.type === FieldType.BOOLEAN && (
                                 <div className="flex items-center space-x-2 h-10">
                                   <Checkbox id={`data.${catField.key}`} checked={!!formHookField.value} onCheckedChange={formHookField.onChange} />
@@ -416,7 +424,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                   <FormField
                     control={form.control}
                     name="publishAt"
-                    rules={{ 
+                    rules={{
                         validate: value => {
                             if (!value) return "Publish date and time is required for scheduled entries.";
                             if (value < new Date(new Date().setHours(0,0,0,0))) return "Publish date cannot be in the past.";
@@ -460,8 +468,8 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                               initialFocus
                             />
                             <div className="p-2 border-t">
-                                <Input 
-                                    type="time" 
+                                <Input
+                                    type="time"
                                     defaultValue={field.value ? format(field.value, "HH:mm") : "09:00"}
                                     onChange={(e) => {
                                         const time = e.target.value;
@@ -492,9 +500,9 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                 title: initialData?.title || '',
                 status: initialData?.status || 'draft',
                 publishAt: initialData?.publishAt ? parseISO(initialData.publishAt) : undefined,
-                data: initialData?.data ? 
-                      Object.fromEntries(selectedCategory.fields.filter(f => !f.description?.includes(USER_ONLY_FIELD_MARKER)).map(f => [f.key, initialData.data[f.key] || (f.type === FieldType.BOOLEAN ? false : '')])) 
-                      : Object.fromEntries(selectedCategory.fields.filter(f => !f.description?.includes(USER_ONLY_FIELD_MARKER)).map(f => [f.key, f.type === FieldType.BOOLEAN ? false : '']))
+                data: initialData?.data ?
+                      Object.fromEntries(selectedCategory.fields.filter(f => !f.description?.includes(USER_ONLY_FIELD_MARKER)).map(f => [f.key, initialData.data[f.key] || (f.type === FieldType.BOOLEAN ? false : (f.type === FieldType.NUMBER ? undefined : ''))]))
+                      : Object.fromEntries(selectedCategory.fields.filter(f => !f.description?.includes(USER_ONLY_FIELD_MARKER)).map(f => [f.key, f.type === FieldType.BOOLEAN ? false : (f.type === FieldType.NUMBER ? undefined : '')]))
             })}>Cancel</Button>
           <Button type="submit" disabled={isSubmitting || !selectedCategory}>
             {isSubmitting ? (
@@ -509,5 +517,3 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
     </Form>
   );
 }
-
-    
