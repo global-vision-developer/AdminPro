@@ -24,7 +24,7 @@ interface AuthContextType {
   loading: boolean;
 }
 
-const ADMINS_COLLECTION = "admins"; // Changed from "users"
+const ADMINS_COLLECTION = "admins";
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -40,7 +40,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       console.log(`AuthContext: onAuthStateChanged callback. FirebaseUser UID: ${firebaseUser ? firebaseUser.uid : 'null'}. Email: ${firebaseUser?.email}`);
       if (firebaseUser) {
-        const userDocRef = doc(db, ADMINS_COLLECTION, firebaseUser.uid); // Use ADMINS_COLLECTION
+        const userDocRef = doc(db, ADMINS_COLLECTION, firebaseUser.uid);
         console.log(`AuthContext: Attempting to get Firestore doc for UID: ${firebaseUser.uid} from path: ${userDocRef.path}`);
         try {
           const userDocSnap = await getDoc(userDocRef);
@@ -82,7 +82,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 createdAt: serverTimestamp(), 
                 updatedAt: serverTimestamp(),
               };
-              await setDoc(userDocRef, newFirestoreDocData); // userDocRef points to ADMINS_COLLECTION
+              await setDoc(userDocRef, newFirestoreDocData);
               profileName = nameForDoc;
               profileAvatar = avatarForDoc;
               userRoleFromFirestore = UserRole.SUB_ADMIN; 
@@ -141,21 +141,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await signInWithEmailAndPassword(auth, email, password);
       console.log(`AuthContext: Login successful for ${email}. onAuthStateChanged will handle setting admin data.`);
+      // No direct navigation here, onAuthStateChanged handles it.
     } catch (error: any) {
       console.error("AuthContext: Firebase login error:", error);
       let friendlyMessage = "Нэвтрэхэд алдаа гарлаа. Таны имэйл эсвэл нууц үг буруу байна.";
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-email' || error.code === 'auth/invalid-credential') {
-        friendlyMessage = "Хэрэглэгч олдсонгүй эсвэл имэйл/нууц үг буруу байна. Бүртгэлтэй имэйл хаягаа оруулна уу.";
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-email') {
+        friendlyMessage = "Хэрэглэгч олдсонгүй эсвэл имэйл буруу байна. Бүртгэлтэй имэйл хаягаа шалгана уу.";
       } else if (error.code === 'auth/wrong-password') {
-        friendlyMessage = "Имэйл эсвэл нууц үг буруу байна.";
+        friendlyMessage = "Нууц үг буруу байна. Нууц үгээ шалгана уу.";
+      } else if (error.code === 'auth/invalid-credential') {
+        friendlyMessage = "Имэйл эсвэл нууц үг буруу байна. Та Firebase прожектийн тохиргоо болон Authentication хэсэгт хэрэглэгч үүсгэсэн эсэх, Email/Password нэвтрэх арга идэвхжсэн эсэхийг шалгана уу.";
       } else if (error.code === 'auth/too-many-requests') {
         friendlyMessage = "Хэт олон удаагийн буруу оролдлого. Түр хүлээгээд дахин оролдоно уу.";
       } else if (error.message) {
         friendlyMessage = `Алдаа: ${error.message} (Код: ${error.code})`;
       }
-      toast({ title: "Нэвтрэхэд алдаа гарлаа", description: friendlyMessage, variant: "destructive", duration: 7000 });
+      toast({ title: "Нэвтрэхэд алдаа гарлаа", description: friendlyMessage, variant: "destructive", duration: 10000 });
       setLoading(false); 
     }
+    // setLoading(false) is handled by onAuthStateChanged or catch block
   }, [toast]);
 
   const logout = useCallback(async () => {
@@ -171,6 +175,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error("AuthContext: Firebase logout error:", error);
       toast({ title: "Гарахад алдаа гарлаа", description: error.message, variant: "destructive" });
     }
+    // setLoading(false) will be handled by onAuthStateChanged
   }, [router, toast]);
 
   return (
@@ -179,5 +184,3 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     </AuthContext.Provider>
   );
 };
-
-    
