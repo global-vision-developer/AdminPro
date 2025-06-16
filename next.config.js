@@ -32,7 +32,13 @@ const nextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'images.trvl-media.com', // Added this new hostname
+        hostname: 'images.trvl-media.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'company.e-mart.mn', // Added this new hostname
         port: '',
         pathname: '/**',
       }
