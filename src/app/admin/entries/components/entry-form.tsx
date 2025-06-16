@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription as UiCardDescription } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription, useFormField } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -28,21 +28,19 @@ import { useToast } from '@/hooks/use-toast';
 
 interface EntryFormProps {
   initialData?: Entry | null;
-  categories: Category[]; // All available categories (might not be needed if selectedCategory is always robust)
-  selectedCategory: Category; // The currently selected category object
+  categories: Category[];
+  selectedCategory: Category; 
   onSubmitSuccess?: () => void;
 }
 
 const USER_ONLY_FIELD_MARKER = "аппликейшний хэрэглэгчид бөглөнө";
 
-// Moved generateSchema outside the component to be a pure function
 const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, any> => {
   const shape: Record<string, z.ZodTypeAny> = {
     title: z.string().trim().min(1, { message: "Бичлэгийн гарчгийг заавал бөглөнө үү." }),
     status: z.enum(['draft', 'published', 'scheduled']).default('draft'),
     publishAt: z.date().optional().nullable(),
-    // Initialize data as an object schema. Specific fields will be added based on category.
-    data: z.object({}).passthrough(), // Use passthrough to allow any fields initially
+    data: z.object({}).passthrough(), 
   };
 
   const dataShape: Record<string, z.ZodTypeAny> = {};
@@ -59,7 +57,6 @@ const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, a
         if (field.required) {
           fieldSchema = z.string().trim().min(1, { message: `${field.label} талбарыг заавал бөглөнө үү.` });
         } else {
-          // Allow empty string, but treat null/undefined as empty string for form binding
           fieldSchema = z.string().optional().nullable().transform(val => val ?? '');
         }
         break;
@@ -119,10 +116,10 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
   const [aiError, setAiError] = useState<string | null>(null);
 
   const formSchema = useMemo(() => generateSchema(selectedCategory?.fields), [selectedCategory]);
-
+  
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    mode: 'onChange', 
+    mode: 'onChange',
     defaultValues: () => {
         const defaultDataValues: Record<string, any> = {};
         selectedCategory?.fields?.forEach(field => {
@@ -149,29 +146,19 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                 if (field.type === FieldType.BOOLEAN) defaultDataValues[field.key] = false;
                 else if (field.type === FieldType.NUMBER) defaultDataValues[field.key] = undefined; 
                 else if (field.type === FieldType.DATE) defaultDataValues[field.key] = undefined;
-                else defaultDataValues[field.key] = ''; // TEXT, TEXTAREA
+                else defaultDataValues[field.key] = '';
             }
         });
         
         return {
             title: initialData?.title || '',
             status: initialData?.status || 'draft',
-            publishAt: initialData?.publishAt ? parseISO(initialData.publishAt) : null, // Ensure null for empty dates
+            publishAt: initialData?.publishAt ? parseISO(initialData.publishAt) : null,
             data: defaultDataValues,
         };
     }
   });
   
-  // This useEffect will re-run when selectedCategory changes, which might trigger a form value reset
-  // if `defaultValues` in `useForm` is not a function or not memoized correctly with selectedCategory.
-  // Since defaultValues is now a function, this explicit reset might be redundant IF the component is re-keyed.
-  // If the component is NOT re-keyed, this explicit reset is necessary.
-  // Let's keep it for now if re-keying is only on NewEntryPage.
-   useEffect(() => {
-    form.reset(form.formState.defaultValues); // Reset to the values derived from the defaultValues function
-  }, [selectedCategory, initialData, form]);
-
-
   const handleGetSuggestions = async () => {
     if (!selectedCategory) {
       setAiError("Please ensure a category is selected.");
@@ -220,7 +207,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         if (initialData?.data && initialData.data.hasOwnProperty(field.key)) {
              adminEditableData[field.key] = initialData.data[field.key];
         } else {
-            adminEditableData[field.key] = null; // Or undefined, depending on desired Firestore behavior
+            adminEditableData[field.key] = null;
         }
         return; 
       }
@@ -231,30 +218,20 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
       
       switch (field.type) {
         case FieldType.NUMBER:
-          if (typeof valueFromForm === 'number') {
-            valueToSave = valueFromForm;
-          } else { 
-            valueToSave = null; // Store null if not a valid number or empty
-          }
+          valueToSave = (typeof valueFromForm === 'number') ? valueFromForm : null;
           break;
         case FieldType.DATE:
-          if (valueFromForm instanceof Date) {
-            valueToSave = valueFromForm.toISOString();
-          } else {
-            valueToSave = null; 
-          }
+          valueToSave = (valueFromForm instanceof Date) ? valueFromForm.toISOString() : null;
           break;
         case FieldType.BOOLEAN:
           valueToSave = !!valueFromForm; 
           break;
         case FieldType.TEXT:
         case FieldType.TEXTAREA:
-          // Ensure empty strings are saved, not null/undefined, if that's the intent.
-          // Zod transform already makes it '' if null/undefined.
           valueToSave = (typeof valueFromForm === 'string') ? valueFromForm : '';
           break;
         default:
-          valueToSave = valueFromForm; // For any other types or 'any'
+          valueToSave = valueFromForm;
       }
       adminEditableData[key] = valueToSave;
     });
@@ -281,7 +258,6 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         if (onSubmitSuccess) onSubmitSuccess();
         else router.push(`/admin/entries?category=${selectedCategory.id}`);
         
-        // Reset form to its default state after successful submission (for new entries)
         if(!initialData) {
             form.reset(form.formState.defaultValues);
         }
@@ -292,7 +268,6 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
   };
 
   const handleCancel = () => {
-    // Reset form to its default state (initial or empty)
     form.reset(form.formState.defaultValues);
     router.back();
   };
@@ -352,84 +327,94 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                       key={catField.id}
                       control={form.control}
                       name={`data.${catField.key}`}
-                      render={({ field: formHookField }) => (
-                        <FormItem>
-                          <FormLabel>{catField.label}{catField.required && <span className="text-destructive">*</span>}</FormLabel>
-                          {catField.description && <FormDescription>{catField.description}</FormDescription>}
-                          <FormControl>
-                            <>
-                              {catField.type === FieldType.TEXT && (
+                      render={({ field: formHookField }) => {
+                        const { formItemId } = useFormField(); // Get ID for associating label with checkbox
+                        return (
+                            <FormItem>
+                            <FormLabel>{catField.label}{catField.required && <span className="text-destructive">*</span>}</FormLabel>
+                            {catField.description && <FormDescription>{catField.description}</FormDescription>}
+                            
+                            {catField.type === FieldType.TEXT && (
+                                <FormControl>
                                 <Input 
-                                  placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} 
-                                  {...formHookField}
+                                    placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} 
+                                    {...formHookField}
                                 />
-                              )}
-                              {catField.type === FieldType.TEXTAREA && (
+                                </FormControl>
+                            )}
+                            {catField.type === FieldType.TEXTAREA && (
+                                <FormControl>
                                 <Textarea 
-                                  placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} 
-                                  {...formHookField}
-                                  rows={5}
+                                    placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} 
+                                    {...formHookField}
+                                    rows={5}
                                 />
-                              )}
-                              {catField.type === FieldType.NUMBER && (
+                                </FormControl>
+                            )}
+                            {catField.type === FieldType.NUMBER && (
+                                <FormControl>
                                 <Input 
-                                  type="text" // Use text to allow empty input initially, Zod handles conversion/validation
-                                  inputMode="numeric" 
-                                  pattern="[0-9]*\.?[0-9]*"
-                                  placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} 
-                                  {...formHookField} 
-                                  // RHF handles value conversion based on schema and registration
-                                  // Ensure value is string for input, or empty string
-                                  value={formHookField.value === undefined || formHookField.value === null ? '' : String(formHookField.value)}
-                                  onChange={e => {
+                                    type="text" 
+                                    inputMode="numeric" 
+                                    pattern="[0-9]*\.?[0-9]*"
+                                    placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} 
+                                    {...formHookField} 
+                                    value={formHookField.value === undefined || formHookField.value === null ? '' : String(formHookField.value)}
+                                    onChange={e => {
                                     const val = e.target.value;
-                                    // Pass string to RHF, Zod preprocessor will handle it
                                     formHookField.onChange(val === '' ? undefined : val);
-                                  }}
+                                    }}
                                 />
-                              )}
-                              {catField.type === FieldType.BOOLEAN && (
-                                <div className="flex items-center space-x-2 h-10">
-                                  <Checkbox 
-                                    id={`data.${catField.key}`}
+                                </FormControl>
+                            )}
+                            {catField.type === FieldType.BOOLEAN && (
+                                <div className="flex items-center space-x-2 h-10 pt-2.5">
+                                <FormControl>
+                                    <Checkbox 
                                     {...formHookField}
                                     checked={!!formHookField.value} 
                                     onCheckedChange={formHookField.onChange}
-                                  />
-                                  <label htmlFor={`data.${catField.key}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                    // id={formItemId} // FormControl passes it
+                                    />
+                                </FormControl>
+                                <label
+                                    htmlFor={formItemId} // Use the ID from FormControl
+                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                >
                                     {catField.placeholder || 'Enable'}
-                                  </label>
+                                </label>
                                 </div>
-                              )}
-                              {catField.type === FieldType.DATE && (
+                            )}
+                            {catField.type === FieldType.DATE && (
                                 <Popover>
-                                  <PopoverTrigger asChild>
+                                <PopoverTrigger asChild>
+                                    <FormControl>
                                     <Button
-                                      variant={"outline"}
-                                      className={cn(
+                                        variant={"outline"}
+                                        className={cn(
                                         "w-full justify-start text-left font-normal",
                                         !formHookField.value && "text-muted-foreground"
-                                      )}
+                                        )}
                                     >
-                                      <CalendarIcon className="mr-2 h-4 w-4" />
-                                      {formHookField.value ? format(formHookField.value instanceof Date ? formHookField.value : parseISO(formHookField.value as unknown as string), "PPP") : <span>{catField.placeholder || 'Pick a date'}</span>}
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {formHookField.value ? format(formHookField.value instanceof Date ? formHookField.value : parseISO(formHookField.value as unknown as string), "PPP") : <span>{catField.placeholder || 'Pick a date'}</span>}
                                     </Button>
-                                  </PopoverTrigger>
-                                  <PopoverContent className="w-auto p-0">
+                                    </FormControl>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
                                     <Calendar
-                                      mode="single"
-                                      selected={formHookField.value instanceof Date ? formHookField.value : (formHookField.value ? parseISO(formHookField.value as unknown as string) : undefined)}
-                                      onSelect={formHookField.onChange}
-                                      initialFocus
+                                    mode="single"
+                                    selected={formHookField.value instanceof Date ? formHookField.value : (formHookField.value ? parseISO(formHookField.value as unknown as string) : undefined)}
+                                    onSelect={formHookField.onChange}
+                                    initialFocus
                                     />
-                                  </PopoverContent>
+                                </PopoverContent>
                                 </Popover>
-                              )}
-                            </>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                            )}
+                            <FormMessage />
+                            </FormItem>
+                        );
+                      }}
                     />
                   );
                 })}
