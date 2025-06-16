@@ -77,7 +77,7 @@ Console Error: Firestore query requires an index. Please check Firebase console 
 
 This **specifically means** the query on the `entries` collection (likely in `src/lib/actions/entryActions.ts` -> `getEntries` when filtering by `categoryId` and ordering by `createdAt`) **needs an index configured in your Firebase project.**
 
-**To fix this (for the `setgelzuin-app` project):**
+**To fix this (for the `setgelzuin-app` project, as indicated by YOUR error message):**
 
 1.  **Click the link provided in YOUR error message in the console.** For the `setgelzuin-app` project, the specific link you are encountering is:
     `https://console.firebase.google.com/v1/r/project/setgelzuin-app/firestore/indexes?create_composite=Ck5wcm9qZWN0cy9zZXRnZWx6dWluLWFwcC9kYXRhYmFzZXMvKGRlZmF1bHQpL2NvbGxlY3Rpb25Hcm91cHMvZW50cmllcy9pbmRleGVzL18QARoOCgpjYXRlZ29yeUlkEAEaDQoJY3JlYXRlZEF0EAIaDAoIX19uYW1lX18QAg`
@@ -141,3 +141,6 @@ NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=YOUR_MEASUREMENT_ID (optional)
 ```
 Replace `YOUR_...` with your actual Firebase project credentials.
 Remember to restart your development server (`npm run dev`) after creating or modifying `.env.local`.
+
+
+    
