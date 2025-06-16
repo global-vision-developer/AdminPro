@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -44,7 +45,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
 
   const generateSchema = useCallback((fields: FieldDefinition[] = []) => {
     const shape: Record<string, z.ZodTypeAny> = {
-      title: z.string().min(1, { message: "Бичлэгийн гарчгийг заавал бөглөнө үү." }),
+      title: z.string().trim().min(1, { message: "Бичлэгийн гарчгийг заавал бөглөнө үү." }),
       status: z.enum(['draft', 'published', 'scheduled']).default('draft'),
       publishAt: z.date().optional().nullable(),
     };
@@ -60,29 +61,29 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         case FieldType.TEXT:
         case FieldType.TEXTAREA:
           if (field.required) {
-            fieldSchema = z.string().min(1, { message: `${field.label} талбарыг заавал бөглөнө үү.` });
+            fieldSchema = z.string().trim().min(1, { message: `${field.label} талбарыг заавал бөглөнө үү.` });
           } else {
             fieldSchema = z.string().optional().nullable();
           }
           break;
         case FieldType.NUMBER:
           if (field.required) {
-            fieldSchema = z.coerce
-              .number({
-                required_error: `${field.label} талбарыг заавал бөглөнө үү.`,
-                invalid_type_error: `${field.label} тоон утга байх ёстой.`,
-              })
-              .refine(val => !isNaN(val), {
-                message: `${field.label} зөв тоон утга байх ёстой.`,
-              });
+            fieldSchema = z.preprocess(
+              (val) => (val === "" || val === undefined || val === null ? undefined : String(val)), 
+              z.string()
+                .nonempty({ message: `${field.label} талбарыг заавал бөглөнө үү.` })
+                .refine((val) => !isNaN(parseFloat(val)), { message: `${field.label} тоон утга байх ёстой.` })
+                .transform(Number)
+            );
           } else {
-            fieldSchema = z.coerce
-              .number({
-                invalid_type_error: `${field.label} тоон утга байх ёстой.`,
-              })
-              .optional()
-              .nullable()
-              .transform(val => val === null || val === undefined ? undefined : val);
+            fieldSchema = z.preprocess(
+              (val) => (val === "" || val === null || val === undefined ? undefined : String(val)),
+              z.string()
+                .optional()
+                .nullable()
+                .refine((val) => val === undefined || val === null || val === '' || !isNaN(parseFloat(val)), { message: `${field.label} тоон утга байх ёстой.` })
+                .transform(val => (val === undefined || val === null || val === '') ? null : Number(val))
+            );
           }
           break;
         case FieldType.DATE:
@@ -121,8 +122,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
 
   const form = useForm<z.infer<typeof currentSchema>>({
     resolver: zodResolver(currentSchema),
-    mode: 'onBlur', // onChange-г onBlur болгож өөрчлөх
-    reValidateMode: 'onBlur', // Дахин validation хийх горим
+    mode: 'onChange', 
     defaultValues: initialData ? {
         title: initialData.title || '',
         status: initialData.status,
@@ -145,8 +145,12 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         if (field.description?.includes(USER_ONLY_FIELD_MARKER)) {
             if (initialData?.data?.[field.key] !== undefined) {
                  if (field.type === FieldType.DATE && typeof initialData.data[field.key] === 'string') {
+                    try { defaultDataForReset[field.key] = parseISO(initialData.data[field.key] as string); } catch (e) { defaultDataForReset[field.key] = undefined; }
                  } else {
+                    defaultDataForReset[field.key] = initialData.data[field.key];
                  }
+            } else {
+                 defaultDataForReset[field.key] = undefined;
             }
             return;
         }
@@ -160,18 +164,15 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                 } catch (e) {
                     defaultDataForReset[field.key] = undefined;
                 }
-            } else if (field.type === FieldType.NUMBER && (typeof initialValueFromData === 'string' && initialValueFromData.trim() === '')) {
-                defaultDataForReset[field.key] = undefined;
-            }
-             else {
+            } else if (field.type === FieldType.NUMBER) {
+                 defaultDataForReset[field.key] = (initialValueFromData === '' || initialValueFromData === null || initialValueFromData === undefined) ? undefined : initialValueFromData;
+            } else {
                 defaultDataForReset[field.key] = initialValueFromData;
             }
         } else {
             if (field.type === FieldType.BOOLEAN) defaultDataForReset[field.key] = false;
-            else if (field.type === FieldType.NUMBER) defaultDataForReset[field.key] = undefined;
+            else if (field.type === FieldType.NUMBER) defaultDataForReset[field.key] = undefined; 
             else if (field.type === FieldType.DATE) defaultDataForReset[field.key] = undefined;
-            // For new forms, non-boolean/number/date fields (like TEXT, TEXTAREA) should default to empty string
-            // to ensure they are controlled components from the start.
             else defaultDataForReset[field.key] = '';
         }
     });
@@ -230,18 +231,54 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
     setIsSubmitting(true);
 
     const adminEditableData: Record<string, any> = {};
-    if (formData.data) {
-      for (const key in formData.data) {
-        const fieldDefinition = selectedCategory.fields.find(f => f.key === key);
-        if (fieldDefinition && !fieldDefinition.description?.includes(USER_ONLY_FIELD_MARKER)) {
-          if (fieldDefinition.type === FieldType.NUMBER && typeof formData.data[key] === 'string') {
-            adminEditableData[key] = formData.data[key] === '' ? undefined : parseFloat(formData.data[key]);
-          } else {
-            adminEditableData[key] = formData.data[key];
-          }
+    selectedCategory.fields.forEach(field => {
+      if (field.description?.includes(USER_ONLY_FIELD_MARKER)) {
+        if (initialData?.data && initialData.data.hasOwnProperty(field.key)) {
+             adminEditableData[field.key] = initialData.data[field.key];
         }
+        return; 
       }
-    }
+
+      const key = field.key;
+      let valueToSave: any = undefined; 
+
+      if (formData.data && formData.data.hasOwnProperty(key)) {
+        valueToSave = formData.data[key];
+      }
+      
+      switch (field.type) {
+        case FieldType.NUMBER:
+          if (valueToSave === null || valueToSave === undefined || valueToSave === '' || isNaN(Number(valueToSave))) {
+             valueToSave = null;
+          } else {
+             valueToSave = Number(valueToSave);
+          }
+          break;
+        case FieldType.DATE:
+          if (valueToSave instanceof Date) {
+            valueToSave = valueToSave.toISOString();
+          } else if (typeof valueToSave === 'string') {
+            try {
+              valueToSave = parseISO(valueToSave).toISOString(); 
+            } catch (e) {
+              valueToSave = null; 
+            }
+          } else {
+            valueToSave = null; 
+          }
+          break;
+        case FieldType.BOOLEAN:
+          valueToSave = !!valueToSave; 
+          break;
+        case FieldType.TEXT:
+        case FieldType.TEXTAREA:
+          valueToSave = (valueToSave === undefined || valueToSave === null) ? '' : String(valueToSave);
+          break;
+        default:
+          valueToSave = (valueToSave === undefined) ? null : valueToSave;
+      }
+      adminEditableData[key] = valueToSave;
+    });
 
     const submissionPayload = {
         title: formData.title,
@@ -268,7 +305,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         const resetData: Record<string, any> = {};
         selectedCategory.fields.filter(f => !f.description?.includes(USER_ONLY_FIELD_MARKER)).forEach(field => {
             if (field.type === FieldType.BOOLEAN) resetData[field.key] = false;
-            else if (field.type === FieldType.NUMBER) resetData[field.key] = undefined;
+            else if (field.type === FieldType.NUMBER) resetData[field.key] = undefined; 
             else if (field.type === FieldType.DATE) resetData[field.key] = undefined;
             else resetData[field.key] = '';
         });
@@ -294,8 +331,8 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         if (initialValueFromData !== undefined && initialValueFromData !== null) {
             if (field.type === FieldType.DATE && typeof initialValueFromData === 'string') {
                  try { defaultDataForReset[field.key] = parseISO(initialValueFromData); } catch (e) { defaultDataForReset[field.key] = undefined; }
-            } else if (field.type === FieldType.NUMBER && (typeof initialValueFromData === 'string' && initialValueFromData.trim() === '')) {
-                defaultDataForReset[field.key] = undefined;
+            } else if (field.type === FieldType.NUMBER) {
+                defaultDataForReset[field.key] = (initialValueFromData === '' || initialValueFromData === null || initialValueFromData === undefined) ? undefined : initialValueFromData;
             }
             else {
                 defaultDataForReset[field.key] = initialValueFromData;
@@ -357,7 +394,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                         {catField.description && <FormDescription>{catField.description}</FormDescription>}
                         <div className="p-3 mt-1 text-sm text-muted-foreground border rounded-md bg-muted/30 shadow-sm">
                           Энэ талбарт админ утга оруулахгүй. Аппликейшний хэрэглэгчид бөглөнө.
-                           {initialData?.data?.[catField.key] && (
+                           {initialData?.data?.[catField.key] !== undefined && initialData?.data?.[catField.key] !== null && (
                             <span className="block mt-1 text-xs italic"> (Одоогийн утга: {String(initialData.data[catField.key])})</span>
                            )}
                         </div>
@@ -381,13 +418,6 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                                   placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} 
                                   {...formHookField} 
                                   value={formHookField.value ?? ''} 
-                                  onChange={(e) => {
-                                    formHookField.onChange(e.target.value);
-                                    // Хэрэв required талбар бөгөөд утга оруулсан бол error-г арилгах
-                                    if (catField.required && e.target.value.trim()) {
-                                      form.clearErrors(`data.${catField.key}`);
-                                    }
-                                  }}
                                 />
                               )}
                               {catField.type === FieldType.TEXTAREA && (
@@ -396,29 +426,17 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                                   {...formHookField} 
                                   value={formHookField.value ?? ''} 
                                   rows={5}
-                                  onChange={(e) => {
-                                    formHookField.onChange(e.target.value);
-                                    // Хэрэв required талбар бөгөөд утга оруулсан бол error-г арилгах
-                                    if (catField.required && e.target.value.trim()) {
-                                      form.clearErrors(`data.${catField.key}`);
-                                    }
-                                  }}
                                 />
                               )}
                               {catField.type === FieldType.NUMBER && (
                                 <Input 
-                                  type="number" 
+                                  type="text" 
+                                  inputMode="numeric" 
+                                  pattern="[0-9]*\.?[0-9]*"
                                   placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} 
                                   {...formHookField} 
-                                  value={formHookField.value === undefined || formHookField.value === null ? '' : String(formHookField.value)} 
-                                  onChange={e => {
-                                    const value = e.target.value === '' ? undefined : parseFloat(e.target.value);
-                                    formHookField.onChange(value);
-                                    // Хэрэв required талбар бөгөөд утга оруулсан бол error-г арилгах
-                                    if (catField.required && !isNaN(value as number)) {
-                                      form.clearErrors(`data.${catField.key}`);
-                                    }
-                                  }}
+                                  value={formHookField.value === undefined || formHookField.value === null ? '' : String(formHookField.value)}
+                                  onChange={e => formHookField.onChange(e.target.value === '' ? undefined : e.target.value)}
                                 />
                               )}
                               {catField.type === FieldType.BOOLEAN && (
@@ -426,11 +444,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                                   <Checkbox 
                                     id={`data.${catField.key}`} 
                                     checked={!!formHookField.value} 
-                                    onCheckedChange={(checked) => {
-                                      formHookField.onChange(checked);
-                                      // Boolean талбарт required error байдаггүй ч эрүүл мэндийн үүднээс clearErrors хийе
-                                      form.clearErrors(`data.${catField.key}`);
-                                    }}
+                                    onCheckedChange={formHookField.onChange}
                                   />
                                   <label htmlFor={`data.${catField.key}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                                     {catField.placeholder || 'Enable'}
@@ -455,13 +469,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                                     <Calendar
                                       mode="single"
                                       selected={formHookField.value instanceof Date ? formHookField.value : (formHookField.value ? parseISO(formHookField.value as unknown as string) : undefined)}
-                                      onSelect={(date) => {
-                                        formHookField.onChange(date);
-                                        // Хэрэв required талбар бөгөөд огноо сонгосон бол error-г арилгах
-                                        if (catField.required && date) {
-                                          form.clearErrors(`data.${catField.key}`);
-                                        }
-                                      }}
+                                      onSelect={formHookField.onChange}
                                       initialFocus
                                     />
                                   </PopoverContent>
