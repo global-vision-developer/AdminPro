@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -45,7 +44,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
 
   const generateSchema = useCallback((fields: FieldDefinition[] = []) => {
     const shape: Record<string, z.ZodTypeAny> = {
-      title: z.string().trim().min(1, { message: "Бичлэгийн гарчгийг заавал бөглөнө үү." }),
+      title: z.string().min(1, { message: "Бичлэгийн гарчгийг заавал бөглөнө үү." }),
       status: z.enum(['draft', 'published', 'scheduled']).default('draft'),
       publishAt: z.date().optional().nullable(),
     };
@@ -61,21 +60,29 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         case FieldType.TEXT:
         case FieldType.TEXTAREA:
           if (field.required) {
-            fieldSchema = z.string().trim().min(1, { message: `${field.label} талбарыг заавал бөглөнө үү.` });
+            fieldSchema = z.string().min(1, { message: `${field.label} талбарыг заавал бөглөнө үү.` });
           } else {
             fieldSchema = z.string().optional().nullable();
           }
           break;
         case FieldType.NUMBER:
           if (field.required) {
-            fieldSchema = z.string() // Input value is always string
-              .min(1, { message: `${field.label} талбарыг заавал бөглөнө үү.` }) // Ensure not empty string
-              .transform(val => Number(val)) // Transform to number after nonempty check
-              .pipe(z.number({ invalid_type_error: `${field.label} тоон утга байх ёстой.` }));
+            fieldSchema = z.coerce
+              .number({
+                required_error: `${field.label} талбарыг заавал бөглөнө үү.`,
+                invalid_type_error: `${field.label} тоон утга байх ёстой.`,
+              })
+              .refine(val => !isNaN(val), {
+                message: `${field.label} зөв тоон утга байх ёстой.`,
+              });
           } else {
-            fieldSchema = z.string()
-              .transform(val => (val.trim() === '' ? undefined : Number(val))) // Allow empty string for optional, convert to undefined
-              .pipe(z.number({ invalid_type_error: `${field.label} тоон утга байх ёстой.` }).optional().nullable());
+            fieldSchema = z.coerce
+              .number({
+                invalid_type_error: `${field.label} тоон утга байх ёстой.`,
+              })
+              .optional()
+              .nullable()
+              .transform(val => val === null || val === undefined ? undefined : val);
           }
           break;
         case FieldType.DATE:
@@ -98,6 +105,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
       }
       shape[`data.${field.key}`] = fieldSchema;
     });
+    
     return z.object(shape).refine(data => {
       if (data.status === 'scheduled' && !data.publishAt) {
         return false;
@@ -113,64 +121,59 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
 
   const form = useForm<z.infer<typeof currentSchema>>({
     resolver: zodResolver(currentSchema),
-    mode: 'onChange',
+    mode: 'onBlur', // onChange-г onBlur болгож өөрчлөх
+    reValidateMode: 'onBlur', // Дахин validation хийх горим
     defaultValues: initialData ? {
         title: initialData.title || '',
         status: initialData.status,
         publishAt: initialData.publishAt ? parseISO(initialData.publishAt) : undefined,
-        data: initialData.data ? Object.fromEntries(Object.entries(initialData.data).map(([key, value]) => {
-          const fieldDef = selectedCategory?.fields.find(f => f.key === key);
-          if (fieldDef?.type === FieldType.NUMBER) {
-            return [key, value === null || value === undefined ? '' : String(value)]; // Convert number to string for input
-          }
-          return [key, value];
-        })) : {},
+        data: initialData.data || {},
       } : {
         title: '',
         status: 'draft',
         publishAt: undefined,
-        data: {}, // Will be populated by useEffect
+        data: {},
       },
   });
 
-  useEffect(() => {
-    const newSchema = generateSchema(selectedCategory?.fields);
-    setCurrentSchema(newSchema);
+   useEffect(() => {
+     const newSchema = generateSchema(selectedCategory?.fields);
+     setCurrentSchema(newSchema);
 
     const defaultDataForReset: Record<string, any> = {};
     selectedCategory?.fields.forEach(field => {
-      if (field.description?.includes(USER_ONLY_FIELD_MARKER)) {
-        if (initialData?.data?.[field.key] !== undefined && initialData?.data?.[field.key] !== null) {
-          defaultDataForReset[field.key] = initialData.data[field.key];
-        } else {
-            defaultDataForReset[field.key] = undefined;
+        if (field.description?.includes(USER_ONLY_FIELD_MARKER)) {
+            if (initialData?.data?.[field.key] !== undefined) {
+                 if (field.type === FieldType.DATE && typeof initialData.data[field.key] === 'string') {
+                 } else {
+                 }
+            }
+            return;
         }
-        return;
-      }
 
-      const initialValueFromData = initialData?.data?.[field.key];
+        const initialValueFromData = initialData?.data?.[field.key];
 
-      if (initialValueFromData !== undefined && initialValueFromData !== null) {
-        if (field.type === FieldType.DATE && typeof initialValueFromData === 'string') {
-          try {
-            defaultDataForReset[field.key] = parseISO(initialValueFromData);
-          } catch (e) {
-            defaultDataForReset[field.key] = undefined;
-          }
-        } else if (field.type === FieldType.NUMBER) {
-            // For editing, convert number from Firestore to string for the input
-            defaultDataForReset[field.key] = String(initialValueFromData);
+        if (initialValueFromData !== undefined && initialValueFromData !== null) {
+            if (field.type === FieldType.DATE && typeof initialValueFromData === 'string') {
+                try {
+                    defaultDataForReset[field.key] = parseISO(initialValueFromData);
+                } catch (e) {
+                    defaultDataForReset[field.key] = undefined;
+                }
+            } else if (field.type === FieldType.NUMBER && (typeof initialValueFromData === 'string' && initialValueFromData.trim() === '')) {
+                defaultDataForReset[field.key] = undefined;
+            }
+             else {
+                defaultDataForReset[field.key] = initialValueFromData;
+            }
         } else {
-          defaultDataForReset[field.key] = initialValueFromData;
+            if (field.type === FieldType.BOOLEAN) defaultDataForReset[field.key] = false;
+            else if (field.type === FieldType.NUMBER) defaultDataForReset[field.key] = undefined;
+            else if (field.type === FieldType.DATE) defaultDataForReset[field.key] = undefined;
+            // For new forms, non-boolean/number/date fields (like TEXT, TEXTAREA) should default to empty string
+            // to ensure they are controlled components from the start.
+            else defaultDataForReset[field.key] = '';
         }
-      } else {
-        // Set appropriate default values for new forms or when initialData is missing a field
-        if (field.type === FieldType.BOOLEAN) defaultDataForReset[field.key] = false;
-        // For new number/date field, Zod schema's .string() will handle empty string, then transform/pipe
-        else if (field.type === FieldType.NUMBER) defaultDataForReset[field.key] = ''; 
-        else if (field.type === FieldType.DATE) defaultDataForReset[field.key] = undefined; // Date still uses Date object
-        else defaultDataForReset[field.key] = ''; // Text/Textarea default to empty string
-      }
     });
 
     form.reset({
@@ -180,10 +183,9 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
       data: defaultDataForReset,
     }, {
       keepDirtyValues: false,
-      keepErrors: false,
+      keepErrors: false, 
     });
   }, [selectedCategory, initialData, generateSchema, form]);
-
 
   const handleGetSuggestions = async () => {
     if (!selectedCategory) {
@@ -232,12 +234,8 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
       for (const key in formData.data) {
         const fieldDefinition = selectedCategory.fields.find(f => f.key === key);
         if (fieldDefinition && !fieldDefinition.description?.includes(USER_ONLY_FIELD_MARKER)) {
-          if (fieldDefinition.type === FieldType.NUMBER) {
-             // formData.data[key] is already a number due to Zod transform/pipe or undefined
-             const value = formData.data[key];
-             adminEditableData[key] = (value === undefined || value === null || isNaN(value as number)) ? null : value;
-          } else if (fieldDefinition.type === FieldType.DATE && formData.data[key] instanceof Date) {
-             adminEditableData[key] = (formData.data[key] as Date).toISOString();
+          if (fieldDefinition.type === FieldType.NUMBER && typeof formData.data[key] === 'string') {
+            adminEditableData[key] = formData.data[key] === '' ? undefined : parseFloat(formData.data[key]);
           } else {
             adminEditableData[key] = formData.data[key];
           }
@@ -270,7 +268,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         const resetData: Record<string, any> = {};
         selectedCategory.fields.filter(f => !f.description?.includes(USER_ONLY_FIELD_MARKER)).forEach(field => {
             if (field.type === FieldType.BOOLEAN) resetData[field.key] = false;
-            else if (field.type === FieldType.NUMBER) resetData[field.key] = ''; // Reset to empty string for input
+            else if (field.type === FieldType.NUMBER) resetData[field.key] = undefined;
             else if (field.type === FieldType.DATE) resetData[field.key] = undefined;
             else resetData[field.key] = '';
         });
@@ -295,16 +293,16 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
 
         if (initialValueFromData !== undefined && initialValueFromData !== null) {
             if (field.type === FieldType.DATE && typeof initialValueFromData === 'string') {
-                try { defaultDataForReset[field.key] = parseISO(initialValueFromData); } catch (e) { defaultDataForReset[field.key] = undefined; }
-            } else if (field.type === FieldType.NUMBER) {
-                defaultDataForReset[field.key] = String(initialValueFromData); // Convert to string for input
+                 try { defaultDataForReset[field.key] = parseISO(initialValueFromData); } catch (e) { defaultDataForReset[field.key] = undefined; }
+            } else if (field.type === FieldType.NUMBER && (typeof initialValueFromData === 'string' && initialValueFromData.trim() === '')) {
+                defaultDataForReset[field.key] = undefined;
             }
             else {
                 defaultDataForReset[field.key] = initialValueFromData;
             }
         } else {
             if (field.type === FieldType.BOOLEAN) defaultDataForReset[field.key] = false;
-            else if (field.type === FieldType.NUMBER) defaultDataForReset[field.key] = ''; // Reset to empty string for input
+            else if (field.type === FieldType.NUMBER) defaultDataForReset[field.key] = undefined;
             else if (field.type === FieldType.DATE) defaultDataForReset[field.key] = undefined;
             else defaultDataForReset[field.key] = '';
         }
@@ -317,8 +315,6 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
     }, { keepErrors: false, keepDirtyValues: false });
     router.back();
   };
-
-
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(transformedSubmit)} className="space-y-8">
@@ -332,7 +328,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                 </UiCardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                  <FormField
+                 <FormField
                     control={form.control}
                     name="title"
                     render={({ field }) => (
@@ -345,7 +341,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                         <FormMessage />
                         </FormItem>
                     )}
-                  />
+                 />
 
                 {selectedCategory?.fields.map(catField => {
                   const isUserOnlyField = catField.description?.includes(USER_ONLY_FIELD_MARKER);
@@ -361,9 +357,9 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                         {catField.description && <FormDescription>{catField.description}</FormDescription>}
                         <div className="p-3 mt-1 text-sm text-muted-foreground border rounded-md bg-muted/30 shadow-sm">
                           Энэ талбарт админ утга оруулахгүй. Аппликейшний хэрэглэгчид бөглөнө.
-                            {initialData?.data?.[catField.key] && (
+                           {initialData?.data?.[catField.key] && (
                             <span className="block mt-1 text-xs italic"> (Одоогийн утга: {String(initialData.data[catField.key])})</span>
-                            )}
+                           )}
                         </div>
                       </FormItem>
                     );
@@ -380,23 +376,62 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                           {catField.description && <FormDescription>{catField.description}</FormDescription>}
                           <FormControl>
                             <div>
-                              {catField.type === FieldType.TEXT && <Input placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} {...formHookField} value={formHookField.value ?? ''} />}
-                              {catField.type === FieldType.TEXTAREA && <Textarea placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} {...formHookField} value={formHookField.value ?? ''} rows={5} />}
-                              {catField.type === FieldType.NUMBER && (
-                                <Input
-                                  type="number" 
-                                  placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`}
-                                  {...formHookField}
-                                  value={formHookField.value ?? ''} // Value from RHF is string.
-                                  onChange={e => {
-                                    // Send string to RHF; Zod will transform it.
+                              {catField.type === FieldType.TEXT && (
+                                <Input 
+                                  placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} 
+                                  {...formHookField} 
+                                  value={formHookField.value ?? ''} 
+                                  onChange={(e) => {
                                     formHookField.onChange(e.target.value);
+                                    // Хэрэв required талбар бөгөөд утга оруулсан бол error-г арилгах
+                                    if (catField.required && e.target.value.trim()) {
+                                      form.clearErrors(`data.${catField.key}`);
+                                    }
+                                  }}
+                                />
+                              )}
+                              {catField.type === FieldType.TEXTAREA && (
+                                <Textarea 
+                                  placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} 
+                                  {...formHookField} 
+                                  value={formHookField.value ?? ''} 
+                                  rows={5}
+                                  onChange={(e) => {
+                                    formHookField.onChange(e.target.value);
+                                    // Хэрэв required талбар бөгөөд утга оруулсан бол error-г арилгах
+                                    if (catField.required && e.target.value.trim()) {
+                                      form.clearErrors(`data.${catField.key}`);
+                                    }
+                                  }}
+                                />
+                              )}
+                              {catField.type === FieldType.NUMBER && (
+                                <Input 
+                                  type="number" 
+                                  placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} 
+                                  {...formHookField} 
+                                  value={formHookField.value === undefined || formHookField.value === null ? '' : String(formHookField.value)} 
+                                  onChange={e => {
+                                    const value = e.target.value === '' ? undefined : parseFloat(e.target.value);
+                                    formHookField.onChange(value);
+                                    // Хэрэв required талбар бөгөөд утга оруулсан бол error-г арилгах
+                                    if (catField.required && !isNaN(value as number)) {
+                                      form.clearErrors(`data.${catField.key}`);
+                                    }
                                   }}
                                 />
                               )}
                               {catField.type === FieldType.BOOLEAN && (
                                 <div className="flex items-center space-x-2 h-10">
-                                  <Checkbox id={`data.${catField.key}`} checked={!!formHookField.value} onCheckedChange={formHookField.onChange} />
+                                  <Checkbox 
+                                    id={`data.${catField.key}`} 
+                                    checked={!!formHookField.value} 
+                                    onCheckedChange={(checked) => {
+                                      formHookField.onChange(checked);
+                                      // Boolean талбарт required error байдаггүй ч эрүүл мэндийн үүднээс clearErrors хийе
+                                      form.clearErrors(`data.${catField.key}`);
+                                    }}
+                                  />
                                   <label htmlFor={`data.${catField.key}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                                     {catField.placeholder || 'Enable'}
                                   </label>
@@ -420,7 +455,13 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                                     <Calendar
                                       mode="single"
                                       selected={formHookField.value instanceof Date ? formHookField.value : (formHookField.value ? parseISO(formHookField.value as unknown as string) : undefined)}
-                                      onSelect={formHookField.onChange}
+                                      onSelect={(date) => {
+                                        formHookField.onChange(date);
+                                        // Хэрэв required талбар бөгөөд огноо сонгосон бол error-г арилгах
+                                        if (catField.required && date) {
+                                          form.clearErrors(`data.${catField.key}`);
+                                        }
+                                      }}
                                       initialFocus
                                     />
                                   </PopoverContent>
@@ -436,7 +477,8 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                 })}
               </CardContent>
             </Card>
-              {selectedCategory && (
+
+             {selectedCategory && (
               <Card>
                 <CardHeader>
                   <CardTitle className="font-headline flex items-center"><Wand2 className="mr-2 h-5 w-5 text-primary"/>AI Content Suggestions</CardTitle>
@@ -583,4 +625,3 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
     </Form>
   );
 }
-

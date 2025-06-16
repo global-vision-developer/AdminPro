@@ -107,6 +107,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
 
   const form = useForm<CategoryFormValues>({
     resolver: zodResolver(categoryFormSchema),
+    mode: 'onChange', // Ensures validation message updates as user types
     defaultValues: initialData ? {
       name: initialData.name,
       slug: initialData.slug,
@@ -210,6 +211,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
   
   const fieldFormMethods = useForm<FieldFormValues>({
     resolver: zodResolver(fieldDefinitionClientSchema),
+    mode: 'onChange', // Also set mode for field form
   });
 
   useEffect(() => {
@@ -476,3 +478,4 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
 }
 
     
+
