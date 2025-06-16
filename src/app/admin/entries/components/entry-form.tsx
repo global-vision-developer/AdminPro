@@ -45,7 +45,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
 
   const generateSchema = useCallback((fields: FieldDefinition[] = []) => {
     const shape: Record<string, z.ZodTypeAny> = {
-      title: z.string().nonempty({ message: "Бичлэгийн гарчгийг заавал бөглөнө үү." }),
+      title: z.string().trim().min(1, { message: "Бичлэгийн гарчгийг заавал бөглөнө үү." }),
       status: z.enum(['draft', 'published', 'scheduled']).default('draft'),
       publishAt: z.date().optional().nullable(),
     };
@@ -61,27 +61,21 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         case FieldType.TEXT:
         case FieldType.TEXTAREA:
           if (field.required) {
-            fieldSchema = z.string().nonempty({ message: `${field.label} талбарыг заавал бөглөнө үү.` });
+            fieldSchema = z.string().trim().min(1, { message: `${field.label} талбарыг заавал бөглөнө үү.` });
           } else {
             fieldSchema = z.string().optional().nullable();
           }
           break;
         case FieldType.NUMBER:
           if (field.required) {
-            fieldSchema = z.preprocess(
-              (val) => (val === "" ? undefined : val), // Treat empty string from input as undefined for validation
-              z.coerce.number({
-                  required_error: `${field.label} талбарыг заавал бөглөнө үү.`,
-                  invalid_type_error: `${field.label} тоон утга байх ёстой.`,
-              }).refine(val => val !== undefined, { message: `${field.label} талбарыг заавал бөглөнө үү.` }) // Ensure it's not undefined after preprocess
-            );
+            fieldSchema = z.string() // Input value is always string
+              .min(1, { message: `${field.label} талбарыг заавал бөглөнө үү.` }) // Ensure not empty string
+              .transform(val => Number(val)) // Transform to number after nonempty check
+              .pipe(z.number({ invalid_type_error: `${field.label} тоон утга байх ёстой.` }));
           } else {
-            fieldSchema = z.preprocess(
-              (val) => (val === "" ? undefined : val),
-              z.coerce.number({
-                  invalid_type_error: `${field.label} тоон утга байх ёстой.`,
-              }).optional().nullable()
-            );
+            fieldSchema = z.string()
+              .transform(val => (val.trim() === '' ? undefined : Number(val))) // Allow empty string for optional, convert to undefined
+              .pipe(z.number({ invalid_type_error: `${field.label} тоон утга байх ёстой.` }).optional().nullable());
           }
           break;
         case FieldType.DATE:
@@ -124,7 +118,13 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         title: initialData.title || '',
         status: initialData.status,
         publishAt: initialData.publishAt ? parseISO(initialData.publishAt) : undefined,
-        data: initialData.data || {}, // Numbers will be numbers here from Firestore
+        data: initialData.data ? Object.fromEntries(Object.entries(initialData.data).map(([key, value]) => {
+          const fieldDef = selectedCategory?.fields.find(f => f.key === key);
+          if (fieldDef?.type === FieldType.NUMBER) {
+            return [key, value === null || value === undefined ? '' : String(value)]; // Convert number to string for input
+          }
+          return [key, value];
+        })) : {},
       } : {
         title: '',
         status: 'draft',
@@ -158,16 +158,17 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
             defaultDataForReset[field.key] = undefined;
           }
         } else if (field.type === FieldType.NUMBER) {
-            // When editing, initialData.data[field.key] is already a number or null/undefined
-            defaultDataForReset[field.key] = initialValueFromData;
+            // For editing, convert number from Firestore to string for the input
+            defaultDataForReset[field.key] = String(initialValueFromData);
         } else {
           defaultDataForReset[field.key] = initialValueFromData;
         }
       } else {
         // Set appropriate default values for new forms or when initialData is missing a field
         if (field.type === FieldType.BOOLEAN) defaultDataForReset[field.key] = false;
-        else if (field.type === FieldType.NUMBER) defaultDataForReset[field.key] = undefined; // For new number field, start as undefined for zod
-        else if (field.type === FieldType.DATE) defaultDataForReset[field.key] = undefined;
+        // For new number/date field, Zod schema's .string() will handle empty string, then transform/pipe
+        else if (field.type === FieldType.NUMBER) defaultDataForReset[field.key] = ''; 
+        else if (field.type === FieldType.DATE) defaultDataForReset[field.key] = undefined; // Date still uses Date object
         else defaultDataForReset[field.key] = ''; // Text/Textarea default to empty string
       }
     });
@@ -232,9 +233,9 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         const fieldDefinition = selectedCategory.fields.find(f => f.key === key);
         if (fieldDefinition && !fieldDefinition.description?.includes(USER_ONLY_FIELD_MARKER)) {
           if (fieldDefinition.type === FieldType.NUMBER) {
+             // formData.data[key] is already a number due to Zod transform/pipe or undefined
              const value = formData.data[key];
-             // Zod schema already coerces to number or undefined/null
-             adminEditableData[key] = (value === null || value === undefined) ? null : value;
+             adminEditableData[key] = (value === undefined || value === null || isNaN(value as number)) ? null : value;
           } else if (fieldDefinition.type === FieldType.DATE && formData.data[key] instanceof Date) {
              adminEditableData[key] = (formData.data[key] as Date).toISOString();
           } else {
@@ -269,7 +270,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         const resetData: Record<string, any> = {};
         selectedCategory.fields.filter(f => !f.description?.includes(USER_ONLY_FIELD_MARKER)).forEach(field => {
             if (field.type === FieldType.BOOLEAN) resetData[field.key] = false;
-            else if (field.type === FieldType.NUMBER) resetData[field.key] = undefined;
+            else if (field.type === FieldType.NUMBER) resetData[field.key] = ''; // Reset to empty string for input
             else if (field.type === FieldType.DATE) resetData[field.key] = undefined;
             else resetData[field.key] = '';
         });
@@ -296,14 +297,14 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
             if (field.type === FieldType.DATE && typeof initialValueFromData === 'string') {
                 try { defaultDataForReset[field.key] = parseISO(initialValueFromData); } catch (e) { defaultDataForReset[field.key] = undefined; }
             } else if (field.type === FieldType.NUMBER) {
-                defaultDataForReset[field.key] = initialValueFromData;
+                defaultDataForReset[field.key] = String(initialValueFromData); // Convert to string for input
             }
             else {
                 defaultDataForReset[field.key] = initialValueFromData;
             }
         } else {
             if (field.type === FieldType.BOOLEAN) defaultDataForReset[field.key] = false;
-            else if (field.type === FieldType.NUMBER) defaultDataForReset[field.key] = undefined;
+            else if (field.type === FieldType.NUMBER) defaultDataForReset[field.key] = ''; // Reset to empty string for input
             else if (field.type === FieldType.DATE) defaultDataForReset[field.key] = undefined;
             else defaultDataForReset[field.key] = '';
         }
@@ -383,13 +384,12 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                               {catField.type === FieldType.TEXTAREA && <Textarea placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} {...formHookField} value={formHookField.value ?? ''} rows={5} />}
                               {catField.type === FieldType.NUMBER && (
                                 <Input
-                                  type="number" // Keep type="number" for browser behavior, but Zod handles string coercion
+                                  type="number" 
                                   placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`}
-                                  // Input value is always string. formHookField.value can be number/undefined.
-                                  value={formHookField.value === undefined || formHookField.value === null ? '' : String(formHookField.value)}
+                                  {...formHookField}
+                                  value={formHookField.value ?? ''} // Value from RHF is string.
                                   onChange={e => {
-                                    // Send string to react-hook-form, Zod will coerce.
-                                    // Empty string means user cleared input, let Zod handle it as undefined via preprocess.
+                                    // Send string to RHF; Zod will transform it.
                                     formHookField.onChange(e.target.value);
                                   }}
                                 />
@@ -583,3 +583,4 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
     </Form>
   );
 }
+
