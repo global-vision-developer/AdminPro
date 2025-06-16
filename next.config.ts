@@ -23,6 +23,12 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'www.ubhotel.mn', // Ensured this pattern is present
+        port: '',
+        pathname: '/**',
+      },
     ],
   },
   experimental: {
