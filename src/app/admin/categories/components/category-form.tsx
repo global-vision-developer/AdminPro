@@ -35,7 +35,7 @@ const fieldDefinitionClientSchema = z.object({
 
 // Schema for the main category form
 const categoryFormSchema = z.object({
-  name: z.string().min(1, "Category name is required."),
+  name: z.string(), // Changed from .min(1, "Category name is required.")
   slug: z.string().min(1, "Slug is required.").regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug must be lowercase alphanumeric with hyphens."),
   description: z.string().optional().default(''),
   fields: z.array(fieldDefinitionClientSchema).min(0, "You can save a category without fields initially."), // FieldDefinition matches FieldDefinitionClientSchema structure
@@ -168,6 +168,17 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
   };
 
   const handleFormSubmit = async (data: CategoryFormValues) => {
+    // If name is still empty but it was intended to be required at submission, check here
+    if (data.name.trim() === "") {
+        form.setError("name", { type: "manual", message: "Category name cannot be empty." });
+        toast({
+            title: "Validation Error",
+            description: "Category name is required and cannot be empty.",
+            variant: "destructive",
+        });
+        return;
+    }
+
     const fieldKeys = new Set<string>();
     for (const f of data.fields) {
       if (fieldKeys.has(f.key)) {
@@ -478,4 +489,3 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
 }
 
     
-
