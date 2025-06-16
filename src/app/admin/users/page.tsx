@@ -19,136 +19,135 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { db, auth } from '@/lib/firebase'; // Ensure auth is imported
+import { db, auth } from '@/lib/firebase'; 
 import { collection, getDocs, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
+const ADMINS_COLLECTION = "admins"; // Changed from "users"
 
 export default function UsersPage() {
   const { currentUser, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
 
-  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [adminUsers, setAdminUsers] = useState<UserProfile[]>([]); // Renamed users to adminUsers
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
   const [debugMessages, setDebugMessages] = useState<string[]>([]);
 
   const addDebugMessage = useCallback((message: string) => {
-    console.log("DEBUG (UsersPage):", message);
+    console.log("DEBUG (AdminUsersPage):", message);
     setDebugMessages(prev => [...prev.slice(-15), `${new Date().toLocaleTimeString()}: ${message}`]);
   }, []);
 
   useEffect(() => {
     if (!authLoading && currentUser && currentUser.role !== UserRole.SUPER_ADMIN) {
-      addDebugMessage(`useEffect[currentUser access check]: Access Denied. Current user: ${currentUser.email} (Role: ${currentUser.role}, ID: ${currentUser.id}). Redirecting to dashboard.`);
-      toast({ title: "Access Denied", description: "You do not have permission to manage users.", variant: "destructive" });
+      addDebugMessage(`useEffect[currentUser access check]: Access Denied. Current admin: ${currentUser.email} (Role: ${currentUser.role}, ID: ${currentUser.id}). Redirecting to dashboard.`);
+      toast({ title: "Access Denied", description: "You do not have permission to manage admin users.", variant: "destructive" });
       router.push('/admin/dashboard');
       setIsLoading(false);
     }
   }, [currentUser, authLoading, router, toast, addDebugMessage]);
 
-  const fetchUsers = useCallback(async () => {
+  const fetchAdminUsers = useCallback(async () => { // Renamed fetchUsers to fetchAdminUsers
     const localCurrentUser = auth.currentUser; 
     const contextUserForLog = currentUser; 
 
-    addDebugMessage(`fetchUsers called. AuthContext currentUser: ${contextUserForLog ? `${contextUserForLog.email} (Role: ${contextUserForLog.role}, ID: ${contextUserForLog.id})` : 'null'}. Actual Firebase Auth UID for op: ${localCurrentUser ? localCurrentUser.uid : 'null (Firebase Auth)'}`);
+    addDebugMessage(`fetchAdminUsers called. AuthContext currentUser: ${contextUserForLog ? `${contextUserForLog.email} (Role: ${contextUserForLog.role}, ID: ${contextUserForLog.id})` : 'null'}. Actual Firebase Auth UID for op: ${localCurrentUser ? localCurrentUser.uid : 'null (Firebase Auth)'}`);
 
     if (!localCurrentUser || (contextUserForLog && contextUserForLog.role !== UserRole.SUPER_ADMIN)) {
-      addDebugMessage(`fetchUsers: Pre-condition failed. Firebase Auth UID: ${localCurrentUser?.uid}. AuthContext Role: ${contextUserForLog?.role}. Aborting fetch.`);
+      addDebugMessage(`fetchAdminUsers: Pre-condition failed. Firebase Auth UID: ${localCurrentUser?.uid}. AuthContext Role: ${contextUserForLog?.role}. Aborting fetch.`);
       setIsLoading(false);
       if (!localCurrentUser) {
-          toast({title: "Authentication Error", description: "No authenticated user found for fetching user list. Please re-login.", variant: "destructive", duration: 10000});
+          toast({title: "Authentication Error", description: "No authenticated admin found for fetching admin list. Please re-login.", variant: "destructive", duration: 10000});
           router.push('/');
       }
       return;
     }
 
     setIsLoading(true);
-    setUsers([]);
-    addDebugMessage(`fetchUsers: Attempting to fetch users from Firestore as Super Admin (UID: ${localCurrentUser.uid})...`);
+    setAdminUsers([]);
+    addDebugMessage(`fetchAdminUsers: Attempting to fetch admin users from Firestore collection '${ADMINS_COLLECTION}' as Super Admin (UID: ${localCurrentUser.uid})...`);
     try {
-      const usersCollectionRef = collection(db, "users");
-      const q = query(usersCollectionRef, orderBy("name", "asc"));
+      const adminsCollectionRef = collection(db, ADMINS_COLLECTION); // Use ADMINS_COLLECTION
+      const q = query(adminsCollectionRef, orderBy("name", "asc"));
       const querySnapshot = await getDocs(q);
-      const fetchedUsersData: UserProfile[] = [];
+      const fetchedAdminsData: UserProfile[] = [];
       querySnapshot.forEach((docSnap) => {
-        fetchedUsersData.push({ id: docSnap.id, ...docSnap.data() } as UserProfile);
+        fetchedAdminsData.push({ id: docSnap.id, ...docSnap.data() } as UserProfile);
       });
-      setUsers(fetchedUsersData);
-      addDebugMessage(`fetchUsers: Success. Fetched ${fetchedUsersData.length} users.`);
-      if (fetchedUsersData.length === 0) {
-        addDebugMessage("fetchUsers: No users returned from Firestore query. Check collection content and Firestore Rules for 'list' on '/users' collection, ensuring it allows access for the Super Admin.");
+      setAdminUsers(fetchedAdminsData);
+      addDebugMessage(`fetchAdminUsers: Success. Fetched ${fetchedAdminsData.length} admin users.`);
+      if (fetchedAdminsData.length === 0) {
+        addDebugMessage(`fetchAdminUsers: No admin users returned from Firestore query. Check collection content and Firestore Rules for 'list' on '/${ADMINS_COLLECTION}' collection, ensuring it allows access for the Super Admin.`);
       }
     } catch (error: any) {
-      console.error("Error fetching users from Firestore:", error);
-      addDebugMessage(`fetchUsers: Firestore Error - UID performing op: ${localCurrentUser.uid}, Code: ${error.code}, Message: ${error.message}`);
-      let errorTitle = "Error fetching users";
-      let errorMessage = `Failed to retrieve user data: ${error.message}.`;
+      console.error("Error fetching admin users from Firestore:", error);
+      addDebugMessage(`fetchAdminUsers: Firestore Error - UID performing op: ${localCurrentUser.uid}, Code: ${error.code}, Message: ${error.message}`);
+      let errorTitle = "Error fetching admin users";
+      let errorMessage = `Failed to retrieve admin user data: ${error.message}.`;
       if (error.code === 'permission-denied' || (error.message && error.message.toLowerCase().includes('permission-denied'))) {
         errorTitle = "Firestore Permission Denied";
-        errorMessage = `Failed to list users. UID: ${localCurrentUser.uid}. Ensure Firestore Rules grant 'list' on '/users' FOR a user whose document at '/users/${localCurrentUser.uid}' has 'role: "Super Admin"'. Also, check the rule for 'get' on '/users/${localCurrentUser.uid}' used internally by isSuperAdmin().`;
+        errorMessage = `Failed to list admin users from '${ADMINS_COLLECTION}'. UID: ${localCurrentUser.uid}. Ensure Firestore Rules grant 'list' on '/${ADMINS_COLLECTION}' FOR an admin whose document at '/${ADMINS_COLLECTION}/${localCurrentUser.uid}' has 'role: "Super Admin"'.`;
       }
       toast({ title: errorTitle, description: errorMessage, variant: "destructive", duration: 30000 });
     } finally {
       setIsLoading(false);
-      addDebugMessage("fetchUsers: Fetch attempt finished.");
+      addDebugMessage("fetchAdminUsers: Fetch attempt finished.");
     }
   }, [currentUser, toast, addDebugMessage, router]);
 
   useEffect(() => {
     if (!authLoading && currentUser) {
         if (currentUser.role === UserRole.SUPER_ADMIN) {
-            addDebugMessage(`useEffect[currentUser, fetchUsers]: AuthContext currentUser is Super Admin (ID: ${currentUser.id}). Calling fetchUsers.`);
-            fetchUsers();
+            addDebugMessage(`useEffect[currentUser, fetchAdminUsers]: AuthContext currentUser is Super Admin (ID: ${currentUser.id}). Calling fetchAdminUsers.`);
+            fetchAdminUsers();
         } else {
-            addDebugMessage(`useEffect[currentUser, fetchUsers]: AuthContext currentUser (ID: ${currentUser.id}) is NOT Super Admin (role: ${currentUser.role}). Not fetching users. isLoading set to false.`);
+            addDebugMessage(`useEffect[currentUser, fetchAdminUsers]: AuthContext currentUser (ID: ${currentUser.id}) is NOT Super Admin (role: ${currentUser.role}). Not fetching admin users. isLoading set to false.`);
             setIsLoading(false);
         }
     } else if (!authLoading && !currentUser) {
-        addDebugMessage("useEffect[currentUser, fetchUsers]: AuthContext currentUser is null and auth is not loading. Redirecting to / might be handled by AdminLayout.");
+        addDebugMessage("useEffect[currentUser, fetchAdminUsers]: AuthContext currentUser is null and auth is not loading. Redirecting to / might be handled by AdminLayout.");
         setIsLoading(false);
     } else {
-        addDebugMessage("useEffect[currentUser, fetchUsers]: authLoading is true. Waiting for auth state...");
+        addDebugMessage("useEffect[currentUser, fetchAdminUsers]: authLoading is true. Waiting for auth state...");
         setIsLoading(true);
     }
-  }, [currentUser, authLoading, fetchUsers, addDebugMessage]);
+  }, [currentUser, authLoading, fetchAdminUsers, addDebugMessage]);
 
 
-  const filteredUsers = useMemo(() => {
-    return users.filter(user => {
+  const filteredAdminUsers = useMemo(() => { // Renamed filteredUsers
+    return adminUsers.filter(user => {
       const nameMatch = user.name ? user.name.toLowerCase().includes(searchTerm.toLowerCase()) : false;
       const emailMatch = user.email ? user.email.toLowerCase().includes(searchTerm.toLowerCase()) : false;
       const matchesSearch = nameMatch || emailMatch;
       const matchesRole = roleFilter === 'all' || user.role === roleFilter;
       return matchesSearch && matchesRole;
     });
-  }, [users, searchTerm, roleFilter]);
+  }, [adminUsers, searchTerm, roleFilter]);
 
-  const handleDeleteUser = async (userId: string, userName: string) => {
-    if (userId === currentUser?.id) {
+  const handleDeleteAdminUser = async (adminId: string, adminName: string) => { // Renamed handleDeleteUser
+    if (adminId === currentUser?.id) {
       toast({ title: "Error", description: "You cannot delete your own account.", variant: "destructive" });
       return;
     }
-    addDebugMessage(`Attempting to delete user: ${userId} (${userName}) by admin: ${currentUser?.id}`);
+    addDebugMessage(`Attempting to delete admin user: ${adminId} (${adminName}) by admin: ${currentUser?.id}`);
     try {
-      // IMPORTANT: Deleting the Firestore document DOES NOT delete the Firebase Auth user.
-      // That requires Admin SDK, typically in a Cloud Function.
-      await deleteDoc(doc(db, "users", userId));
-      setUsers(prev => prev.filter(u => u.id !== userId));
-      toast({ title: "User Firestore Record Deleted", description: `Firestore record for user \"${userName}\" has been removed.` });
+      await deleteDoc(doc(db, ADMINS_COLLECTION, adminId)); // Use ADMINS_COLLECTION
+      setAdminUsers(prev => prev.filter(u => u.id !== adminId));
+      toast({ title: "Admin User Firestore Record Deleted", description: `Firestore record for admin user \"${adminName}\" has been removed.` });
       toast({
         title: "Important: Auth User Deletion",
-        description: `User record for ${userName} removed from Firestore. For full deletion, the Firebase Authentication record (UID: ${userId}) needs to be removed by an administrator via backend tools or a Cloud Function.`,
+        description: `Admin record for ${adminName} removed from Firestore. For full deletion, the Firebase Authentication record (UID: ${adminId}) needs to be removed by an administrator via backend tools or a Cloud Function.`,
         variant: "default",
         duration: 10000,
       });
 
     } catch (error: any) {
-      console.error("Error deleting user from Firestore:", error);
-      addDebugMessage(`Error deleting user ${userId} from Firestore: ${error.code} - ${error.message}`);
-      toast({ title: "Error", description: `Failed to delete user ${userName} from Firestore. Check permissions.`, variant: "destructive" });
+      console.error("Error deleting admin user from Firestore:", error);
+      addDebugMessage(`Error deleting admin user ${adminId} from Firestore: ${error.code} - ${error.message}`);
+      toast({ title: "Error", description: `Failed to delete admin user ${adminName} from Firestore. Check permissions.`, variant: "destructive" });
     }
   };
 
@@ -209,7 +208,7 @@ export default function UsersPage() {
   if (!authLoading && !currentUser) {
       return (
         <div className="p-4">
-            <p>User not authenticated. Redirecting to login might be in progress...</p>
+            <p>Admin user not authenticated. Redirecting to login might be in progress...</p>
              <Card className="mt-4">
                 <CardHeader><CardTitle className="text-sm font-headline">Debug Information (No Current User State)</CardTitle></CardHeader>
                 <CardContent><pre className="text-xs bg-muted p-2 rounded max-h-60 overflow-auto whitespace-pre-wrap break-all">{debugMessages.join("\n")}</pre></CardContent>
@@ -221,10 +220,10 @@ export default function UsersPage() {
 
   return (
     <TooltipProvider>
-      <PageHeader title="User Management" description="Manage admin accounts and their roles.">
+      <PageHeader title="User Management" description="Manage admin accounts and their roles in the CMS.">
         <Link href="/admin/users/new" passHref>
           <Button>
-            <PlusCircle className="mr-2 h-4 w-4" /> Add New User
+            <PlusCircle className="mr-2 h-4 w-4" /> Add New Admin User
           </Button>
         </Link>
       </PageHeader>
@@ -235,7 +234,7 @@ export default function UsersPage() {
             <div className="relative w-full sm:max-w-xs">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search users by name or email..."
+                placeholder="Search admins by name or email..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -254,7 +253,7 @@ export default function UsersPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {filteredUsers.length > 0 ? (
+          {filteredAdminUsers.length > 0 ? (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -267,7 +266,7 @@ export default function UsersPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredUsers.map((user) => (
+                  {filteredAdminUsers.map((user) => (
                     <TableRow key={user.id}>
                       <TableCell className="hidden sm:table-cell">
                         <Avatar>
@@ -288,37 +287,37 @@ export default function UsersPage() {
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Link href={`/admin/users/${user.id}/edit`} passHref>
-                                <Button variant="ghost" size="icon" aria-label="Edit user">
+                                <Button variant="ghost" size="icon" aria-label="Edit admin user">
                                   <UserCog className="h-4 w-4" />
                                 </Button>
                               </Link>
                             </TooltipTrigger>
-                            <TooltipContent>Edit User / Change Role</TooltipContent>
+                            <TooltipContent>Edit Admin User / Change Role</TooltipContent>
                           </Tooltip>
                           {user.id !== currentUser?.id && (
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                  <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/90" aria-label="Delete user">
+                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/90" aria-label="Delete admin user">
                                       <Trash2 className="h-4 w-4" />
                                     </Button>
                                   </TooltipTrigger>
-                                  <TooltipContent>Delete User (Firestore Record)</TooltipContent>
+                                  <TooltipContent>Delete Admin User (Firestore Record)</TooltipContent>
                                 </Tooltip>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    This action will delete the user record for "{user.name}" from the database.
+                                    This action will delete the admin user record for "{user.name}" from the database.
                                     Deleting the authentication record requires backend action.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                                   <AlertDialogAction
-                                    onClick={() => handleDeleteUser(user.id, user.name)}
+                                    onClick={() => handleDeleteAdminUser(user.id, user.name)}
                                     className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                                   >
                                     Delete Firestore Record
@@ -337,15 +336,15 @@ export default function UsersPage() {
           ) : (
              <div className="text-center py-12">
               <UsersIcon className="mx-auto h-12 w-12 text-muted-foreground" />
-              <h3 className="mt-4 text-lg font-semibold">No users found</h3>
+              <h3 className="mt-4 text-lg font-semibold">No admin users found</h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                {users.length === 0 && !isLoading && !authLoading && !searchTerm && roleFilter === 'all' ? "No users exist in the database, or access was denied. Ensure Firestore rules grant 'list' access to your Super Admin user AND your Super Admin user's document in Firestore has 'role: \"Super Admin\"'." :
-                (searchTerm || roleFilter !== 'all' ? "Try adjusting your search or filter." : "Get started by adding a new user.")}
+                {adminUsers.length === 0 && !isLoading && !authLoading && !searchTerm && roleFilter === 'all' ? `No admin users exist in the '${ADMINS_COLLECTION}' collection, or access was denied. Ensure Firestore rules grant 'list' access to your Super Admin user AND your Super Admin user's document in Firestore has 'role: "Super Admin"'.` :
+                (searchTerm || roleFilter !== 'all' ? "Try adjusting your search or filter." : "Get started by adding a new admin user.")}
               </p>
-              {!(searchTerm || roleFilter !== 'all') && users.length === 0 && !isLoading && !authLoading && (
+              {!(searchTerm || roleFilter !== 'all') && adminUsers.length === 0 && !isLoading && !authLoading && (
                 <Button asChild className="mt-4">
                   <Link href="/admin/users/new">
-                    <PlusCircle className="mr-2 h-4 w-4" /> Add User
+                    <PlusCircle className="mr-2 h-4 w-4" /> Add Admin User
                   </Link>
                 </Button>
               )}
@@ -354,7 +353,7 @@ export default function UsersPage() {
         </CardContent>
       </Card>
         <Card className="mt-4">
-            <CardHeader><CardTitle className="text-sm font-headline">Debug Information (Users Page)</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-sm font-headline">Debug Information (Admin Users Page)</CardTitle></CardHeader>
             <CardContent>
                 <pre className="text-xs bg-muted p-2 rounded max-h-60 overflow-auto whitespace-pre-wrap break-all">{debugMessages.join("\n")}</pre>
             </CardContent>

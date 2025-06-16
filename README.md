@@ -1,3 +1,4 @@
+
 # Firebase Studio
 
 This is a NextJS starter in Firebase Studio.
@@ -8,20 +9,20 @@ To get started, take a look at src/app/page.tsx.
 
 This section outlines the recommended Firestore database structure for the application.
 
-### `users` Collection
+### `admins` Collection (Formerly `users`)
 
-Stores user profile information and roles.
+Stores admin user profile information and roles for the CMS. This collection is distinct from any general user collection your main application might have.
 
 *   **Document ID:** `uid` (from Firebase Authentication)
 *   **Fields:**
-    *   `email: string` (User's email)
-    *   `name: string` (User's display name)
+    *   `email: string` (Admin's email)
+    *   `name: string` (Admin's display name)
     *   `role: string` (e.g., "Super Admin", "Sub Admin" - matching `UserRole` enum from `src/types/index.ts`)
     *   `avatar: string` (URL to avatar image, optional)
-    *   `createdAt: firebase.firestore.Timestamp` (Server timestamp when the user document was created)
-    *   `updatedAt: firebase.firestore.Timestamp` (Server timestamp when the user document was last updated, optional)
+    *   `createdAt: firebase.firestore.Timestamp` (Server timestamp when the admin document was created)
+    *   `updatedAt: firebase.firestore.Timestamp` (Server timestamp when the admin document was last updated, optional)
 
-*This collection is utilized by `src/contexts/auth-context.tsx` for managing user sessions and roles.*
+*This collection is utilized by `src/contexts/auth-context.tsx` for managing admin user sessions and roles within the admin panel.*
 
 ### `categories` Collection
 
@@ -53,7 +54,38 @@ Stores individual content entries belonging to a specific category.
     *   `publishAt: firebase.firestore.Timestamp` (Optional, used if `status` is "scheduled")
     *   `createdAt: firebase.firestore.Timestamp`
     *   `updatedAt: firebase.firestore.Timestamp`
-    *   `createdBy: string` (UID of the user who created the entry, optional)
+    *   `createdBy: string` (UID of the admin user who created the entry, optional)
     *   `slug: string` (Optional: URL-friendly identifier for the entry, if needed for public-facing URLs. Could be derived from a title field.)
 
-This structure is designed to be scalable and flexible, allowing for dynamic content types based on category definitions. Firestore security rules should be configured to protect this data appropriately.
+This structure is designed to be scalable and flexible, allowing for dynamic content types based on category definitions. Firestore security rules should be configured to protect this data appropriately (e.g., only authenticated admins can write to `admins`, `categories`, `entries`).
+
+**Example Firestore Security Rules Snippet (Conceptual):**
+```firestore
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Admins collection
+    match /admins/{adminId} {
+      allow read: if request.auth != null && request.auth.uid == adminId; // Own record
+      allow list, write: if request.auth != null && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin';
+    }
+
+    // Categories collection
+    match /categories/{categoryId} {
+      allow read: if request.auth != null; // Authenticated admins can read
+      allow list, create, update, delete: if request.auth != null && 
+                                          (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
+                                           get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
+    }
+
+    // Entries collection
+    match /entries/{entryId} {
+      allow read: if request.auth != null; // Authenticated admins can read
+      allow list, create, update, delete: if request.auth != null &&
+                                          (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
+                                           get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
+    }
+  }
+}
+```
+*Remember to tailor security rules to your specific application needs.*

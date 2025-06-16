@@ -24,6 +24,8 @@ interface AuthContextType {
   loading: boolean;
 }
 
+const ADMINS_COLLECTION = "admins"; // Changed from "users"
+
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -38,19 +40,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       console.log(`AuthContext: onAuthStateChanged callback. FirebaseUser UID: ${firebaseUser ? firebaseUser.uid : 'null'}. Email: ${firebaseUser?.email}`);
       if (firebaseUser) {
-        const userDocRef = doc(db, "users", firebaseUser.uid);
+        const userDocRef = doc(db, ADMINS_COLLECTION, firebaseUser.uid); // Use ADMINS_COLLECTION
         console.log(`AuthContext: Attempting to get Firestore doc for UID: ${firebaseUser.uid} from path: ${userDocRef.path}`);
         try {
           const userDocSnap = await getDoc(userDocRef);
           console.log(`AuthContext: Firestore docSnap exists for ${firebaseUser.uid}? ${userDocSnap.exists()}. Read by UID: ${auth.currentUser?.uid}`);
 
-          let userRoleFromFirestore: UserRole = UserRole.SUB_ADMIN; // Default if new or no role field
-          let profileName = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User';
+          let userRoleFromFirestore: UserRole = UserRole.SUB_ADMIN; 
+          let profileName = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Admin User';
           let profileAvatar = firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${(profileName).substring(0,2).toUpperCase()}&bg=FF5733&txt=FFFFFF`
           
           if (userDocSnap.exists()) {
             const userData = userDocSnap.data();
-            console.log(`AuthContext: Firestore data for ${firebaseUser.uid}:`, JSON.stringify(userData));
+            console.log(`AuthContext: Firestore data for ${firebaseUser.uid} from '${ADMINS_COLLECTION}':`, JSON.stringify(userData));
             userRoleFromFirestore = userData.role as UserRole || UserRole.SUB_ADMIN; 
             profileName = userData.name || profileName; 
             profileAvatar = userData.avatar || profileAvatar;
@@ -58,7 +60,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             if (firebaseUser.displayName !== profileName || firebaseUser.photoURL !== profileAvatar) {
               try {
-                  console.log(`AuthContext: Auth profile for ${firebaseUser.uid} out of sync (Auth DisplayName: ${firebaseUser.displayName}, Firestore Name: ${profileName}; Auth PhotoURL: ${firebaseUser.photoURL}, Firestore Avatar: ${profileAvatar}). Updating Auth profile...`);
+                  console.log(`AuthContext: Auth profile for ${firebaseUser.uid} out of sync. Updating Auth profile...`);
                   await updateProfile(firebaseUser, { displayName: profileName, photoURL: profileAvatar });
                   console.log(`AuthContext: Auth profile updated successfully for ${firebaseUser.uid}.`);
               } catch (profileUpdateError) {
@@ -66,13 +68,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               }
             }
           } else {
-            console.log(`AuthContext: No Firestore document for ${firebaseUser.uid}. This user might be new or their Firestore doc is missing. Attempting to create one with default role '${UserRole.SUB_ADMIN}'.`);
-            const nameForDoc = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'New User';
+            console.log(`AuthContext: No Firestore document in '${ADMINS_COLLECTION}' for ${firebaseUser.uid}. Creating one with default role '${UserRole.SUB_ADMIN}'.`);
+            const nameForDoc = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'New Admin';
             const avatarForDoc = firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${nameForDoc.substring(0,2).toUpperCase()}&bg=FF5733&txt=FFFFFF`;
             
             try {
               const newFirestoreDocData = {
-                uid: firebaseUser.uid, // Explicitly store UID
+                uid: firebaseUser.uid,
                 email: firebaseUser.email,
                 name: nameForDoc,
                 role: UserRole.SUB_ADMIN, 
@@ -80,17 +82,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 createdAt: serverTimestamp(), 
                 updatedAt: serverTimestamp(),
               };
-              await setDoc(userDocRef, newFirestoreDocData);
+              await setDoc(userDocRef, newFirestoreDocData); // userDocRef points to ADMINS_COLLECTION
               profileName = nameForDoc;
               profileAvatar = avatarForDoc;
               userRoleFromFirestore = UserRole.SUB_ADMIN; 
-              console.log(`AuthContext: Firestore document CREATED for ${firebaseUser.uid} with default role: ${userRoleFromFirestore} by user ${firebaseUser.uid} (self-creation). Data:`, JSON.stringify(newFirestoreDocData));
-              toast({title: "Profile Initialized", description: `Your user profile has been initialized in Firestore with role: ${userRoleFromFirestore}.`, duration: 7000});
+              console.log(`AuthContext: Firestore document CREATED in '${ADMINS_COLLECTION}' for ${firebaseUser.uid} with default role: ${userRoleFromFirestore}. Data:`, JSON.stringify(newFirestoreDocData));
+              toast({title: "Admin Profile Initialized", description: `Your admin profile has been initialized in Firestore with role: ${userRoleFromFirestore}.`, duration: 7000});
             } catch (firestoreSetError: any) {
-                console.error(`AuthContext: FAILED to create Firestore document for user ${firebaseUser.uid} during self-creation attempt. Error:`, firestoreSetError);
+                console.error(`AuthContext: FAILED to create Firestore document in '${ADMINS_COLLECTION}' for admin ${firebaseUser.uid}. Error:`, firestoreSetError);
                 toast({ 
-                    title: "Firestore Profile Creation Failed", 
-                    description: `User account for ${firebaseUser.email} exists in Auth, but Firestore profile creation attempt failed (UID: ${firebaseUser.uid}). Error: ${firestoreSetError.message}. This might be due to Firestore rules not allowing self-creation for new users. An admin may need to assign a role. Defaulting role display.`, 
+                    title: "Firestore Admin Profile Creation Failed", 
+                    description: `Admin account for ${firebaseUser.email} exists in Auth, but Firestore profile creation in '${ADMINS_COLLECTION}' failed. Error: ${firestoreSetError.message}. An admin may need to assign a role. Defaulting role display.`, 
                     variant: "destructive", 
                     duration: 20000 
                 });
@@ -105,19 +107,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             avatar: profileAvatar,
           };
           setCurrentUser(userProfile);
-          console.log(`AuthContext: currentUser set in context for ${firebaseUser.uid}:`, JSON.stringify(userProfile));
+          console.log(`AuthContext: currentUser (admin) set in context for ${firebaseUser.uid}:`, JSON.stringify(userProfile));
 
         } catch (error: any) {
-          console.error(`AuthContext: Critical error processing user data from Firestore for UID ${firebaseUser.uid}. Error:`, error);
-          let firestoreErrorMsg = "Хэрэглэгчийн эрх, мэдээллийг Firestore-оос уншихад/хадгалахад алдаа гарлаа. Таны эрх хүрэхгүй байж магадгүй эсвэл системд доголдол гарсан байх.";
+          console.error(`AuthContext: Critical error processing admin data from Firestore ('${ADMINS_COLLECTION}') for UID ${firebaseUser.uid}. Error:`, error);
+          let firestoreErrorMsg = "Админы эрх, мэдээллийг Firestore-оос уншихад/хадгалахад алдаа гарлаа. Таны эрх хүрэхгүй байж магадгүй эсвэл системд доголдол гарсан байх.";
           if (error.code === 'permission-denied' || (error.message && error.message.toLowerCase().includes('permission-denied'))) {
-            firestoreErrorMsg = `Firestore Permission Denied: Хэрэглэгчийн мэдээллийг унших/хадгалах зөвшөөрөлгүй байна (UID: ${firebaseUser.uid}, performing as UID: ${auth.currentUser?.uid}). Firebase Console дээрх Firestore Rules болон таны нэвтэрсэн хэрэглэгчийн Firestore document дахь 'role' талбарыг шалгана уу. Error: ${error.message}`;
+            firestoreErrorMsg = `Firestore Permission Denied: Админы мэдээллийг '${ADMINS_COLLECTION}' коллекциос унших/хадгалах зөвшөөрөлгүй байна. Firestore Rules болон нэвтэрсэн админы '${ADMINS_COLLECTION}' document дахь 'role' талбарыг шалгана уу. Error: ${error.message}`;
           } else if (error.name === 'FirebaseError') {
              firestoreErrorMsg = `Firebase Firestore Error (code: ${error.code}): ${error.message}. UID: ${firebaseUser.uid}`;
           }
           toast({ title: "Алдаа гарлаа (AuthContext)", description: firestoreErrorMsg, variant: "destructive", duration: 20000 });
           setCurrentUser(null); 
-          console.warn("AuthContext: Critical error led to currentUser being set to null. User might be logged out or redirected.");
+          console.warn("AuthContext: Critical error led to currentUser being set to null. Admin might be logged out or redirected.");
         }
       } else {
         setCurrentUser(null);
@@ -138,7 +140,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log(`AuthContext: Attempting login for ${email}`);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      console.log(`AuthContext: Login successful for ${email}. onAuthStateChanged will handle setting user data.`);
+      console.log(`AuthContext: Login successful for ${email}. onAuthStateChanged will handle setting admin data.`);
     } catch (error: any) {
       console.error("AuthContext: Firebase login error:", error);
       let friendlyMessage = "Нэвтрэхэд алдаа гарлаа. Таны имэйл эсвэл нууц үг буруу байна.";
@@ -159,7 +161,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = useCallback(async () => {
     setLoading(true);
     const currentAuthUserBeforeLogout = auth.currentUser;
-    console.log(`AuthContext: Attempting logout for user: ${currentAuthUserBeforeLogout?.email} (UID: ${currentAuthUserBeforeLogout?.uid})`);
+    console.log(`AuthContext: Attempting logout for admin: ${currentAuthUserBeforeLogout?.email} (UID: ${currentAuthUserBeforeLogout?.uid})`);
     try {
       await firebaseSignOut(auth);
       router.push('/'); 
