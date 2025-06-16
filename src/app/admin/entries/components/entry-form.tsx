@@ -67,23 +67,15 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
           }
           break;
         case FieldType.NUMBER:
+          const baseNumberPreprocessor = (val: unknown) => (val === "" || val === undefined || val === null ? undefined : String(val));
+          const numberValidation = z.string()
+            .refine((val) => val === undefined || val === null || val === '' || !isNaN(parseFloat(val)), { message: `${field.label} тоон утга байх ёстой.` })
+            .transform(val => (val === undefined || val === null || val === '') ? null : Number(val));
+
           if (field.required) {
-            fieldSchema = z.preprocess(
-              (val) => (val === "" || val === undefined || val === null ? undefined : String(val)), 
-              z.string()
-                .nonempty({ message: `${field.label} талбарыг заавал бөглөнө үү.` })
-                .refine((val) => !isNaN(parseFloat(val)), { message: `${field.label} тоон утга байх ёстой.` })
-                .transform(Number)
-            );
+            fieldSchema = z.preprocess(baseNumberPreprocessor, z.string().nonempty({ message: `${field.label} талбарыг заавал бөглөнө үү.` }).pipe(numberValidation));
           } else {
-            fieldSchema = z.preprocess(
-              (val) => (val === "" || val === null || val === undefined ? undefined : String(val)),
-              z.string()
-                .optional()
-                .nullable()
-                .refine((val) => val === undefined || val === null || val === '' || !isNaN(parseFloat(val)), { message: `${field.label} тоон утга байх ёстой.` })
-                .transform(val => (val === undefined || val === null || val === '') ? null : Number(val))
-            );
+            fieldSchema = z.preprocess(baseNumberPreprocessor, z.string().optional().nullable().pipe(numberValidation.optional().nullable()));
           }
           break;
         case FieldType.DATE:
@@ -127,12 +119,12 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         title: initialData.title || '',
         status: initialData.status,
         publishAt: initialData.publishAt ? parseISO(initialData.publishAt) : undefined,
-        data: initialData.data || {},
+        data: {}, // Will be populated by useEffect
       } : {
         title: '',
         status: 'draft',
         publishAt: undefined,
-        data: {},
+        data: {}, // Will be populated by useEffect
       },
   });
 
@@ -140,17 +132,13 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
      const newSchema = generateSchema(selectedCategory?.fields);
      setCurrentSchema(newSchema);
 
-    const defaultDataForReset: Record<string, any> = {};
+    const defaultDataValues: Record<string, any> = {};
     selectedCategory?.fields.forEach(field => {
         if (field.description?.includes(USER_ONLY_FIELD_MARKER)) {
-            if (initialData?.data?.[field.key] !== undefined) {
-                 if (field.type === FieldType.DATE && typeof initialData.data[field.key] === 'string') {
-                    try { defaultDataForReset[field.key] = parseISO(initialData.data[field.key] as string); } catch (e) { defaultDataForReset[field.key] = undefined; }
-                 } else {
-                    defaultDataForReset[field.key] = initialData.data[field.key];
-                 }
+            if (initialData?.data && initialData.data.hasOwnProperty(field.key)) {
+                 defaultDataValues[field.key] = initialData.data[field.key];
             } else {
-                 defaultDataForReset[field.key] = undefined;
+                 defaultDataValues[field.key] = undefined; 
             }
             return;
         }
@@ -159,21 +147,17 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
 
         if (initialValueFromData !== undefined && initialValueFromData !== null) {
             if (field.type === FieldType.DATE && typeof initialValueFromData === 'string') {
-                try {
-                    defaultDataForReset[field.key] = parseISO(initialValueFromData);
-                } catch (e) {
-                    defaultDataForReset[field.key] = undefined;
-                }
+                try { defaultDataValues[field.key] = parseISO(initialValueFromData); } catch (e) { defaultDataValues[field.key] = undefined; }
             } else if (field.type === FieldType.NUMBER) {
-                 defaultDataForReset[field.key] = (initialValueFromData === '' || initialValueFromData === null || initialValueFromData === undefined) ? undefined : initialValueFromData;
+                 defaultDataValues[field.key] = (initialValueFromData === '' || initialValueFromData === null || initialValueFromData === undefined) ? undefined : initialValueFromData; // Stored as number or undefined
             } else {
-                defaultDataForReset[field.key] = initialValueFromData;
+                defaultDataValues[field.key] = initialValueFromData;
             }
-        } else {
-            if (field.type === FieldType.BOOLEAN) defaultDataForReset[field.key] = false;
-            else if (field.type === FieldType.NUMBER) defaultDataForReset[field.key] = undefined; 
-            else if (field.type === FieldType.DATE) defaultDataForReset[field.key] = undefined;
-            else defaultDataForReset[field.key] = '';
+        } else { // No initial data for this field (either new entry, or field newly added to category)
+            if (field.type === FieldType.BOOLEAN) defaultDataValues[field.key] = false;
+            else if (field.type === FieldType.NUMBER) defaultDataValues[field.key] = undefined; 
+            else if (field.type === FieldType.DATE) defaultDataValues[field.key] = undefined;
+            else defaultDataValues[field.key] = '';
         }
     });
 
@@ -181,7 +165,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
       title: initialData?.title || '',
       status: initialData?.status || 'draft',
       publishAt: initialData?.publishAt ? parseISO(initialData.publishAt) : undefined,
-      data: defaultDataForReset,
+      data: defaultDataValues,
     }, {
       keepDirtyValues: false,
       keepErrors: false, 
@@ -193,16 +177,16 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
       setAiError("Please ensure a category is selected.");
       return;
     }
-    const formData = form.getValues().data;
-    let entryContent = form.getValues().title + "\n";
+    const formDataValues = form.getValues(); // Get all form values
+    let entryContent = formDataValues.title + "\n";
 
     const contentField = selectedCategory.fields.find(f => f.type === FieldType.TEXTAREA && (f.label.toLowerCase().includes('content') || f.label.toLowerCase().includes('body')));
-    if (contentField && formData[contentField.key]) {
-      entryContent += String(formData[contentField.key]);
-    } else {
+    if (contentField && formDataValues.data && formDataValues.data[contentField.key]) {
+      entryContent += String(formDataValues.data[contentField.key]);
+    } else if (formDataValues.data) {
       selectedCategory.fields.forEach(field => {
-        if (!field.description?.includes(USER_ONLY_FIELD_MARKER) && (field.type === FieldType.TEXT || field.type === FieldType.TEXTAREA) && formData[field.key]) {
-          entryContent += `\n${field.label}: ${formData[field.key]}`;
+        if (!field.description?.includes(USER_ONLY_FIELD_MARKER) && (field.type === FieldType.TEXT || field.type === FieldType.TEXTAREA) && formDataValues.data[field.key]) {
+          entryContent += `\n${field.label}: ${formDataValues.data[field.key]}`;
         }
       });
     }
@@ -227,7 +211,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
 
   const watchStatus = form.watch('status');
 
-  const transformedSubmit = async (formData: z.infer<typeof currentSchema>) => {
+  const transformedSubmit = async (formDataFromHook: z.infer<typeof currentSchema>) => {
     setIsSubmitting(true);
 
     const adminEditableData: Record<string, any> = {};
@@ -240,52 +224,49 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
       }
 
       const key = field.key;
-      let valueToSave: any = undefined; 
-
-      if (formData.data && formData.data.hasOwnProperty(key)) {
-        valueToSave = formData.data[key];
-      }
+      // formDataFromHook.data should contain the values managed by react-hook-form
+      const valueFromForm = formDataFromHook.data ? formDataFromHook.data[key] : undefined;
+      let valueToSave: any;
       
       switch (field.type) {
         case FieldType.NUMBER:
-          if (valueToSave === null || valueToSave === undefined || valueToSave === '' || isNaN(Number(valueToSave))) {
-             valueToSave = null;
-          } else {
-             valueToSave = Number(valueToSave);
+          // Zod transform should have already converted to number or null if input was valid for number
+          // If valueFromForm is a number, use it. If it's null (from Zod transform of empty/invalid string), use null.
+          // Otherwise, if it's still something else (e.g. undefined, or an unparseable string that somehow bypassed Zod), default to null.
+          if (typeof valueFromForm === 'number') {
+            valueToSave = valueFromForm;
+          } else if (valueFromForm === null) {
+            valueToSave = null;
+          } else { // Fallback, should ideally be handled by Zod
+            valueToSave = null;
           }
           break;
         case FieldType.DATE:
-          if (valueToSave instanceof Date) {
-            valueToSave = valueToSave.toISOString();
-          } else if (typeof valueToSave === 'string') {
-            try {
-              valueToSave = parseISO(valueToSave).toISOString(); 
-            } catch (e) {
-              valueToSave = null; 
-            }
+          if (valueFromForm instanceof Date) {
+            valueToSave = valueFromForm.toISOString();
           } else {
             valueToSave = null; 
           }
           break;
         case FieldType.BOOLEAN:
-          valueToSave = !!valueToSave; 
+          valueToSave = !!valueFromForm; 
           break;
         case FieldType.TEXT:
         case FieldType.TEXTAREA:
-          valueToSave = (valueToSave === undefined || valueToSave === null) ? '' : String(valueToSave);
+          valueToSave = (valueFromForm === undefined || valueFromForm === null) ? '' : String(valueFromForm);
           break;
         default:
-          valueToSave = (valueToSave === undefined) ? null : valueToSave;
+          valueToSave = (valueFromForm === undefined) ? null : valueFromForm;
       }
       adminEditableData[key] = valueToSave;
     });
 
     const submissionPayload = {
-        title: formData.title,
+        title: formDataFromHook.title,
         categoryId: selectedCategory.id,
         categoryName: selectedCategory.name,
-        status: formData.status,
-        publishAt: formData.status === 'scheduled' && formData.publishAt ? formData.publishAt.toISOString() : null,
+        status: formDataFromHook.status,
+        publishAt: formDataFromHook.status === 'scheduled' && formDataFromHook.publishAt ? formDataFromHook.publishAt.toISOString() : null,
         data: adminEditableData,
     };
 
@@ -302,18 +283,18 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         if (onSubmitSuccess) onSubmitSuccess();
         else router.push(`/admin/entries?category=${selectedCategory.id}`);
 
-        const resetData: Record<string, any> = {};
+        const resetDataForNewEntry: Record<string, any> = {};
         selectedCategory.fields.filter(f => !f.description?.includes(USER_ONLY_FIELD_MARKER)).forEach(field => {
-            if (field.type === FieldType.BOOLEAN) resetData[field.key] = false;
-            else if (field.type === FieldType.NUMBER) resetData[field.key] = undefined; 
-            else if (field.type === FieldType.DATE) resetData[field.key] = undefined;
-            else resetData[field.key] = '';
+            if (field.type === FieldType.BOOLEAN) resetDataForNewEntry[field.key] = false;
+            else if (field.type === FieldType.NUMBER) resetDataForNewEntry[field.key] = undefined; 
+            else if (field.type === FieldType.DATE) resetDataForNewEntry[field.key] = undefined;
+            else resetDataForNewEntry[field.key] = '';
         });
         form.reset({
             title: '',
             status: 'draft',
             publishAt: undefined,
-            data: resetData
+            data: resetDataForNewEntry
         }, { keepErrors: false, keepDirtyValues: false });
 
     } else if (result && "error" in result && result.error) {
@@ -322,33 +303,40 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
   };
 
   const handleCancel = () => {
-    const defaultDataForReset: Record<string, any> = {};
-    selectedCategory.fields.forEach(field => {
-        if (field.description?.includes(USER_ONLY_FIELD_MARKER)) return;
+    // Reset to initialData if editing, or to blank if new
+    const resetDataValues: Record<string, any> = {};
+    selectedCategory?.fields.forEach(field => {
+        if (field.description?.includes(USER_ONLY_FIELD_MARKER)) {
+            if (initialData?.data && initialData.data.hasOwnProperty(field.key)) {
+                 resetDataValues[field.key] = initialData.data[field.key];
+            } else {
+                 resetDataValues[field.key] = undefined;
+            }
+            return;
+        }
 
-        const initialValueFromData = initialData?.data?.[field.key];
-
-        if (initialValueFromData !== undefined && initialValueFromData !== null) {
-            if (field.type === FieldType.DATE && typeof initialValueFromData === 'string') {
-                 try { defaultDataForReset[field.key] = parseISO(initialValueFromData); } catch (e) { defaultDataForReset[field.key] = undefined; }
+        const initialValue = initialData?.data?.[field.key];
+        if (initialValue !== undefined && initialValue !== null) {
+            if (field.type === FieldType.DATE && typeof initialValue === 'string') {
+                 try { resetDataValues[field.key] = parseISO(initialValue); } catch (e) { resetDataValues[field.key] = undefined; }
             } else if (field.type === FieldType.NUMBER) {
-                defaultDataForReset[field.key] = (initialValueFromData === '' || initialValueFromData === null || initialValueFromData === undefined) ? undefined : initialValueFromData;
+                 resetDataValues[field.key] = (initialValue === '' || initialValue === null || initialValue === undefined) ? undefined : initialValue;
             }
             else {
-                defaultDataForReset[field.key] = initialValueFromData;
+                resetDataValues[field.key] = initialValue;
             }
         } else {
-            if (field.type === FieldType.BOOLEAN) defaultDataForReset[field.key] = false;
-            else if (field.type === FieldType.NUMBER) defaultDataForReset[field.key] = undefined;
-            else if (field.type === FieldType.DATE) defaultDataForReset[field.key] = undefined;
-            else defaultDataForReset[field.key] = '';
+            if (field.type === FieldType.BOOLEAN) resetDataValues[field.key] = false;
+            else if (field.type === FieldType.NUMBER) resetDataValues[field.key] = undefined;
+            else if (field.type === FieldType.DATE) resetDataValues[field.key] = undefined;
+            else resetDataValues[field.key] = '';
         }
     });
     form.reset({
         title: initialData?.title || '',
         status: initialData?.status || 'draft',
         publishAt: initialData?.publishAt ? parseISO(initialData.publishAt) : undefined,
-        data: defaultDataForReset
+        data: resetDataValues
     }, { keepErrors: false, keepDirtyValues: false });
     router.back();
   };
@@ -430,13 +418,13 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                               )}
                               {catField.type === FieldType.NUMBER && (
                                 <Input 
-                                  type="text" 
+                                  type="text" // Use text to allow empty string for Zod preprocess
                                   inputMode="numeric" 
                                   pattern="[0-9]*\.?[0-9]*"
                                   placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} 
                                   {...formHookField} 
                                   value={formHookField.value === undefined || formHookField.value === null ? '' : String(formHookField.value)}
-                                  onChange={e => formHookField.onChange(e.target.value === '' ? undefined : e.target.value)}
+                                  onChange={e => formHookField.onChange(e.target.value)} // Pass string to Zod
                                 />
                               )}
                               {catField.type === FieldType.BOOLEAN && (
