@@ -36,7 +36,9 @@ export default function NewEntryPage() {
         if (categoryIdFromUrl && fetchedCategories.some(c => c.id === categoryIdFromUrl)) {
           setSelectedCategoryId(categoryIdFromUrl);
         } else if (fetchedCategories.length > 0) {
-          setSelectedCategoryId(fetchedCategories[0].id);
+          // Automatically select the first category if none is in URL, only if it has a name
+          const firstValidCategory = fetchedCategories.find(cat => cat.name);
+          setSelectedCategoryId(firstValidCategory ? firstValidCategory.id : undefined);
         } else {
           setSelectedCategoryId(undefined); 
         }
@@ -56,7 +58,6 @@ export default function NewEntryPage() {
   const selectedCategory = useMemo(() => {
     if (!selectedCategoryId) return undefined;
     const category = categories.find(cat => cat.id === selectedCategoryId);
-    // Ensure the found category has a name, otherwise treat as invalid
     return category && category.name ? category : undefined;
   }, [categories, selectedCategoryId]);
 
@@ -85,11 +86,11 @@ export default function NewEntryPage() {
       <>
         <PageHeader title="Create New Entry" />
         <div className="space-y-4 p-4">
-          <Skeleton className="h-10 w-full sm:w-1/3 mb-4" /> {/* For Category Selector */}
-          <Skeleton className="h-10 w-full" /> {/* For Entry Title */}
-          <Skeleton className="h-20 w-full" /> {/* For a field */}
-          <Skeleton className="h-20 w-full" /> {/* For another field */}
-          <Skeleton className="h-10 w-1/4 mt-4 float-right" /> {/* For Submit Button */}
+          <Skeleton className="h-10 w-full sm:w-1/3 mb-4" /> 
+          <Skeleton className="h-10 w-full" /> 
+          <Skeleton className="h-20 w-full" /> 
+          <Skeleton className="h-20 w-full" /> 
+          <Skeleton className="h-10 w-1/4 mt-4 float-right" /> 
         </div>
       </>
     );
@@ -122,7 +123,7 @@ export default function NewEntryPage() {
         description={selectedCategory ? `For category: ${selectedCategory.name}` : "Select a category to begin."}
       />
       
-      <div className="mb-6 max-w-md"> {/* Adjusted max-width */}
+      <div className="mb-6 max-w-md"> 
         <label htmlFor="category-select" className="block text-sm font-medium text-foreground mb-1">
           Selected Category <span className="text-destructive">*</span>
         </label>
@@ -132,7 +133,6 @@ export default function NewEntryPage() {
           </SelectTrigger>
           <SelectContent>
             {categories.map(cat => (
-              // Ensure category has a name before rendering it as an option
               cat.name && (
                 <SelectItem key={cat.id} value={cat.id}>
                   {cat.name}
@@ -146,14 +146,15 @@ export default function NewEntryPage() {
         )}
       </div>
 
-      {selectedCategory && selectedCategory.name ? ( // Double check selectedCategory and its name
+      {selectedCategory && selectedCategory.name ? ( 
         <EntryForm 
+          key={selectedCategory.id} // Add key here for re-mounting
           categories={categories} 
           selectedCategory={selectedCategory}
           onSubmitSuccess={handleEntryFormSuccess}
         />
       ) : (
-        categories.length > 0 && ( // Only show this if categories exist but none is selected properly
+        categories.length > 0 && ( 
             <Card className="mt-6">
             <CardContent className="py-10 text-center">
                 <p className="text-muted-foreground">Please select a valid category above to start creating an entry.</p>
@@ -164,4 +165,3 @@ export default function NewEntryPage() {
     </>
   );
 }
-

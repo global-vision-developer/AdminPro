@@ -1,12 +1,14 @@
+
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { PageHeader } from '@/components/admin/page-header';
 import { EntryForm } from '../../components/entry-form';
 import { useToast } from '@/hooks/use-toast';
 import type { Category, Entry } from '@/types';
-import { mockCategories, mockEntries } from '@/lib/mock-data';
+import { getCategories } from '@/lib/actions/categoryActions';
+import { getEntry } from '@/lib/actions/entryActions';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function EditEntryPage() {
@@ -18,55 +20,47 @@ export default function EditEntryPage() {
   const [entry, setEntry] = useState<Entry | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (entryId) {
-      setIsLoading(true);
-      // Simulate fetching data
-      const fetchedEntry = mockEntries.find(e => e.id === entryId);
-      const fetchedCategories = mockCategories;
-      
-      setTimeout(() => { // Simulate network delay
-        if (fetchedEntry) {
-          setEntry(fetchedEntry);
-          setCategories(fetchedCategories);
-        } else {
-          toast({ title: "Error", description: "Entry not found.", variant: "destructive" });
+    async function loadData() {
+      if (entryId) {
+        setIsLoading(true);
+        try {
+          const [fetchedEntry, fetchedCategories] = await Promise.all([
+            getEntry(entryId),
+            getCategories()
+          ]);
+          
+          if (fetchedEntry) {
+            setEntry(fetchedEntry);
+            setCategories(fetchedCategories);
+          } else {
+            toast({ title: "Error", description: "Entry not found.", variant: "destructive" });
+            router.push('/admin/entries');
+          }
+        } catch (error) {
+          console.error("Failed to load entry or categories:", error);
+          toast({ title: "Error", description: "Failed to load data.", variant: "destructive" });
           router.push('/admin/entries');
+        } finally {
+          setIsLoading(false);
         }
-        setIsLoading(false);
-      }, 500);
+      }
     }
+    loadData();
   }, [entryId, router, toast]);
 
-  const handleSubmit = async (data: any) => {
-    setIsSubmitting(true);
-    if (!entry) return;
+  const selectedCategory = useMemo(() => {
+    if (!entry || categories.length === 0) return undefined;
+    const category = categories.find(cat => cat.id === entry.categoryId);
+    return category && category.name ? category : undefined;
+  }, [entry, categories]);
 
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
-      
-      const updatedEntry: Entry = {
-        ...entry,
-        ...data,
-        updatedAt: new Date().toISOString(),
-      };
-      console.log("Entry updated (mock):", updatedEntry);
-
-      toast({
-        title: "Entry Updated",
-        description: `Entry "${updatedEntry.title || 'Untitled'}" has been successfully updated.`,
-      });
+  const handleEntryFormSuccess = () => {
+    if (entry) {
+      router.push(`/admin/entries?category=${entry.categoryId}`);
+    } else {
       router.push('/admin/entries');
-    } catch (error) {
-      console.error("Failed to update entry:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update entry. Please try again.",
-        variant: "destructive",
-      });
-      setIsSubmitting(false);
     }
   };
 
@@ -74,26 +68,39 @@ export default function EditEntryPage() {
     return (
       <>
         <PageHeader title="Edit Entry" />
-         <div className="space-y-4">
-          <Skeleton className="h-10 w-1/3" />
-          <Skeleton className="h-64 w-full" />
-          <Skeleton className="h-10 w-1/4 float-right" />
+         <div className="space-y-4 p-4">
+          <Skeleton className="h-10 w-full sm:w-1/3 mb-4" />
+          <Skeleton className="h-10 w-full" /> 
+          <Skeleton className="h-20 w-full" /> 
+          <Skeleton className="h-20 w-full" /> 
+          <Skeleton className="h-10 w-1/4 mt-4 float-right" /> 
         </div>
       </>
     );
   }
 
-  if (!entry) {
-    return <PageHeader title="Entry Not Found" />;
+  if (!entry || !selectedCategory) {
+    return (
+        <>
+         <PageHeader title="Error Loading Entry" description="The entry or its category could not be loaded." />
+         <Button onClick={() => router.push('/admin/entries')} variant="outline">Back to Entries</Button>
+        </>
+    );
   }
 
   return (
     <>
       <PageHeader
-        title={`Edit Entry: ${entry.title || entry.data?.title || entry.data?.productName || 'Untitled'}`}
-        description="Modify the details of this content entry."
+        title={`Edit Entry: ${entry.title || 'Untitled'}`}
+        description={`Modifying content for category: ${selectedCategory.name}`}
       />
-      <EntryForm initialData={entry} categories={categories} onSubmit={handleSubmit} isSubmitting={isSubmitting} />
+      <EntryForm 
+        key={entry.id} // Add key here for re-mounting if entry ID changes (though unlikely here) or categoryId
+        initialData={entry} 
+        categories={categories} 
+        selectedCategory={selectedCategory}
+        onSubmitSuccess={handleEntryFormSuccess} 
+      />
     </>
   );
 }

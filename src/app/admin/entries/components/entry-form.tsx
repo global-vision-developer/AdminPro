@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -28,12 +28,87 @@ import { useToast } from '@/hooks/use-toast';
 
 interface EntryFormProps {
   initialData?: Entry | null;
-  categories: Category[];
-  selectedCategory: Category;
+  categories: Category[]; // All available categories (might not be needed if selectedCategory is always robust)
+  selectedCategory: Category; // The currently selected category object
   onSubmitSuccess?: () => void;
 }
 
 const USER_ONLY_FIELD_MARKER = "аппликейшний хэрэглэгчид бөглөнө";
+
+// Moved generateSchema outside the component to be a pure function
+const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, any> => {
+  const shape: Record<string, z.ZodTypeAny> = {
+    title: z.string().trim().min(1, { message: "Бичлэгийн гарчгийг заавал бөглөнө үү." }),
+    status: z.enum(['draft', 'published', 'scheduled']).default('draft'),
+    publishAt: z.date().optional().nullable(),
+    // Initialize data as an object schema. Specific fields will be added based on category.
+    data: z.object({}).passthrough(), // Use passthrough to allow any fields initially
+  };
+
+  const dataShape: Record<string, z.ZodTypeAny> = {};
+  fields.forEach(field => {
+    if (field.description?.includes(USER_ONLY_FIELD_MARKER)) {
+      dataShape[field.key] = z.any().optional().nullable();
+      return;
+    }
+
+    let fieldSchema: z.ZodTypeAny;
+    switch (field.type) {
+      case FieldType.TEXT:
+      case FieldType.TEXTAREA:
+        if (field.required) {
+          fieldSchema = z.string().trim().min(1, { message: `${field.label} талбарыг заавал бөглөнө үү.` });
+        } else {
+          // Allow empty string, but treat null/undefined as empty string for form binding
+          fieldSchema = z.string().optional().nullable().transform(val => val ?? '');
+        }
+        break;
+      case FieldType.NUMBER:
+        const baseNumberPreprocessor = (val: unknown) => (val === "" || val === undefined || val === null) ? undefined : String(val);
+        const numberValidation = z.string()
+          .refine((val) => val === undefined || val === null || val === '' || !isNaN(parseFloat(val)), { message: `${field.label} тоон утга байх ёстой.` })
+          .transform(val => (val === undefined || val === null || val === '') ? null : Number(val));
+
+        if (field.required) {
+          fieldSchema = z.preprocess(baseNumberPreprocessor, z.string().nonempty({ message: `${field.label} талбарыг заавал бөглөнө үү.` }).pipe(numberValidation));
+        } else {
+          fieldSchema = z.preprocess(baseNumberPreprocessor, z.string().optional().nullable().pipe(numberValidation.optional().nullable()));
+        }
+        break;
+      case FieldType.DATE:
+        if (field.required) {
+          fieldSchema = z.date({
+            required_error: `${field.label} талбарыг заавал бөглөнө үү.`,
+            invalid_type_error: `${field.label} зөв огноо байх ёстой.`,
+          });
+        } else {
+          fieldSchema = z.date({
+            invalid_type_error: `${field.label} зөв огноо байх ёстой.`,
+          }).optional().nullable();
+        }
+        break;
+      case FieldType.BOOLEAN:
+        fieldSchema = z.boolean().default(false);
+        break;
+      default:
+        fieldSchema = z.any().optional().nullable();
+    }
+    dataShape[field.key] = fieldSchema;
+  });
+  
+  shape.data = z.object(dataShape);
+
+  return z.object(shape).refine(data => {
+    if (data.status === 'scheduled' && !data.publishAt) {
+      return false;
+    }
+    return true;
+  }, {
+    message: "Нийтлэх огноо, цагийг сонгоно уу.",
+    path: ["publishAt"],
+  });
+};
+
 
 export function EntryForm({ initialData, categories, selectedCategory, onSubmitSuccess }: EntryFormProps) {
   const router = useRouter();
@@ -43,134 +118,59 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
 
-  const generateSchema = useCallback((fields: FieldDefinition[] = []) => {
-    const shape: Record<string, z.ZodTypeAny> = {
-      title: z.string().trim().min(1, { message: "Бичлэгийн гарчгийг заавал бөглөнө үү." }),
-      status: z.enum(['draft', 'published', 'scheduled']).default('draft'),
-      publishAt: z.date().optional().nullable(),
-    };
+  const formSchema = useMemo(() => generateSchema(selectedCategory?.fields), [selectedCategory]);
 
-    fields.forEach(field => {
-      if (field.description?.includes(USER_ONLY_FIELD_MARKER)) {
-        shape[`data.${field.key}`] = z.any().optional().nullable();
-        return;
-      }
-
-      let fieldSchema: z.ZodTypeAny;
-      switch (field.type) {
-        case FieldType.TEXT:
-        case FieldType.TEXTAREA:
-          if (field.required) {
-            fieldSchema = z.string().trim().min(1, { message: `${field.label} талбарыг заавал бөглөнө үү.` });
-          } else {
-            fieldSchema = z.string().optional().nullable().transform(val => val === null ? '' : val); // Ensure '' for empty optional text
-          }
-          break;
-        case FieldType.NUMBER:
-          const baseNumberPreprocessor = (val: unknown) => (val === "" || val === undefined || val === null ? undefined : String(val));
-          const numberValidation = z.string()
-            .refine((val) => val === undefined || val === null || val === '' || !isNaN(parseFloat(val)), { message: `${field.label} тоон утга байх ёстой.` })
-            .transform(val => (val === undefined || val === null || val === '') ? null : Number(val));
-
-          if (field.required) {
-            fieldSchema = z.preprocess(baseNumberPreprocessor, z.string().nonempty({ message: `${field.label} талбарыг заавал бөглөнө үү.` }).pipe(numberValidation));
-          } else {
-            fieldSchema = z.preprocess(baseNumberPreprocessor, z.string().optional().nullable().pipe(numberValidation.optional().nullable()));
-          }
-          break;
-        case FieldType.DATE:
-          if (field.required) {
-            fieldSchema = z.date({
-              required_error: `${field.label} талбарыг заавал бөглөнө үү.`,
-              invalid_type_error: `${field.label} зөв огноо байх ёстой.`,
-            });
-          } else {
-            fieldSchema = z.date({
-              invalid_type_error: `${field.label} зөв огноо байх ёстой.`,
-            }).optional().nullable();
-          }
-          break;
-        case FieldType.BOOLEAN:
-          fieldSchema = z.boolean().default(false);
-          break;
-        default:
-          fieldSchema = z.any();
-      }
-      shape[`data.${field.key}`] = fieldSchema;
-    });
-    
-    return z.object(shape).refine(data => {
-      if (data.status === 'scheduled' && !data.publishAt) {
-        return false;
-      }
-      return true;
-    }, {
-      message: "Нийтлэх огноо, цагийг сонгоно уу.",
-      path: ["publishAt"],
-    });
-  }, []);
-
-  const [currentSchema, setCurrentSchema] = useState(() => generateSchema(selectedCategory?.fields));
-
-  const form = useForm<z.infer<typeof currentSchema>>({
-    resolver: zodResolver(currentSchema),
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
     mode: 'onChange', 
-    defaultValues: initialData ? {
-        title: initialData.title || '',
-        status: initialData.status,
-        publishAt: initialData.publishAt ? parseISO(initialData.publishAt) : undefined,
-        data: {}, // Will be populated by useEffect
-      } : {
-        title: '',
-        status: 'draft',
-        publishAt: undefined,
-        data: {}, // Will be populated by useEffect
-      },
+    defaultValues: () => {
+        const defaultDataValues: Record<string, any> = {};
+        selectedCategory?.fields?.forEach(field => {
+            if (field.description?.includes(USER_ONLY_FIELD_MARKER)) {
+                if (initialData?.data && initialData.data.hasOwnProperty(field.key)) {
+                     defaultDataValues[field.key] = initialData.data[field.key];
+                } else {
+                     defaultDataValues[field.key] = undefined; 
+                }
+                return;
+            }
+    
+            const initialValueFromData = initialData?.data?.[field.key];
+    
+            if (initialValueFromData !== undefined && initialValueFromData !== null) {
+                if (field.type === FieldType.DATE && typeof initialValueFromData === 'string') {
+                    try { defaultDataValues[field.key] = parseISO(initialValueFromData); } catch (e) { defaultDataValues[field.key] = undefined; }
+                } else if (field.type === FieldType.NUMBER) {
+                     defaultDataValues[field.key] = (initialValueFromData === '' || initialValueFromData === null || initialValueFromData === undefined) ? undefined : initialValueFromData;
+                } else {
+                    defaultDataValues[field.key] = initialValueFromData;
+                }
+            } else { 
+                if (field.type === FieldType.BOOLEAN) defaultDataValues[field.key] = false;
+                else if (field.type === FieldType.NUMBER) defaultDataValues[field.key] = undefined; 
+                else if (field.type === FieldType.DATE) defaultDataValues[field.key] = undefined;
+                else defaultDataValues[field.key] = ''; // TEXT, TEXTAREA
+            }
+        });
+        
+        return {
+            title: initialData?.title || '',
+            status: initialData?.status || 'draft',
+            publishAt: initialData?.publishAt ? parseISO(initialData.publishAt) : null, // Ensure null for empty dates
+            data: defaultDataValues,
+        };
+    }
   });
-
+  
+  // This useEffect will re-run when selectedCategory changes, which might trigger a form value reset
+  // if `defaultValues` in `useForm` is not a function or not memoized correctly with selectedCategory.
+  // Since defaultValues is now a function, this explicit reset might be redundant IF the component is re-keyed.
+  // If the component is NOT re-keyed, this explicit reset is necessary.
+  // Let's keep it for now if re-keying is only on NewEntryPage.
    useEffect(() => {
-     const newSchema = generateSchema(selectedCategory?.fields);
-     setCurrentSchema(newSchema);
+    form.reset(form.formState.defaultValues); // Reset to the values derived from the defaultValues function
+  }, [selectedCategory, initialData, form]);
 
-    const defaultDataValues: Record<string, any> = {};
-    selectedCategory?.fields.forEach(field => {
-        if (field.description?.includes(USER_ONLY_FIELD_MARKER)) {
-            if (initialData?.data && initialData.data.hasOwnProperty(field.key)) {
-                 defaultDataValues[field.key] = initialData.data[field.key];
-            } else {
-                 defaultDataValues[field.key] = undefined; 
-            }
-            return;
-        }
-
-        const initialValueFromData = initialData?.data?.[field.key];
-
-        if (initialValueFromData !== undefined && initialValueFromData !== null) {
-            if (field.type === FieldType.DATE && typeof initialValueFromData === 'string') {
-                try { defaultDataValues[field.key] = parseISO(initialValueFromData); } catch (e) { defaultDataValues[field.key] = undefined; }
-            } else if (field.type === FieldType.NUMBER) {
-                 defaultDataValues[field.key] = (initialValueFromData === '' || initialValueFromData === null || initialValueFromData === undefined) ? undefined : initialValueFromData;
-            } else {
-                defaultDataValues[field.key] = initialValueFromData;
-            }
-        } else { 
-            if (field.type === FieldType.BOOLEAN) defaultDataValues[field.key] = false;
-            else if (field.type === FieldType.NUMBER) defaultDataValues[field.key] = undefined; 
-            else if (field.type === FieldType.DATE) defaultDataValues[field.key] = undefined;
-            else defaultDataValues[field.key] = ''; // TEXT, TEXTAREA
-        }
-    });
-
-    form.reset({
-      title: initialData?.title || '',
-      status: initialData?.status || 'draft',
-      publishAt: initialData?.publishAt ? parseISO(initialData.publishAt) : undefined,
-      data: defaultDataValues,
-    }, {
-      keepDirtyValues: false,
-      keepErrors: false, 
-    });
-  }, [selectedCategory, initialData, generateSchema, form]);
 
   const handleGetSuggestions = async () => {
     if (!selectedCategory) {
@@ -211,7 +211,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
 
   const watchStatus = form.watch('status');
 
-  const transformedSubmit = async (formDataFromHook: z.infer<typeof currentSchema>) => {
+  const transformedSubmit = async (formDataFromHook: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
 
     const adminEditableData: Record<string, any> = {};
@@ -219,6 +219,8 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
       if (field.description?.includes(USER_ONLY_FIELD_MARKER)) {
         if (initialData?.data && initialData.data.hasOwnProperty(field.key)) {
              adminEditableData[field.key] = initialData.data[field.key];
+        } else {
+            adminEditableData[field.key] = null; // Or undefined, depending on desired Firestore behavior
         }
         return; 
       }
@@ -231,10 +233,8 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         case FieldType.NUMBER:
           if (typeof valueFromForm === 'number') {
             valueToSave = valueFromForm;
-          } else if (valueFromForm === null) {
-            valueToSave = null;
           } else { 
-            valueToSave = null;
+            valueToSave = null; // Store null if not a valid number or empty
           }
           break;
         case FieldType.DATE:
@@ -249,10 +249,12 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
           break;
         case FieldType.TEXT:
         case FieldType.TEXTAREA:
-          valueToSave = (valueFromForm === undefined || valueFromForm === null) ? '' : String(valueFromForm);
+          // Ensure empty strings are saved, not null/undefined, if that's the intent.
+          // Zod transform already makes it '' if null/undefined.
+          valueToSave = (typeof valueFromForm === 'string') ? valueFromForm : '';
           break;
         default:
-          valueToSave = (valueFromForm === undefined) ? null : valueFromForm;
+          valueToSave = valueFromForm; // For any other types or 'any'
       }
       adminEditableData[key] = valueToSave;
     });
@@ -278,20 +280,11 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         toast({ title: "Success", description: `Entry ${initialData ? 'updated' : 'created'} successfully.`});
         if (onSubmitSuccess) onSubmitSuccess();
         else router.push(`/admin/entries?category=${selectedCategory.id}`);
-
-        const resetDataForNewEntry: Record<string, any> = {};
-        selectedCategory.fields.filter(f => !f.description?.includes(USER_ONLY_FIELD_MARKER)).forEach(field => {
-            if (field.type === FieldType.BOOLEAN) resetDataForNewEntry[field.key] = false;
-            else if (field.type === FieldType.NUMBER) resetDataForNewEntry[field.key] = undefined; 
-            else if (field.type === FieldType.DATE) resetDataForNewEntry[field.key] = undefined;
-            else resetDataForNewEntry[field.key] = '';
-        });
-        form.reset({
-            title: '',
-            status: 'draft',
-            publishAt: undefined,
-            data: resetDataForNewEntry
-        }, { keepErrors: false, keepDirtyValues: false });
+        
+        // Reset form to its default state after successful submission (for new entries)
+        if(!initialData) {
+            form.reset(form.formState.defaultValues);
+        }
 
     } else if (result && "error" in result && result.error) {
         toast({ title: "Error", description: result.error, variant: "destructive" });
@@ -299,42 +292,11 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
   };
 
   const handleCancel = () => {
-    const defaultDataValues: Record<string, any> = {};
-    selectedCategory?.fields.forEach(field => {
-        if (field.description?.includes(USER_ONLY_FIELD_MARKER)) {
-            if (initialData?.data && initialData.data.hasOwnProperty(field.key)) {
-                 defaultDataValues[field.key] = initialData.data[field.key];
-            } else {
-                 defaultDataValues[field.key] = undefined;
-            }
-            return;
-        }
-
-        const initialValue = initialData?.data?.[field.key];
-        if (initialValue !== undefined && initialValue !== null) {
-            if (field.type === FieldType.DATE && typeof initialValue === 'string') {
-                 try { defaultDataValues[field.key] = parseISO(initialValue); } catch (e) { defaultDataValues[field.key] = undefined; }
-            } else if (field.type === FieldType.NUMBER) {
-                 defaultDataValues[field.key] = (initialValue === '' || initialValue === null || initialValue === undefined) ? undefined : initialValue;
-            }
-            else {
-                defaultDataValues[field.key] = initialValue;
-            }
-        } else {
-            if (field.type === FieldType.BOOLEAN) defaultDataValues[field.key] = false;
-            else if (field.type === FieldType.NUMBER) defaultDataValues[field.key] = undefined;
-            else if (field.type === FieldType.DATE) defaultDataValues[field.key] = undefined;
-            else defaultDataValues[field.key] = '';
-        }
-    });
-    form.reset({
-        title: initialData?.title || '',
-        status: initialData?.status || 'draft',
-        publishAt: initialData?.publishAt ? parseISO(initialData.publishAt) : undefined,
-        data: defaultDataValues
-    }, { keepErrors: false, keepDirtyValues: false });
+    // Reset form to its default state (initial or empty)
+    form.reset(form.formState.defaultValues);
     router.back();
   };
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(transformedSubmit)} className="space-y-8">
@@ -411,13 +373,19 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                               )}
                               {catField.type === FieldType.NUMBER && (
                                 <Input 
-                                  type="text" 
+                                  type="text" // Use text to allow empty input initially, Zod handles conversion/validation
                                   inputMode="numeric" 
                                   pattern="[0-9]*\.?[0-9]*"
                                   placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} 
                                   {...formHookField} 
-                                  onChange={e => formHookField.onChange(e.target.value === '' ? undefined : e.target.value)} 
+                                  // RHF handles value conversion based on schema and registration
+                                  // Ensure value is string for input, or empty string
                                   value={formHookField.value === undefined || formHookField.value === null ? '' : String(formHookField.value)}
+                                  onChange={e => {
+                                    const val = e.target.value;
+                                    // Pass string to RHF, Zod preprocessor will handle it
+                                    formHookField.onChange(val === '' ? undefined : val);
+                                  }}
                                 />
                               )}
                               {catField.type === FieldType.BOOLEAN && (
@@ -602,7 +570,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
 
         <div className="flex justify-end space-x-2 pt-8 border-t mt-8">
           <Button type="button" variant="outline" disabled={isSubmitting} onClick={handleCancel}>Cancel</Button>
-          <Button type="submit" disabled={isSubmitting || !selectedCategory}>
+          <Button type="submit" disabled={isSubmitting || !selectedCategory || !selectedCategory.fields?.length}>
             {isSubmitting ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
