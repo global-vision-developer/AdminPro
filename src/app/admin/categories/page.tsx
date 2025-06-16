@@ -1,44 +1,43 @@
 
-"use client";
-
-import React, { useState, useEffect } from 'react';
+// "use client"; // Removed as data fetching will be server-side now
+import React from 'react'; // Suspense can be used if needed for parts of page
 import Link from 'next/link';
+import { unstable_noStore as noStore } from 'next/cache';
 import { PlusCircle, Edit, Trash2, Search, ListFilter, Library } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { PageHeader } from '@/components/admin/page-header';
 import type { Category } from '@/types';
-import { mockCategories } from '@/lib/mock-data'; // Using mock data
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { useToast } from '@/hooks/use-toast';
+// import { useToast } from '@/hooks/use-toast'; // Toasts will be handled by server actions or client components if needed
 
-export default function CategoriesPage() {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const { toast } = useToast();
+import { getCategories, deleteCategory } from '@/lib/actions/categoryActions';
+import { DeleteCategoryButton } from './components/delete-category-button'; // Client component for delete confirmation
 
-  useEffect(() => {
-    // Simulate fetching data
-    setCategories(mockCategories);
-  }, []);
+// Search and filter will need to be re-implemented, possibly client-side or with server-side search params
+// For now, removing client-side useState for searchTerm and filters
 
+export default async function CategoriesPage({
+  searchParams
+}: {
+  searchParams?: { [key: string]: string | string[] | undefined }
+}) {
+  noStore(); // Opt out of caching for this page
+  const categories = await getCategories();
+  // const { toast } = useToast(); // Not available in Server Component
+
+  const searchTerm = typeof searchParams?.search === 'string' ? searchParams.search : '';
+  
   const filteredCategories = categories.filter(category =>
-    category.name.toLowerCase().includes(searchTerm.toLowerCase())
+    category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (category.description && category.description.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const handleDeleteCategory = (categoryId: string) => {
-    // Simulate deletion
-    setCategories(prev => prev.filter(cat => cat.id !== categoryId));
-    toast({
-      title: "Category Deleted",
-      description: `Category with ID ${categoryId} has been removed.`,
-    });
-  };
 
   return (
     <TooltipProvider>
@@ -53,16 +52,19 @@ export default function CategoriesPage() {
       <Card className="shadow-lg">
         <CardHeader>
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div className="relative w-full sm:max-w-xs">
+            {/* Basic server-side search (reloads page) - can be enhanced with client-side filtering or debouncing */}
+            <form method="GET" action="/admin/categories" className="relative w-full sm:max-w-xs">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
+                name="search"
                 placeholder="Search categories..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                defaultValue={searchTerm}
                 className="pl-10"
               />
-            </div>
-            <DropdownMenu>
+              {/* Hidden submit or rely on form submission on enter */}
+            </form>
+            {/* Filters will need to be client-side or server-side with query params */}
+            {/* <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-1">
                   <ListFilter className="h-3.5 w-3.5" />
@@ -73,9 +75,8 @@ export default function CategoriesPage() {
                 <DropdownMenuLabel>Filter by</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuCheckboxItem checked>Active</DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem>Archived</DropdownMenuCheckboxItem>
               </DropdownMenuContent>
-            </DropdownMenu>
+            </DropdownMenu> */}
           </div>
         </CardHeader>
         <CardContent>
@@ -98,16 +99,18 @@ export default function CategoriesPage() {
                         <Link href={`/admin/categories/${category.id}/edit`} className="hover:underline text-primary">
                           {category.name}
                         </Link>
-                        <p className="text-xs text-muted-foreground md:hidden">{category.description?.substring(0,50)}...</p>
+                         <p className="text-xs text-muted-foreground md:hidden">{category.slug}</p>
+                        <p className="text-xs text-muted-foreground md:hidden mt-1">{category.description?.substring(0,50)}...</p>
                       </TableCell>
                       <TableCell className="hidden md:table-cell max-w-sm truncate">
                         {category.description || <span className="text-muted-foreground italic">No description</span>}
+                        <p className="text-xs text-muted-foreground mt-1">Slug: {category.slug}</p>
                       </TableCell>
                       <TableCell className="text-center hidden sm:table-cell">
                         <Badge variant="secondary">{category.fields.length}</Badge>
                       </TableCell>
                       <TableCell className="text-center hidden md:table-cell">
-                        {new Date(category.updatedAt).toLocaleDateString()}
+                        {category.updatedAt ? new Date(category.updatedAt).toLocaleDateString() : <span className="text-muted-foreground italic">N/A</span>}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
@@ -121,35 +124,7 @@ export default function CategoriesPage() {
                             </TooltipTrigger>
                             <TooltipContent>Edit Category</TooltipContent>
                           </Tooltip>
-                           <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                               <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/90" aria-label="Delete category">
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Delete Category</TooltipContent>
-                              </Tooltip>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This action cannot be undone. This will permanently delete the category "{category.name}" and all associated entries.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => handleDeleteCategory(category.id)}
-                                  className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-                                >
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                          <DeleteCategoryButton categoryId={category.id} categoryName={category.name} />
                         </div>
                       </TableCell>
                     </TableRow>
@@ -162,7 +137,7 @@ export default function CategoriesPage() {
               <Library className="mx-auto h-12 w-12 text-muted-foreground" />
               <h3 className="mt-4 text-lg font-semibold">No categories found</h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                {searchTerm ? "Try adjusting your search or filter." : "Get started by creating a new category."}
+                {searchTerm ? "Try adjusting your search." : "Get started by creating a new category."}
               </p>
               {!searchTerm && (
                 <Button asChild className="mt-4">
@@ -178,3 +153,7 @@ export default function CategoriesPage() {
     </TooltipProvider>
   );
 }
+
+export const metadata = {
+  title: "Categories | Админ Про",
+};
