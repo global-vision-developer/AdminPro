@@ -61,23 +61,33 @@ This structure is designed to be scalable and flexible, allowing for dynamic con
 
 ## Firestore Indexes
 
-As you build queries for Firestore, you might encounter errors like "The query requires an index." This means you need to create a composite index in your Firebase console for that specific query to work efficiently.
+As you build queries for Firestore, you might encounter errors like **"FirebaseError: The query requires an index."** This means you need to create a composite index in your Firebase console for that specific query to work efficiently. The error message in your Next.js development server console will usually provide a direct link to create the missing index.
 
-### Required Indexes:
+### **IMPORTANT: Fixing "The query requires an index" Error for `entries` Collection**
 
-1.  **For the `entries` collection (used in `src/lib/actions/entryActions.ts` -> `getEntries`):**
+If you see an error message in your console similar to this:
+
+```
+Console Error: FirebaseError: The query requires an index. You can create it here: https://console.firebase.google.com/v1/r/project/YOUR_PROJECT_ID/firestore/indexes?create_composite=...
+```
+
+This specifically means the query on the `entries` collection (likely in `src/lib/actions/entryActions.ts` -> `getEntries` when filtering by `categoryId` and ordering by `createdAt`) needs an index.
+
+**To fix this:**
+
+1.  **Click the link provided in YOUR error message.** For the `setgelzuin-app` project, the link from a common error is:
+    `https://console.firebase.google.com/v1/r/project/setgelzuin-app/firestore/indexes?create_composite=Ck5wcm9qZWN0cy9zZXRnZWx6dWluLWFwcC9kYXRhYmFzZXMvKGRlZmF1bHQpL2NvbGxlY3Rpb25Hcm91cHMvZW50cmllcy9pbmRleGVzL18QARoOCgpjYXRlZ29yeUlkEAEaDQoJY3JlYXRlZEF0EAIaDAoIX19uYW1lX18QAg`
+2.  This link will take you directly to the Firebase Console page to create the required composite index.
+3.  The fields for the index will be pre-filled:
+    *   **Collection:** `entries`
     *   **Fields to index:**
         *   `categoryId` (Ascending)
         *   `createdAt` (Descending)
-    *   **Collection:** `entries`
-    *   **Purpose:** Allows filtering entries by `categoryId` and ordering them by `createdAt`.
-    *   **Creation Link (from a typical error):** The error message in the Next.js console or Firebase Functions logs will usually provide a direct link to create the missing index. It will look similar to this:
-        `https://console.firebase.google.com/v1/r/project/YOUR_PROJECT_ID/firestore/indexes?create_composite=...`
-    *   **Specific link for `setgelzuin-app` project (from your error):**
-        `https://console.firebase.google.com/v1/r/project/setgelzuin-app/firestore/indexes?create_composite=Ck5wcm9qZWN0cy9zZXRnZWx6dWluLWFwcC9kYXRhYmFzZXMvKGRlZmF1bHQpL2NvbGxlY3Rpb25Hcm91cHMvZW50cmllcy9pbmRleGVzL18QARoOCgpjYXRlZ29yeUlkEAEaDQoJY3JlYXRlZEF0EAIaDAoIX19uYW1lX18QAg`
-        Please use the link provided in **your specific error message** to create this index in the Firebase Console.
+4.  Click **"Create Index"** (or the equivalent in your language).
+5.  Wait for the index to build. This might take a few minutes. You can see the status in the Firebase Console.
+6.  Once the index status is "Ready", refresh your application. The error should be gone.
 
-Always check the Firebase console or your server logs for specific index creation links if you encounter these errors.
+**Always check the Firebase console or your server logs for specific index creation links if you encounter these errors. This is a Firestore configuration step, not a code change within the Next.js application itself.**
 
 ## Firestore Security Rules
 
@@ -128,4 +138,3 @@ NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=YOUR_MEASUREMENT_ID (optional)
 Replace `YOUR_...` with your actual Firebase project credentials.
 Remember to restart your development server (`npm run dev`) after creating or modifying `.env.local`.
 
-```

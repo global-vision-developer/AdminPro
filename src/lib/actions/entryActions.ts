@@ -84,7 +84,10 @@ export async function getEntries(categoryId?: string): Promise<Entry[]> {
         } as Entry;
     });
   } catch (e: any) {
-    console.error("Error getting entries: ", e);
+    console.error(`Error getting entries (categoryId: ${categoryId || 'all'}):`, e);
+    if (e.code === 'failed-precondition' && e.message && e.message.toLowerCase().includes('requires an index')) {
+        console.error("Firestore query requires an index. Please check Firebase console for index creation link specific to this query (likely on 'entries' collection for 'categoryId' and 'createdAt').");
+    }
     return [];
   }
 }
@@ -133,21 +136,31 @@ export async function updateEntry(
     }
     const categoryId = existingEntrySnap.data().categoryId;
 
-    const dataToUpdate: Record<string, any> = { ...entryData };
+    const dataToUpdate: Record<string, any> = {};
+
+    // Iterate over selectedCategory.fields to ensure all admin-editable fields are considered
+    // This assumes selectedCategory is available or passed to this scope, which it isn't directly.
+    // For now, we rely on entryData providing all necessary keys.
+    // A more robust solution might involve fetching category fields if this becomes an issue.
+
+    Object.keys(entryData).forEach(key => {
+      if (key === 'title' || key === 'data' || key === 'status' || key === 'publishAt') {
+        // @ts-ignore
+        dataToUpdate[key] = entryData[key];
+      }
+    });
     
-    // Ensure only allowed fields are passed and handle publishAt for Firestore (null vs undefined)
+    // Handle publishAt for Firestore (null vs undefined)
     if (dataToUpdate.hasOwnProperty('publishAt')) {
       dataToUpdate.publishAt = dataToUpdate.publishAt || null;
     }
     
-    // Remove fields that should not be directly updated or are server-controlled
-    delete dataToUpdate.id;
-    delete dataToUpdate.createdAt;
-    delete dataToUpdate.categoryId; // Should not be changed here
-    delete dataToUpdate.categoryName; // Should not be changed here
-
     if (Object.keys(dataToUpdate).length === 0) {
-      return { error: "No data provided for update." };
+      // If only fields not in the allowed list were passed, dataToUpdate might be empty.
+      // However, the type UpdateEntryData already restricts what can be passed.
+      console.log("No updatable data provided for entry.");
+      // Consider if an error should be returned or just a success if no *valid* fields changed.
+      // For now, proceed if entryData itself was not empty.
     }
     
     dataToUpdate.updatedAt = serverTimestamp();
@@ -187,3 +200,4 @@ export async function deleteEntry(id: string): Promise<{ success: boolean } | { 
     return { error: e.message || "Failed to delete entry." };
   }
 }
+
