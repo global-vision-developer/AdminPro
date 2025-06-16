@@ -29,8 +29,8 @@ const fieldDefinitionClientSchema = z.object({
   key: z.string().min(1, "Field key is required (auto-generated from label).").regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Key must be lowercase alphanumeric with hyphens."),
   type: z.nativeEnum(FieldType),
   required: z.boolean().default(false),
-  placeholder: z.string().optional().default(''),
-  description: z.string().optional().default(''),
+  placeholder: z.string().transform(val => val === '' ? undefined : val).optional(),
+  description: z.string().transform(val => val === '' ? undefined : val).optional(),
 });
 
 // Schema for the main category form
@@ -107,7 +107,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
 
   const form = useForm<CategoryFormValues>({
     resolver: zodResolver(categoryFormSchema),
-    mode: 'onChange', // Ensures validation message updates as user types
+    mode: 'onChange', 
     defaultValues: initialData ? {
       name: initialData.name,
       slug: initialData.slug,
@@ -168,7 +168,6 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
   };
 
   const handleFormSubmit = async (data: CategoryFormValues) => {
-    // If name is still empty but it was intended to be required at submission, check here
     if (data.name.trim() === "") {
         form.setError("name", { type: "manual", message: "Category name cannot be empty." });
         toast({
@@ -215,14 +214,14 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
         name: '',
         slug: '',
         description: '',
-        fields: defaultFieldsForNewCategory, // Reset to default fields for new form
+        fields: defaultFieldsForNewCategory, 
       }); 
     }
   };
   
   const fieldFormMethods = useForm<FieldFormValues>({
     resolver: zodResolver(fieldDefinitionClientSchema),
-    mode: 'onChange', // Also set mode for field form
+    mode: 'onChange', 
   });
 
   useEffect(() => {
@@ -236,8 +235,8 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
           key: '',
           type: FieldType.TEXT,
           required: false,
-          placeholder: '',
-          description: '',
+          placeholder: undefined, // Default to undefined for new fields
+          description: undefined, // Default to undefined for new fields
         });
       }
     }
