@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
@@ -14,10 +14,10 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import type { Category, Entry, FieldDefinition } from '@/types';
+import type { Category, Entry, FieldDefinition, ImageGalleryItemForm, ImageGalleryItemStored } from '@/types';
 import { FieldType } from '@/types';
-import { CalendarIcon, Save, Loader2, Wand2, AlertTriangle, Info, MessageSquareText, Star } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { CalendarIcon, Save, Loader2, Wand2, AlertTriangle, Info, MessageSquareText, Star, PlusCircle, Trash2, Image as ImageIcon } from 'lucide-react';
+import { cn, slugify } from '@/lib/utils'; // slugify might not be needed here, but cn is
 import { format, parseISO } from 'date-fns';
 import { suggestContent } from '@/ai/flows/suggest-content-on-schedule';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -25,6 +25,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { addEntry, updateEntry } from '@/lib/actions/entryActions';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
+import { v4 as uuidv4 } from 'uuid'; // For client-side unique IDs for gallery items
 
 interface EntryFormProps {
   initialData?: Entry | null;
@@ -87,6 +88,18 @@ const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, a
       case FieldType.BOOLEAN:
         fieldSchema = z.boolean().default(false);
         break;
+      case FieldType.IMAGE_GALLERY:
+        const imageGalleryItemSchema = z.object({
+            clientId: z.string(), // For useFieldArray client-side keying
+            imageUrl: z.string().url({ message: `${field.label}: Зургийн URL буруу байна.` }).min(1, { message: `${field.label}: Зургийн URL заавал оруулна уу.` }),
+            description: z.string().optional().transform(val => val === '' ? undefined : val),
+        });
+        
+        fieldSchema = z.array(imageGalleryItemSchema).optional().default([]);
+        if (field.required) {
+            fieldSchema = fieldSchema.min(1, { message: `${field.label}: Дор хаяж нэг зураг оруулна уу.` });
+        }
+        break;
       default:
         fieldSchema = z.any().optional().nullable();
     }
@@ -117,7 +130,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
 
   const formSchema = useMemo(() => generateSchema(selectedCategory?.fields), [selectedCategory]);
   
-  const getComputedDefaultValues = () => {
+  const getComputedDefaultValues = useCallback(() => {
     const defaultDataValues: Record<string, any> = {};
     selectedCategory?.fields?.forEach(field => {
         if (field.description?.includes(USER_ONLY_FIELD_MARKER)) {
@@ -136,13 +149,20 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                 try { defaultDataValues[field.key] = parseISO(initialValueFromData); } catch (e) { defaultDataValues[field.key] = undefined; }
             } else if (field.type === FieldType.NUMBER) {
                  defaultDataValues[field.key] = (initialValueFromData === '' || initialValueFromData === null || initialValueFromData === undefined) ? undefined : initialValueFromData;
-            } else {
+            } else if (field.type === FieldType.IMAGE_GALLERY) {
+                // Ensure gallery items have a clientId for useFieldArray
+                defaultDataValues[field.key] = Array.isArray(initialValueFromData) 
+                    ? initialValueFromData.map((item: ImageGalleryItemStored) => ({ ...item, clientId: uuidv4() })) 
+                    : [];
+            }
+             else {
                 defaultDataValues[field.key] = initialValueFromData;
             }
         } else { 
             if (field.type === FieldType.BOOLEAN) defaultDataValues[field.key] = false;
             else if (field.type === FieldType.NUMBER) defaultDataValues[field.key] = undefined; 
             else if (field.type === FieldType.DATE) defaultDataValues[field.key] = undefined;
+            else if (field.type === FieldType.IMAGE_GALLERY) defaultDataValues[field.key] = [];
             else defaultDataValues[field.key] = '';
         }
     });
@@ -166,7 +186,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         publishAt: publishAtDate,
         data: defaultDataValues,
     };
-  };
+  }, [initialData, selectedCategory]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -174,6 +194,11 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
     defaultValues: getComputedDefaultValues(),
   });
   
+  useEffect(() => {
+    form.reset(getComputedDefaultValues());
+  }, [selectedCategory, initialData, form, getComputedDefaultValues]);
+
+
   const handleGetSuggestions = async () => {
     if (!selectedCategory) {
       setAiError("Please ensure a category is selected.");
@@ -245,6 +270,14 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         case FieldType.TEXTAREA:
           valueToSave = (typeof valueFromForm === 'string') ? valueFromForm : '';
           break;
+        case FieldType.IMAGE_GALLERY:
+          valueToSave = Array.isArray(valueFromForm)
+            ? valueFromForm.map((item: ImageGalleryItemForm) => ({
+                imageUrl: item.imageUrl,
+                description: item.description,
+              }))
+            : []; // Default to empty array if not an array
+          break;
         default:
           valueToSave = valueFromForm;
       }
@@ -254,7 +287,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
     const submissionPayload = {
         title: formDataFromHook.title,
         categoryId: selectedCategory.id,
-        categoryName: selectedCategory.name,
+        categoryName: selectedCategory.name, // Ensure categoryName is passed
         status: formDataFromHook.status,
         publishAt: formDataFromHook.status === 'scheduled' && formDataFromHook.publishAt ? formDataFromHook.publishAt.toISOString() : null,
         data: adminEditableData,
@@ -274,7 +307,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         else router.push(`/admin/entries?category=${selectedCategory.id}`);
         
         if(!initialData) {
-           form.reset(getComputedDefaultValues()); // Reset with new defaults
+           form.reset(getComputedDefaultValues()); 
         }
 
     } else if (result && "error" in result && result.error) {
@@ -283,7 +316,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
   };
 
   const handleCancel = () => {
-    form.reset(getComputedDefaultValues()); // Reset with current defaults
+    form.reset(getComputedDefaultValues()); 
     router.back();
   };
 
@@ -309,7 +342,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                         <FormControl>
                             <Input placeholder="Enter a representative title for this entry" {...field} />
                         </FormControl>
-                        <FormDescription>This title is used for lists and overviews. If your category has a 'Title' field, it might be automatically populated from there too.</FormDescription>
+                        <FormDescription>This title is used for lists and overviews.</FormDescription>
                         <FormMessage />
                         </FormItem>
                     )}
@@ -336,7 +369,76 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                       </FormItem>
                     );
                   }
+                  
+                  // IMAGE_GALLERY Field Rendering
+                  if (catField.type === FieldType.IMAGE_GALLERY) {
+                    const { fields: galleryFields, append, remove } = useFieldArray({
+                      control: form.control,
+                      name: `data.${catField.key}` as any, // Cast to any to satisfy TS for nested field array
+                      keyName: "clientId", // Use clientId from ImageGalleryItemForm as the key
+                    });
 
+                    return (
+                      <FormItem key={catField.id}>
+                        <FormLabel>{catField.label}{catField.required && <span className="text-destructive">*</span>}</FormLabel>
+                        {catField.description && <FormDescription>{catField.description}</FormDescription>}
+                        <div className="space-y-4 p-4 border rounded-md">
+                          {galleryFields.map((item, index) => (
+                            <Card key={item.clientId} className="p-3 bg-muted/50">
+                              <div className="space-y-3">
+                                <FormField
+                                  control={form.control}
+                                  name={`data.${catField.key}.${index}.imageUrl` as const}
+                                  render={({ field: galleryItemField }) => (
+                                    <FormItem>
+                                      <FormLabel className="text-xs">Зургийн URL</FormLabel>
+                                      <FormControl>
+                                        <Input placeholder="https://example.com/image.png" {...galleryItemField} />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                                <FormField
+                                  control={form.control}
+                                  name={`data.${catField.key}.${index}.description` as const}
+                                  render={({ field: galleryItemField }) => (
+                                    <FormItem>
+                                      <FormLabel className="text-xs">Тайлбар (Optional)</FormLabel>
+                                      <FormControl>
+                                        <Textarea placeholder="Зургийн тайлбар" {...galleryItemField} rows={2} />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => remove(index)}
+                                className="mt-2 text-destructive hover:text-destructive/90"
+                              >
+                                <Trash2 className="mr-1 h-3.5 w-3.5" /> Устгах
+                              </Button>
+                            </Card>
+                          ))}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => append({ clientId: uuidv4(), imageUrl: '', description: '' })}
+                          >
+                            <PlusCircle className="mr-2 h-4 w-4" /> Зураг нэмэх
+                          </Button>
+                        </div>
+                        <FormMessage /> {/* For array-level errors like min items */}
+                      </FormItem>
+                    );
+                  }
+
+                  // Standard Field Rendering
                   return (
                     <FormField
                       key={catField.id}
@@ -383,21 +485,21 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                                 </FormControl>
                             )}
                             {catField.type === FieldType.BOOLEAN && (
-                                <div className="flex items-center space-x-2 h-10 pt-2.5">
-                                <FormControl>
-                                    <Checkbox 
-                                    {...formHookField}
-                                    checked={!!formHookField.value} 
-                                    onCheckedChange={formHookField.onChange}
-                                    id={formItemId}
-                                    />
-                                </FormControl>
-                                <label
-                                    htmlFor={formItemId} 
-                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                                >
-                                    {catField.placeholder || 'Enable'}
-                                </label>
+                                 <div className="flex items-center space-x-2 h-10 pt-2.5">
+                                    <FormControl>
+                                        <Checkbox 
+                                        {...formHookField}
+                                        checked={!!formHookField.value} 
+                                        onCheckedChange={formHookField.onChange}
+                                        id={formItemId}
+                                        />
+                                    </FormControl>
+                                    <label
+                                        htmlFor={formItemId} 
+                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                    >
+                                        {catField.placeholder || 'Enable'}
+                                    </label>
                                 </div>
                             )}
                             {catField.type === FieldType.DATE && (

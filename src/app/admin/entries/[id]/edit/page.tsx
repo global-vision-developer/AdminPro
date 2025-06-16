@@ -10,6 +10,8 @@ import type { Category, Entry } from '@/types';
 import { getCategories } from '@/lib/actions/categoryActions';
 import { getEntry } from '@/lib/actions/entryActions';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button'; // Added Button import
+
 
 export default function EditEntryPage() {
   const router = useRouter();
@@ -53,6 +55,7 @@ export default function EditEntryPage() {
   const selectedCategory = useMemo(() => {
     if (!entry || categories.length === 0) return undefined;
     const category = categories.find(cat => cat.id === entry.categoryId);
+    // Ensure the found category has a name to be considered valid
     return category && category.name ? category : undefined;
   }, [entry, categories]);
 
@@ -95,7 +98,7 @@ export default function EditEntryPage() {
         description={`Modifying content for category: ${selectedCategory.name}`}
       />
       <EntryForm 
-        key={entry.id} // Add key here for re-mounting if entry ID changes (though unlikely here) or categoryId
+        key={entry.categoryId} // Use categoryId to ensure form re-initializes if category definition context changes
         initialData={entry} 
         categories={categories} 
         selectedCategory={selectedCategory}

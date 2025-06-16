@@ -10,21 +10,20 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription as UiCardDescription, CardFooter } from '@/components/ui/card'; // Renamed CardDescription to UiCardDescription
+import { Card, CardContent, CardHeader, CardTitle, CardDescription as UiCardDescription, CardFooter } from '@/components/ui/card';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogClose, DialogFooter } from "@/components/ui/dialog";
-import type { Category, FieldDefinition } from '@/types'; // Ensured FieldDefinition is imported
-import { FieldType } from '@/types'; // Ensured FieldType is imported
+import type { Category, FieldDefinition } from '@/types';
+import { FieldType } from '@/types';
 import { PlusCircle, Trash2, Save, Loader2, XCircle, Edit3 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { slugify } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useRouter } from 'next/navigation'; // Import useRouter
+import { useRouter } from 'next/navigation';
 
-// Schema for individual field definition (client-side, includes client ID)
 const fieldDefinitionClientSchema = z.object({
-  id: z.string().default(() => uuidv4()), // Client-side unique ID
+  id: z.string().default(() => uuidv4()),
   label: z.string().min(1, "Field label is required."),
   key: z.string().min(1, "Field key is required (auto-generated from label).").regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Key must be lowercase alphanumeric with hyphens."),
   type: z.nativeEnum(FieldType),
@@ -33,19 +32,18 @@ const fieldDefinitionClientSchema = z.object({
   description: z.string().transform(val => val === '' ? undefined : val).optional(),
 });
 
-// Schema for the main category form
 const categoryFormSchema = z.object({
-  name: z.string(), // Changed from .min(1, "Category name is required.")
+  name: z.string(),
   slug: z.string().min(1, "Slug is required.").regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug must be lowercase alphanumeric with hyphens."),
   description: z.string().optional().default(''),
-  fields: z.array(fieldDefinitionClientSchema).min(0, "You can save a category without fields initially."), // FieldDefinition matches FieldDefinitionClientSchema structure
+  fields: z.array(fieldDefinitionClientSchema).min(0, "You can save a category without fields initially."),
 });
 
 export type CategoryFormValues = z.infer<typeof categoryFormSchema>;
-type FieldFormValues = z.infer<typeof fieldDefinitionClientSchema>; // This is equivalent to FieldDefinition for form purposes
+type FieldFormValues = z.infer<typeof fieldDefinitionClientSchema>;
 
 interface CategoryFormProps {
-  initialData?: Category | null; // Firestore Category type, which uses FieldDefinition[]
+  initialData?: Category | null;
   onSubmit: (data: CategoryFormValues) => Promise<{id?: string; error?: string} | {success?: boolean; error?: string } | void>;
   isSubmittingGlobal: boolean;
   onFormSuccess?: () => void;
@@ -53,7 +51,7 @@ interface CategoryFormProps {
 
 export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onFormSuccess }: CategoryFormProps) {
   const { toast } = useToast();
-  const router = useRouter(); // Initialize router
+  const router = useRouter();
   const [isFieldFormOpen, setIsFieldFormOpen] = useState(false);
   const [editingFieldIndex, setEditingFieldIndex] = useState<number | null>(null);
 
@@ -233,10 +231,10 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
           id: uuidv4(),
           label: '',
           key: '',
-          type: FieldType.TEXT,
+          type: FieldType.TEXT, // Default type for new field
           required: false,
-          placeholder: undefined, // Default to undefined for new fields
-          description: undefined, // Default to undefined for new fields
+          placeholder: undefined,
+          description: undefined,
         });
       }
     }
@@ -486,5 +484,3 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
     </>
   );
 }
-
-    

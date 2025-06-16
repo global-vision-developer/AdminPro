@@ -36,7 +36,6 @@ export default function NewEntryPage() {
         if (categoryIdFromUrl && fetchedCategories.some(c => c.id === categoryIdFromUrl)) {
           setSelectedCategoryId(categoryIdFromUrl);
         } else if (fetchedCategories.length > 0) {
-          // Automatically select the first category if none is in URL, only if it has a name
           const firstValidCategory = fetchedCategories.find(cat => cat.name);
           setSelectedCategoryId(firstValidCategory ? firstValidCategory.id : undefined);
         } else {
@@ -148,7 +147,7 @@ export default function NewEntryPage() {
 
       {selectedCategory && selectedCategory.name ? ( 
         <EntryForm 
-          key={selectedCategory.id} // Add key here for re-mounting
+          key={selectedCategory.id} 
           categories={categories} 
           selectedCategory={selectedCategory}
           onSubmitSuccess={handleEntryFormSuccess}

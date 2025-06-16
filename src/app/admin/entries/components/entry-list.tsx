@@ -3,12 +3,12 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import type { Entry, Category, FieldDefinition } from "@/types";
+import type { Entry, Category, FieldDefinition, ImageGalleryItemStored } from "@/types";
 import { FieldType } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Edit3, Trash2, Newspaper, CalendarClock, CheckCircle, Eye } from "lucide-react";
+import { Edit3, Trash2, Newspaper, CalendarClock, CheckCircle, Eye, ImageIcon } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -77,8 +77,29 @@ export function EntryList({ entries, categoriesMap }: EntryListProps) {
             return value ? "Yes" : "No";
         case FieldType.NUMBER:
             return value.toLocaleString();
+        case FieldType.IMAGE_GALLERY:
+            if (Array.isArray(value) && value.length > 0) {
+                const galleryValue = value as ImageGalleryItemStored[];
+                return (
+                    <div className="flex items-center space-x-1 text-xs">
+                        <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span>{galleryValue.length} {galleryValue.length === 1 ? "зураг" : "зураг"}</span>
+                        {galleryValue[0]?.imageUrl && (
+                             <Image 
+                                data-ai-hint="gallery preview"
+                                src={galleryValue[0].imageUrl} 
+                                alt={galleryValue[0].description || "Gallery preview"}
+                                width={20} 
+                                height={20} 
+                                className="rounded object-cover h-5 w-5 border ml-1"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                             />
+                        )}
+                    </div>
+                );
+            }
+            return <span className="text-xs text-muted-foreground italic">Хоосон цомог</span>;
         case FieldType.TEXT:
-            // Special handling for image URLs if the key indicates it
             if ((field.key === 'nuur-zurag-url' || field.key === 'coverImage' || field.key === 'thumbnailUrl') && typeof value === 'string' && (value.startsWith('http://') || value.startsWith('https://'))) {
                  return (
                     <div className="flex items-center space-x-2 w-32">
@@ -157,7 +178,6 @@ export function EntryList({ entries, categoriesMap }: EntryListProps) {
               <TableBody>
                 {entries.map((entry) => {
                   const category = categoriesMap[entry.categoryId];
-                  // Display first 2-3 fields, or fewer if category has fewer.
                   const previewFields = category?.fields?.filter(f => !f.description?.includes("аппликейшний хэрэглэгчид бөглөнө")).slice(0, 2) || []; 
                   return (
                     <TableRow key={entry.id}>
@@ -165,9 +185,9 @@ export function EntryList({ entries, categoriesMap }: EntryListProps) {
                         <Link href={`/admin/entries/${entry.id}/edit`} className="hover:underline text-primary">
                           {entry.title || 'Untitled Entry'}
                         </Link>
-                        <p className="text-xs text-muted-foreground md:hidden mt-1">{entry.categoryName || 'N/A'}</p>
+                        <p className="text-xs text-muted-foreground md:hidden mt-1">{entry.categoryName || categoriesMap[entry.categoryId]?.name || 'N/A'}</p>
                       </TableCell>
-                      <TableCell className="hidden md:table-cell">{entry.categoryName || <span className="italic text-muted-foreground">N/A</span>}</TableCell>
+                      <TableCell className="hidden md:table-cell">{entry.categoryName || categoriesMap[entry.categoryId]?.name || <span className="italic text-muted-foreground">N/A</span>}</TableCell>
                       <TableCell>
                         {previewFields.length > 0 ? previewFields.map(pf => (
                           <div key={pf.key} className="text-xs mb-1 last:mb-0 overflow-hidden whitespace-nowrap">
@@ -238,3 +258,4 @@ export function EntryList({ entries, categoriesMap }: EntryListProps) {
     </TooltipProvider>
   );
 }
+
