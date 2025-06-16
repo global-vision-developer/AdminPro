@@ -45,7 +45,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
 
   const generateSchema = useCallback((fields: FieldDefinition[] = []) => {
     const shape: Record<string, z.ZodTypeAny> = {
-      title: z.string().min(1, "Entry Title is required."),
+      title: z.string().nonempty({ message: "Entry Title is required." }),
       status: z.enum(['draft', 'published', 'scheduled']).default('draft'),
       publishAt: z.date().optional().nullable(),
     };
@@ -61,7 +61,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         case FieldType.TEXT:
         case FieldType.TEXTAREA:
           if (field.required) {
-            fieldSchema = z.string().min(1, `${field.label} is required.`);
+            fieldSchema = z.string().nonempty({ message: `${field.label} талбарыг заавал бөглөнө үү.` });
           } else {
             fieldSchema = z.string().optional().nullable();
           }
@@ -69,23 +69,25 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         case FieldType.NUMBER:
           if (field.required) {
             fieldSchema = z.number({
-              required_error: `${field.label} is required.`,
-              invalid_type_error: `${field.label} must be a number.`,
+              required_error: `${field.label} талбарыг заавал бөглөнө үү.`,
+              invalid_type_error: `${field.label} тоон утга байх ёстой.`,
             });
           } else {
-            // Allow optional numbers to be truly undefined/null if not provided
-            // The input's onChange will convert empty string to undefined for react-hook-form
-            fieldSchema = z.number().optional().nullable();
+            fieldSchema = z.number({
+              invalid_type_error: `${field.label} тоон утга байх ёстой.`,
+            }).optional().nullable();
           }
           break;
         case FieldType.DATE:
           if (field.required) {
             fieldSchema = z.date({
-              required_error: `${field.label} is required.`,
-              invalid_type_error: `${field.label} must be a valid date.`,
+              required_error: `${field.label} талбарыг заавал бөглөнө үү.`,
+              invalid_type_error: `${field.label} зөв огноо байх ёстой.`,
             });
           } else {
-            fieldSchema = z.date().optional().nullable();
+            fieldSchema = z.date({
+              invalid_type_error: `${field.label} зөв огноо байх ёстой.`,
+            }).optional().nullable();
           }
           break;
         case FieldType.BOOLEAN:
@@ -120,32 +122,32 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
      const newSchema = generateSchema(selectedCategory?.fields);
      setCurrentSchema(newSchema);
 
-    const defaultData: Record<string, any> = {};
+    const defaultDataForReset: Record<string, any> = {};
     selectedCategory?.fields.forEach(field => {
+        // Handle user-only fields (these won't be part of the form's controlled state for admin editing)
         if (field.description?.includes(USER_ONLY_FIELD_MARKER)) {
             if (initialData?.data?.[field.key] !== undefined) {
                  if (field.type === FieldType.DATE && typeof initialData.data[field.key] === 'string') {
-                    defaultData[field.key] = parseISO(initialData.data[field.key]);
+                    // This data is for display only if it exists, not for form control
                 } else {
-                    defaultData[field.key] = initialData.data[field.key];
+                    // This data is for display only
                 }
-            } else {
-                 defaultData[field.key] = undefined;
             }
-            return;
+            return; // Skip adding to form's controllable defaultData
         }
 
-        const initialValue = initialData?.data?.[field.key];
-        if (initialValue !== undefined) {
-            if (field.type === FieldType.DATE && typeof initialValue === 'string') {
-                defaultData[field.key] = parseISO(initialValue);
+        const initialValueFromData = initialData?.data?.[field.key];
+
+        if (initialValueFromData !== undefined) {
+            if (field.type === FieldType.DATE && typeof initialValueFromData === 'string') {
+                defaultDataForReset[field.key] = parseISO(initialValueFromData);
             } else {
-                defaultData[field.key] = initialValue;
+                defaultDataForReset[field.key] = initialValueFromData;
             }
-        } else {
-            if (field.type === FieldType.BOOLEAN) defaultData[field.key] = false;
-            else if (field.type === FieldType.NUMBER) defaultData[field.key] = undefined; // Use undefined for empty numbers
-            else defaultData[field.key] = '';
+        } else { // Setting defaults for a new form or if field didn't exist in initialData
+            if (field.type === FieldType.BOOLEAN) defaultDataForReset[field.key] = false;
+            else if (field.type === FieldType.NUMBER) defaultDataForReset[field.key] = undefined; // Keep undefined for non-filled numbers
+            else defaultDataForReset[field.key] = ''; // TEXT, TEXTAREA default to empty string
         }
     });
 
@@ -153,9 +155,9 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
       title: initialData?.title || '',
       status: initialData?.status || 'draft',
       publishAt: initialData?.publishAt ? parseISO(initialData.publishAt) : undefined,
-      data: defaultData,
+      data: defaultDataForReset,
     }, {
-      keepDirtyValues: false,
+      keepDirtyValues: false, 
       keepErrors: false,
     });
   }, [selectedCategory, initialData, generateSchema, form]);
@@ -208,7 +210,6 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
       for (const key in formData.data) {
         const fieldDefinition = selectedCategory.fields.find(f => f.key === key);
         if (fieldDefinition && !fieldDefinition.description?.includes(USER_ONLY_FIELD_MARKER)) {
-          // Ensure numbers are numbers, not strings, if form data is mixed
           if (fieldDefinition.type === FieldType.NUMBER && typeof formData.data[key] === 'string') {
             adminEditableData[key] = formData.data[key] === '' ? undefined : parseFloat(formData.data[key]);
           } else {
@@ -239,12 +240,20 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         toast({ title: "Success", description: `Entry ${initialData ? 'updated' : 'created'} successfully.`});
         if (onSubmitSuccess) onSubmitSuccess();
         else router.push(`/admin/entries?category=${selectedCategory.id}`);
-         form.reset({
+        
+        const resetData: Record<string, any> = {};
+        selectedCategory.fields.filter(f => !f.description?.includes(USER_ONLY_FIELD_MARKER)).forEach(field => {
+            if (field.type === FieldType.BOOLEAN) resetData[field.key] = false;
+            else if (field.type === FieldType.NUMBER) resetData[field.key] = undefined;
+            else resetData[field.key] = '';
+        });
+        form.reset({
             title: '',
             status: 'draft',
             publishAt: undefined,
-            data: Object.fromEntries(selectedCategory.fields.filter(f => !f.description?.includes(USER_ONLY_FIELD_MARKER)).map(field => [field.key, field.type === FieldType.BOOLEAN ? false : (field.type === FieldType.NUMBER ? undefined : '')]))
+            data: resetData
         });
+
     } else if (result && "error" in result && result.error) {
         toast({ title: "Error", description: result.error, variant: "destructive" });
     }
@@ -311,8 +320,8 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                           {catField.description && <FormDescription>{catField.description}</FormDescription>}
                           <FormControl>
                             <div>
-                              {catField.type === FieldType.TEXT && <Input placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} {...formHookField} value={formHookField.value || ''} />}
-                              {catField.type === FieldType.TEXTAREA && <Textarea placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} {...formHookField} value={formHookField.value || ''} rows={5} />}
+                              {catField.type === FieldType.TEXT && <Input placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} {...formHookField} value={formHookField.value ?? ''} />}
+                              {catField.type === FieldType.TEXTAREA && <Textarea placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} {...formHookField} value={formHookField.value ?? ''} rows={5} />}
                               {catField.type === FieldType.NUMBER && <Input type="number" placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} {...formHookField} value={formHookField.value === undefined || formHookField.value === null ? '' : String(formHookField.value)} onChange={e => formHookField.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}/>}
                               {catField.type === FieldType.BOOLEAN && (
                                 <div className="flex items-center space-x-2 h-10">
@@ -496,14 +505,27 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         </div>
 
         <div className="flex justify-end space-x-2 pt-8 border-t mt-8">
-          <Button type="button" variant="outline" disabled={isSubmitting} onClick={() => form.reset({
-                title: initialData?.title || '',
-                status: initialData?.status || 'draft',
-                publishAt: initialData?.publishAt ? parseISO(initialData.publishAt) : undefined,
-                data: initialData?.data ?
-                      Object.fromEntries(selectedCategory.fields.filter(f => !f.description?.includes(USER_ONLY_FIELD_MARKER)).map(f => [f.key, initialData.data[f.key] || (f.type === FieldType.BOOLEAN ? false : (f.type === FieldType.NUMBER ? undefined : ''))]))
-                      : Object.fromEntries(selectedCategory.fields.filter(f => !f.description?.includes(USER_ONLY_FIELD_MARKER)).map(f => [f.key, f.type === FieldType.BOOLEAN ? false : (f.type === FieldType.NUMBER ? undefined : '')]))
-            })}>Cancel</Button>
+          <Button type="button" variant="outline" disabled={isSubmitting} onClick={() => {
+                const resetDataForCancel: Record<string, any> = {};
+                selectedCategory.fields.filter(f => !f.description?.includes(USER_ONLY_FIELD_MARKER)).forEach(field => {
+                    const initialVal = initialData?.data?.[field.key];
+                    if (initialVal !== undefined) {
+                         if (field.type === FieldType.DATE && typeof initialVal === 'string') resetDataForCancel[field.key] = parseISO(initialVal);
+                         else resetDataForCancel[field.key] = initialVal;
+                    } else {
+                        if (field.type === FieldType.BOOLEAN) resetDataForCancel[field.key] = false;
+                        else if (field.type === FieldType.NUMBER) resetDataForCancel[field.key] = undefined;
+                        else resetDataForCancel[field.key] = '';
+                    }
+                });
+                form.reset({
+                    title: initialData?.title || '',
+                    status: initialData?.status || 'draft',
+                    publishAt: initialData?.publishAt ? parseISO(initialData.publishAt) : undefined,
+                    data: resetDataForCancel
+                });
+            }
+          }>Cancel</Button>
           <Button type="submit" disabled={isSubmitting || !selectedCategory}>
             {isSubmitting ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -517,3 +539,6 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
     </Form>
   );
 }
+    
+
+    
