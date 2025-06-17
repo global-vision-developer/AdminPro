@@ -39,7 +39,7 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard }, 
+  { href: "/admin/dashboard", label: "Хяналтын самбар", icon: LayoutDashboard }, 
   {
     href: "/admin/content", label: "Контент", icon: Library, 
     subItems: [
