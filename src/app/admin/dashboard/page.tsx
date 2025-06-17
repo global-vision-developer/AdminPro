@@ -61,7 +61,7 @@ export default function DashboardPage() {
                 <Button variant="outline"><Library className="mr-2 h-4 w-4" /> Төрөл нэмэх</Button>
               </Link>
               <Link href="/admin/entries/new">
-                <Button variant="outline"><Newspaper className="mr-2 h-4 w-4" /> Create Entry</Button>
+                <Button variant="outline"><Newspaper className="mr-2 h-4 w-4" /> Оролт үүсгэх</Button>
               </Link>
             </>
           ) : null}
