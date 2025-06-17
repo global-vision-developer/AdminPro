@@ -58,7 +58,7 @@ export default function DashboardPage() {
           {currentUser.role === UserRole.SUPER_ADMIN || currentUser.role === UserRole.SUB_ADMIN ? (
             <>
               <Link href="/admin/categories/new">
-                <Button variant="outline"><Library className="mr-2 h-4 w-4" /> Төрөл үүсгэх</Button>
+                <Button variant="outline"><Library className="mr-2 h-4 w-4" /> Ангилал үүсгэх</Button>
               </Link>
               <Link href="/admin/entries/new">
                 <Button variant="outline"><Newspaper className="mr-2 h-4 w-4" /> Оролт үүсгэх</Button>
