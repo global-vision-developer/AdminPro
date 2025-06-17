@@ -93,19 +93,9 @@ export default function NewUserPage() {
         duration: 15000,
       });
       
-      // The current session is now for the NEWLY CREATED USER.
-      // To avoid issues, it's best practice to sign out the new user and let the Super Admin sign back in if they need to.
-      // Or, re-authenticate the Super Admin if Firebase SDK allows it easily (complex).
-      // For simplicity, we'll inform the Super Admin.
       addDebugMessage(`Step 4: IMPORTANT - Current Firebase Auth session is now for the new user: ${newUserAuth.email}. The Super Admin who performed this action (${adminUser.email}) is effectively signed out of THIS browser session's Firebase Auth instance.`);
       
-      // It's better to navigate and let AuthContext handle the state of the new user.
-      // If the Super Admin wants to continue, they must log out and log back in.
-      setCurrentUser(null); // Simulate logout of superadmin in this specific component's state after new user is created and their auth session takes over.
-      // This doesn't actually log out the super admin from Firebase, but auth.currentUser is now the new user.
-      // The AuthProvider's onAuthStateChanged will pick up the new user.
-
-      router.push('/admin/users'); // Navigate to users list
+      router.push('/admin/users'); 
       addDebugMessage("Step 5: Navigated to /admin/users. AuthContext will now reflect the new user's session.");
 
 
@@ -140,11 +130,8 @@ export default function NewUserPage() {
         duration: 10000,
       });
 
-      // Attempt to sign back in the Super Admin if their UID was preserved
       if (currentSuperAdminAuthUID && auth.currentUser?.uid !== currentSuperAdminAuthUID) {
         addDebugMessage(`Error handling: Attempting to sign out current user (${auth.currentUser?.email}) and restore Super Admin session logic might be needed if an error occurred after new user auth creation.`);
-        // This part is complex because you can't easily "re-login" a user without credentials.
-        // The safest is to inform the user and let them re-login manually.
          toast({
             title: "Session Management",
             description: "An error occurred. The current user session might have changed. Please log out and log back in if you are not the Super Admin.",
