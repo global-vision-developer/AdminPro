@@ -202,7 +202,7 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
     <TooltipProvider>
       <Card className="mt-6 shadow-lg">
         <CardHeader>
-          <CardTitle className="font-headline text-xl">Entry List</CardTitle> 
+          <CardTitle className="font-headline text-xl">Бүртгэлийн жагсаалт</CardTitle> 
           <CardDescription>бүртгэлийг үзэх, засах, устгах</CardDescription> 
         </CardHeader>
         <CardContent>
@@ -302,3 +302,5 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
   );
 }
 
+
+    
