@@ -104,9 +104,9 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
       <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-8">
         <Card>
           <CardHeader>
-            <CardTitle className="font-headline">{isEditing ? 'Edit User' : 'Шинэ Хэрэглэгч Нэмэх'}</CardTitle> 
+            <CardTitle className="font-headline">{isEditing ? 'Хэрэглэгч засах' : 'Шинэ Хэрэглэгч Нэмэх'}</CardTitle> 
             <UiCardDescription>
-              {isEditing ? 'Update user details and role.' : 'Шинэ хэрэглэгчийн дэлгэрэнгүй мэдээллийг оруулах'} 
+              {isEditing ? 'Хэрэглэгчийн дэлгэрэнгүй мэдээлэл, эрхийг шинэчлэх.' : 'Шинэ хэрэглэгчийн дэлгэрэнгүй мэдээллийг оруулах'} 
             </UiCardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -132,7 +132,7 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
                   <FormControl>
                     <Input type="email" placeholder="user@example.com" {...field} disabled={isEditing} />
                   </FormControl>
-                  {isEditing && <FormDescription>Email cannot be changed after creation.</FormDescription>} 
+                  {isEditing && <FormDescription>Имейл үүсгэсний дараа өөрчлөх боломжгүй.</FormDescription>} 
                   <FormMessage />
                 </FormItem>
               )}
@@ -154,7 +154,7 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select user role" /> 
+                        <SelectValue placeholder="Хэрэглэгчийн эрхийг сонгоно уу" /> 
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -184,11 +184,11 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
                       <ListChecks className="mr-2 h-5 w-5 text-primary" />
                       Дэд админд зөвшөөрсөн ангиллууд
                     </FormLabel>
-                    <FormDescription>Select the entry categories this Sub Admin can manage.</FormDescription>
+                    <FormDescription>Энэ Дэд админы удирдаж болох бүртгэлийн ангиллыг сонгоно уу.</FormDescription>
                     {loadingCategories ? (
-                      <p>Loading categories...</p>
+                      <p>Ангиллуудыг ачаалж байна...</p>
                     ) : allCategories.length === 0 ? (
-                      <p className="text-muted-foreground">No categories available to assign. Please create categories first.</p>
+                      <p className="text-muted-foreground">Оноох боломжтой ангилал алга. Эхлээд ангилал үүсгэнэ үү.</p>
                     ) : (
                       <ScrollArea className="h-48 rounded-md border p-3">
                         <div className="space-y-2">
@@ -241,7 +241,7 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
                   name="password"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Password</FormLabel> 
+                      <FormLabel>Нууц үг</FormLabel> 
                       <FormControl>
                         <Input type="password" placeholder="••••••••" {...field} />
                       </FormControl>
@@ -254,7 +254,7 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
                   name="confirmPassword"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Confirm Password</FormLabel> 
+                      <FormLabel>Нууц үг баталгаажуулах</FormLabel> 
                       <FormControl>
                         <Input type="password" placeholder="••••••••" {...field} />
                       </FormControl>
@@ -268,14 +268,14 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
         </Card>
 
         <div className="flex justify-end space-x-2">
-          <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>Cancel</Button> 
+          <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>Цуцлах</Button> 
           <Button type="submit" disabled={isSubmitting || loadingCategories}>
             {isSubmitting ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
               <Save className="mr-2 h-4 w-4" />
             )}
-            {isEditing ? 'Save Changes' : 'Create User'} 
+            {isEditing ? 'Өөрчлөлтийг хадгалах' : 'Үүсгэх'} 
           </Button>
         </div>
       </form>
