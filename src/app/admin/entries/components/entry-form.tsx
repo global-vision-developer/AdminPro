@@ -343,7 +343,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
               <CardHeader>
                 <CardTitle className="font-headline">Бүртгэлийн дэлгэрэнгүй</CardTitle> 
                 <UiCardDescription>
-                  Content for category: <span className="font-semibold text-primary">{selectedCategory.name}</span>
+                  Контент: <span className="font-semibold text-primary">{selectedCategory.name}</span>
                 </UiCardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
