@@ -156,7 +156,7 @@ export default function UsersPage() {
       case UserRole.SUPER_ADMIN:
         return <Badge className="bg-primary hover:bg-primary/90 text-primary-foreground"><ShieldCheck className="mr-1 h-3 w-3" />Сүпер Админ</Badge>;
       case UserRole.SUB_ADMIN:
-        return <Badge variant="secondary" className="text-foreground"><ShieldAlert className="mr-1 h-3 w-3" />Sub Admin</Badge>;
+        return <Badge variant="secondary" className="text-foreground"><ShieldAlert className="mr-1 h-3 w-3" />Дэд Админ</Badge>;
       default:
         return <Badge variant="outline">{String(role)}</Badge>;
     }
@@ -247,7 +247,7 @@ export default function UsersPage() {
               <SelectContent>
                 <SelectItem value="all">All Roles</SelectItem> 
                 <SelectItem value={UserRole.SUPER_ADMIN}>Сүпер Админ</SelectItem>
-                <SelectItem value={UserRole.SUB_ADMIN}>Sub Admin</SelectItem>
+                <SelectItem value={UserRole.SUB_ADMIN}>Дэд Админ</SelectItem>
               </SelectContent>
             </Select>
           </div>
