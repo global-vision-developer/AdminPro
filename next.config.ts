@@ -67,7 +67,13 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'encrypted-tbn0.gstatic.com', // Added this new hostname
+        hostname: 'encrypted-tbn0.gstatic.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'ik.imgkit.net', // Added this new hostname
         port: '',
         pathname: '/**',
       }
