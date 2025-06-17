@@ -293,7 +293,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                 name="coverImageUrl"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Ангиллын нүүр зураг</FormLabel>
+                    <FormLabel>Нүүр Зураг</FormLabel>
                     <FormControl>
                        <ImageUploader
                         initialImageUrl={field.value}
