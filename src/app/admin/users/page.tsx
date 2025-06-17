@@ -262,7 +262,7 @@ export default function UsersPage() {
                     <TableHead>Нэр</TableHead> 
                     <TableHead className="hidden md:table-cell">Имейл</TableHead> 
                     <TableHead className="text-center">Хандах эрх</TableHead> 
-                    <TableHead className="text-right">Actions</TableHead> 
+                    <TableHead className="text-right">Өөрчлөх</TableHead> 
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -361,6 +361,7 @@ export default function UsersPage() {
     </TooltipProvider>
   );
 }
+
 
 
 
