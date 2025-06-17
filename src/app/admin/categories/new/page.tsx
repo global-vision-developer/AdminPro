@@ -34,7 +34,7 @@ export default function NewCategoryPage() {
   return (
     <>
       <PageHeader
-        title="Create New Category"
+        title="Шинэ Ангилал Үүсгэх"
         description="Define a new content structure for your entries."
       />
       <CategoryForm 
@@ -45,3 +45,4 @@ export default function NewCategoryPage() {
     </>
   );
 }
+
