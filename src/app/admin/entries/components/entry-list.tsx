@@ -210,7 +210,7 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="min-w-[200px]">Title</TableHead> 
+                  <TableHead className="min-w-[200px]">Гарчиг</TableHead> 
                   <TableHead className="hidden md:table-cell min-w-[150px]">Category</TableHead>
                   <TableHead className="min-w-[150px]">Үндсэн дата тойм</TableHead> 
                   <TableHead className="text-center hidden sm:table-cell">Төлөв</TableHead> 
