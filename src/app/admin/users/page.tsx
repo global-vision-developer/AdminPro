@@ -245,7 +245,7 @@ export default function UsersPage() {
                 <SelectValue placeholder="Filter by Role" /> 
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Roles</SelectItem> 
+                <SelectItem value="all">Хандах Эрхүүд</SelectItem> 
                 <SelectItem value={UserRole.SUPER_ADMIN}>Сүпер Админ</SelectItem>
                 <SelectItem value={UserRole.SUB_ADMIN}>Дэд Админ</SelectItem>
               </SelectContent>
@@ -361,4 +361,5 @@ export default function UsersPage() {
     </TooltipProvider>
   );
 }
+
 
