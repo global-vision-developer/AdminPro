@@ -35,20 +35,20 @@ interface NavItem {
   icon: React.ElementType;
   roles?: UserRole[];
   subItems?: NavItem[];
-  hideIfSubAdmin?: boolean; // New property to hide for SubAdmin
+  hideIfSubAdmin?: boolean; 
 }
 
 const navItems: NavItem[] = [
-  { href: "/admin/dashboard", label: "Хянах самбар", icon: LayoutDashboard },
+  { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard }, 
   {
     href: "/admin/content", label: "Content", icon: Library, 
     subItems: [
-      { href: "/admin/categories", label: "Categories", icon: Library, roles: [UserRole.SUPER_ADMIN] }, // Only Super Admin can see Categories
-      { href: "/admin/entries", label: "Entries", icon: Newspaper, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
+      { href: "/admin/categories", label: "Categories", icon: Library, roles: [UserRole.SUPER_ADMIN] }, 
+      { href: "/admin/entries", label: "Entries", icon: Newspaper, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] }, 
     ]
   },
-  { href: "/admin/users", label: "Хэрэглэгчийн удирдлага", icon: Users, roles: [UserRole.SUPER_ADMIN] },
-  // { href: "/admin/settings", label: "Тохиргоо", icon: Settings },
+  { href: "/admin/users", label: "User Management", icon: Users, roles: [UserRole.SUPER_ADMIN] }, 
+  // { href: "/admin/settings", label: "Settings", icon: Settings }, 
 ];
 
 
@@ -65,24 +65,19 @@ export function SidebarNav() {
   if (!currentUser) return null;
 
   const renderNavItem = (item: NavItem, isSubItem = false) => {
-    // Role check
     if (item.roles && !item.roles.includes(currentUser.role)) {
       return null;
     }
-    // Specific check for SubAdmin to hide certain top-level or sub-items
     if (item.hideIfSubAdmin && currentUser.role === UserRole.SUB_ADMIN) {
         return null;
     }
-    if (item.label === "Categories" && currentUser.role === UserRole.SUB_ADMIN) { // Explicitly hide Categories for SubAdmin
+    if (item.label === "Categories" && currentUser.role === UserRole.SUB_ADMIN) { 
         return null;
     }
 
-
-    // Check if current item or any of its sub-items is active
     let itemIsActive = pathname === item.href || (item.href !== "/admin/dashboard" && pathname.startsWith(item.href));
     if (item.subItems && !itemIsActive) {
         itemIsActive = item.subItems.some(sub => {
-            // Don't consider hidden sub-items for parent active state for SubAdmins
             if (sub.label === "Categories" && currentUser.role === UserRole.SUB_ADMIN) return false;
             return pathname.startsWith(sub.href);
         });
@@ -99,7 +94,7 @@ export function SidebarNav() {
         return true;
       });
 
-      if (visibleSubItems.length === 0) return null; // Don't render parent if no visible sub-items
+      if (visibleSubItems.length === 0) return null; 
 
       if (sidebarState === 'collapsed') {
         return (

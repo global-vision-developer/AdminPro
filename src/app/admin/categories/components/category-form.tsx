@@ -25,8 +25,8 @@ import ImageUploader from '@/components/admin/image-uploader'; // Import ImageUp
 
 const fieldDefinitionClientSchema = z.object({
   id: z.string().default(() => uuidv4()),
-  label: z.string().min(1, "Талбарын нэршил шаардлагатай."),
-  key: z.string().min(1, "Талбарын түлхүүр шаардлагатай (нэршлээс автоматаар үүснэ).").regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Түлхүүр нь зөвхөн жижиг үсэг, тоо, зураас агуулсан байх ёстой."),
+  label: z.string().min(1, "Field label is required."),
+  key: z.string().min(1, "Field key is required (auto-generated from label).").regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Key must contain only lowercase letters, numbers, and hyphens."),
   type: z.nativeEnum(FieldType),
   required: z.boolean().default(false),
   placeholder: z.string().transform(val => val === '' ? undefined : val).optional(),
@@ -35,10 +35,10 @@ const fieldDefinitionClientSchema = z.object({
 
 const categoryFormSchema = z.object({
   name: z.string(),
-  slug: z.string().min(1, "Слаг шаардлагатай.").regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Слаг нь зөвхөн жижиг үсэг, тоо, зураас агуулсан байх ёстой."),
+  slug: z.string().min(1, "Slug is required.").regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug must contain only lowercase letters, numbers, and hyphens."),
   description: z.string().optional().default(''),
-  coverImageUrl: z.string().url("Нүүр зургийн URL буруу байна.").nullable().optional(), // Added for cover image
-  fields: z.array(fieldDefinitionClientSchema).min(0, "Анх талбаргүйгээр ангилал хадгалах боломжтой."),
+  coverImageUrl: z.string().url("Invalid cover image URL.").nullable().optional(), // Added for cover image
+  fields: z.array(fieldDefinitionClientSchema).min(0, "You can save a category without fields initially."),
 });
 
 export type CategoryFormValues = z.infer<typeof categoryFormSchema>;
@@ -60,39 +60,39 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
   const defaultFieldsForNewCategory: FieldDefinition[] = [
       {
         id: uuidv4(),
-        label: 'Нэр',
-        key: 'ner',
+        label: 'Name',
+        key: 'name',
         type: FieldType.TEXT,
         required: true,
-        placeholder: 'Бичлэгийн гарчиг эсвэл нэр',
-        description: 'Энэ бичлэгийн гол гарчиг буюу нэр.'
+        placeholder: 'Entry title or name',
+        description: 'The main title or name for this entry.'
       },
       {
         id: uuidv4(),
-        label: 'Хот',
-        key: 'khot',
+        label: 'City',
+        key: 'city',
         type: FieldType.TEXT,
         required: false,
-        placeholder: 'Жишээ нь: Улаанбаатар',
-        description: 'Бичлэгт холбогдох хотын нэр.'
+        placeholder: 'e.g., Ulaanbaatar',
+        description: 'The city related to the entry.'
       },
       {
         id: uuidv4(),
-        label: 'Үнэлгээ',
-        key: 'unelgee',
+        label: 'Rating',
+        key: 'rating',
         type: FieldType.NUMBER,
         required: false,
-        placeholder: 'Жишээ нь: 1-5',
-        description: 'Хэрэглэгчийн үнэлгээ (тоо). Энэ талбарыг админ бус, аппликейшний хэрэглэгчид бөглөнө.'
+        placeholder: 'e.g., 1-5',
+        description: 'User rating (number). This field is for app users, not admins.'
       },
       {
         id: uuidv4(),
-        label: 'Сэтгэгдэл',
-        key: 'setgegdel',
+        label: 'Comment',
+        key: 'comment',
         type: FieldType.TEXTAREA,
         required: false,
-        placeholder: 'Хэрэглэгчийн сэтгэгдлийг энд бичнэ үү.',
-        description: 'Хэрэглэгчдийн үлдээх сэтгэгдэл. Энэ талбарыг админ бус, аппликейшний хэрэглэгчид бөглөнө.'
+        placeholder: 'Write user comment here.',
+        description: 'Comments left by users. This field is for app users, not admins.'
       }
   ];
 
@@ -134,11 +134,11 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
     const otherFields = fields.filter((_, idx) => idx !== editingFieldIndex);
     if (otherFields.some(f => f.key === finalFieldData.key)) {
       toast({
-        title: "Алдаа: Давхардсан Талбарын Түлхүүр",
-        description: `"${finalFieldData.label}" нэршилтэй талбараас үүссэн "${finalFieldData.key}" түлхүүр энэ ангилалд аль хэдийн байна. Өөр нэршил ашиглана уу.`,
+        title: "Error: Duplicate Field Key",
+        description: `The key "${finalFieldData.key}" generated from field label "${finalFieldData.label}" already exists in this category. Please use a different label.`,
         variant: "destructive",
       });
-      fieldFormMethods.setError("label", {type: "manual", message: "Энэ нэршил давхардсан түлхүүр үүсгэж байна."})
+      fieldFormMethods.setError("label", {type: "manual", message: "This label generates a duplicate key."})
       return; 
     }
 
@@ -175,8 +175,8 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
     for (const f of data.fields) {
       if (fieldKeys.has(f.key)) {
         toast({
-          title: "Алдаа: Давхардсан Талбарын Түлхүүрүүд",
-          description: `"${f.label}" нэршилтэй талбараас үүссэн "${f.key}" түлхүүр давхардаж байна. Бүх талбарын нэршил өвөрмөц түлхүүр үүсгэж байгаа эсэхийг шалгана уу.`,
+          title: "Error: Duplicate Field Keys",
+          description: `The key "${f.key}" generated from field label "${f.label}" is duplicated. Please ensure all field labels generate unique keys.`,
           variant: "destructive",
         });
         return;
@@ -188,13 +188,13 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
 
     if (result && "error" in result && result.error) {
       toast({
-        title: "Үйлдэл Амжилтгүй",
+        title: "Operation Failed",
         description: result.error,
         variant: "destructive",
       });
     } else if (result && (("id" in result && result.id) || ("success" in result && result.success))) {
        toast({
-        title: "Амжилттай",
+        title: "Success",
         description: `Category ${initialData ? "updated" : "created"}.`,
       });
       if (onFormSuccess) onFormSuccess();
@@ -266,11 +266,11 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                 name="slug"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Слаг (URL танигч)</FormLabel>
+                    <FormLabel>Slug (URL Identifier)</FormLabel>
                     <FormControl>
                       <Input placeholder="e.g., blog-posts, product-info" {...field} />
                     </FormControl>
-                    <FormDescription>Өвөрмөц, жижиг үсгээр, зөвхөн үсэг, тоо, зураас агуулсан байна.</FormDescription>
+                    <FormDescription>Unique, lowercase, only letters, numbers, and hyphens.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -280,7 +280,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Тайлбар (Заавал биш)</FormLabel>
+                    <FormLabel>Description (Optional)</FormLabel>
                     <FormControl>
                       <Textarea placeholder="A brief description of what this category is for." {...field} />
                     </FormControl>
@@ -312,13 +312,13 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
 
           <Card>
             <CardHeader>
-              <CardTitle className="font-headline">Талбарын Тодорхойлолтууд</CardTitle>
-              <UiCardDescription>Энэ ангилалд хамаарах бичлэгүүдийн өгөгдлийн бүтцийг тодорхойлно уу.</UiCardDescription>
+              <CardTitle className="font-headline">Field Definitions</CardTitle>
+              <UiCardDescription>Define the data structure for entries belonging to this category.</UiCardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {fields.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-4">
-                  Талбар тодорхойлогдоогүй байна. "Шинэ талбар нэмэх" товчийг дарж эхэлнэ үү.
+                  No fields defined. Click "Add New Field" to get started.
                 </p>
               )}
               <ScrollArea className={fields.length > 3 ? "h-72" : ""}>
@@ -327,14 +327,14 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                     <div key={fieldItem.fieldFormId} className="flex items-center justify-between p-3 border rounded-md bg-background shadow-sm hover:shadow-md transition-shadow">
                       <div>
                         <p className="font-medium text-foreground">{fieldItem.label}</p>
-                        <p className="text-xs text-muted-foreground">Төрөл: {fieldItem.type} | Түлхүүр: <span className="font-mono bg-muted px-1 rounded">{fieldItem.key}</span> {fieldItem.required && <span className="text-destructive font-semibold">(шаардлагатай)</span>}</p>
-                        {fieldItem.description && <p className="text-xs text-muted-foreground mt-1">Тайлбар: {fieldItem.description.substring(0,50)}{fieldItem.description.length > 50 ? '...' : ''}</p>}
+                        <p className="text-xs text-muted-foreground">Type: {fieldItem.type} | Key: <span className="font-mono bg-muted px-1 rounded">{fieldItem.key}</span> {fieldItem.required && <span className="text-destructive font-semibold">(required)</span>}</p>
+                        {fieldItem.description && <p className="text-xs text-muted-foreground mt-1">Description: {fieldItem.description.substring(0,50)}{fieldItem.description.length > 50 ? '...' : ''}</p>}
                       </div>
                       <div className="flex gap-1">
-                        <Button type="button" variant="ghost" size="icon" onClick={() => openFieldForm(index)} aria-label="Талбар засах">
+                        <Button type="button" variant="ghost" size="icon" onClick={() => openFieldForm(index)} aria-label="Edit field">
                           <Edit3 className="h-4 w-4" />
                         </Button>
-                        <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-destructive hover:text-destructive/90" aria-label="Талбар устгах">
+                        <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-destructive hover:text-destructive/90" aria-label="Delete field">
                           <XCircle className="h-4 w-4" />
                         </Button>
                       </div>
@@ -343,7 +343,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                 </div>
               </ScrollArea>
                <Button type="button" variant="outline" onClick={() => openFieldForm()} className="w-full mt-4">
-                 <PlusCircle className="mr-2 h-4 w-4" /> Шинэ талбар нэмэх
+                 <PlusCircle className="mr-2 h-4 w-4" /> Add New Field
                </Button>
                {form.formState.errors.fields && !form.formState.errors.fields.root && (
                  <FormMessage>{form.formState.errors.fields.message}</FormMessage>
@@ -355,14 +355,14 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
           </Card>
 
           <div className="flex justify-end space-x-2 pt-6 border-t">
-            <Button type="button" variant="outline" disabled={isSubmittingGlobal} onClick={() => router.back()}>Цуцлах</Button>
+            <Button type="button" variant="outline" disabled={isSubmittingGlobal} onClick={() => router.back()}>Cancel</Button>
             <Button type="submit" disabled={isSubmittingGlobal}>
               {isSubmittingGlobal ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <Save className="mr-2 h-4 w-4" />
               )}
-              {initialData ? 'Өөрчлөлтийг Хадгалах' : 'Create Category'}
+              {initialData ? 'Save Changes' : 'Create Category'}
             </Button>
           </div>
         </form>
@@ -378,9 +378,9 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
       }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="font-headline">{editingFieldIndex !== null ? "Талбар Засах" : "Шинэ Талбар Нэмэх"}</DialogTitle>
+            <DialogTitle className="font-headline">{editingFieldIndex !== null ? "Edit Field" : "Add New Field"}</DialogTitle>
             <DialogDescription>
-              Энэ талбарын шинж чанаруудыг тодорхойлно уу. 'Талбарын Түлхүүр' нь нэршлээс автоматаар үүснэ. Ангилал доторх талбарын нэршил давхардаагүй байх ёстойг анхаарна уу.
+              Define the properties for this field. The 'Field Key' will be auto-generated from the label. Ensure field labels are unique within the category.
             </DialogDescription>
           </DialogHeader>
           <Form {...fieldFormMethods}>
@@ -390,10 +390,10 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                 name="label"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Талбарын нэршил</FormLabel>
+                    <FormLabel>Field Label</FormLabel>
                     <FormControl>
                       <Input 
-                        placeholder="Жишээ нь: Зохиогчийн нэр, Бүтээгдэхүүний үнэ" 
+                        placeholder="e.g., Author Name, Product Price" 
                         {...field} 
                         onChange={(e) => {
                            field.onChange(e); 
@@ -411,11 +411,11 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                 name="key"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Талбарын түлхүүр (автоматаар үүснэ)</FormLabel>
+                    <FormLabel>Field Key (auto-generated)</FormLabel>
                     <FormControl>
                       <Input placeholder="auto-generated-key" {...field} readOnly className="bg-muted/50" />
                     </FormControl>
-                    <FormDescription>Энэ өвөрмөц түлхүүр нь мэдээллийн санд ашиглагдана. Нэршлээс үүсгэгдэх бөгөөд давхардаагүй байх ёстой.</FormDescription>
+                    <FormDescription>This unique key is used in the database. It is generated from the label and must be unique.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -425,11 +425,11 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                 name="type"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Талбарын төрөл</FormLabel>
+                    <FormLabel>Field Type</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Талбарын төрөл сонгоно уу" />
+                          <SelectValue placeholder="Select a field type" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -447,9 +447,9 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                 name="placeholder"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Placeholder (Заавал биш)</FormLabel>
+                    <FormLabel>Placeholder (Optional)</FormLabel>
                     <FormControl>
-                      <Input placeholder="Жишээ нь: Гарчигаа энд оруулна уу" {...field} value={field.value || ''}/>
+                      <Input placeholder="e.g., Enter title here" {...field} value={field.value || ''}/>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -460,9 +460,9 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Талбарын тайлбар/Туслах текст (Заавал биш)</FormLabel>
+                    <FormLabel>Field Description/Help Text (Optional)</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="Энэ талбар юунд зориулагдсан талаар товч тайлбар." {...field} value={field.value || ''}/>
+                      <Textarea placeholder="A short explanation of what this field is for." {...field} value={field.value || ''}/>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -480,17 +480,17 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                       />
                     </FormControl>
                     <FormLabel className="font-normal mb-0!">
-                      Энэ талбар шаардлагатай
+                      This field is required
                     </FormLabel>
                   </FormItem>
                 )}
               />
               <DialogFooter className="pt-4">
                 <DialogClose asChild>
-                  <Button type="button" variant="outline">Цуцлах</Button>
+                  <Button type="button" variant="outline">Cancel</Button>
                 </DialogClose>
                 <Button type="submit">
-                  {editingFieldIndex !== null ? "Талбарт Өөрчлөлт Хадгалах" : "Add Field to Category"}
+                  {editingFieldIndex !== null ? "Save Field Changes" : "Add Field to Category"}
                 </Button>
               </DialogFooter>
             </form>

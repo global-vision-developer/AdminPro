@@ -59,7 +59,7 @@ export default function NewEntryPage() {
 
       } catch (error) {
         console.error("Failed to load categories:", error);
-        toast({ title: "Алдаа", description: "Failed to load categories.", variant: "destructive" });
+        toast({ title: "Error", description: "Failed to load categories.", variant: "destructive" });
         setAllCategories([]);
         setSelectableCategories([]);
         setSelectedCategoryId(undefined);
@@ -67,16 +67,15 @@ export default function NewEntryPage() {
         setIsLoading(false);
       }
     }
-    if (currentUser) { // Only load data if currentUser is available
+    if (currentUser) { 
         loadData();
     } else {
-        setIsLoading(false); // If no currentUser yet, stop loading, AuthProvider will redirect or update
+        setIsLoading(false); 
     }
   }, [searchParams, toast, currentUser]);
 
   const selectedCategory = useMemo(() => {
     if (!selectedCategoryId) return undefined;
-    // Find from allCategories to get full category details, even if it's not selectable for a SubAdmin (for display purposes if pre-selected via URL)
     const category = allCategories.find(cat => cat.id === selectedCategoryId); 
     return category && category.name ? category : undefined;
   }, [allCategories, selectedCategoryId]);
@@ -104,7 +103,7 @@ export default function NewEntryPage() {
   if (isLoading) {
     return (
       <>
-        <PageHeader title="Шинэ Бичлэг Үүсгэх" />
+        <PageHeader title="Create New Entry" /> 
         <div className="space-y-4 p-4">
           <Skeleton className="h-10 w-full sm:w-1/3 mb-4" /> 
           <Skeleton className="h-10 w-full" /> 
@@ -116,18 +115,18 @@ export default function NewEntryPage() {
     );
   }
 
-  if (!currentUser) { // If currentUser is still null after loading (e.g. redirecting)
+  if (!currentUser) { 
     return (
         <div className="p-4">
-            <p>Хэрэглэгчийн нэвтрэлтийг шалгаж байна...</p>
+            <p>Verifying user authentication...</p> 
         </div>
     );
   }
   
-  if (allCategories.length === 0) { // No categories exist in the system at all
+  if (allCategories.length === 0) { 
     return (
       <>
-        <PageHeader title="Шинэ Бичлэг Үүсгэх" />
+        <PageHeader title="Create New Entry" /> 
         <Card className="mt-6">
           <CardContent className="py-10 text-center">
              <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
@@ -146,11 +145,10 @@ export default function NewEntryPage() {
     );
   }
 
-  // Sub Admin has no assigned categories
   if (currentUser.role === UserRole.SUB_ADMIN && selectableCategories.length === 0) {
     return (
       <>
-        <PageHeader title="Шинэ Бичлэг Үүсгэх" />
+        <PageHeader title="Create New Entry" /> 
         <Alert variant="default" className="mt-6 border-primary/50">
             <Info className="h-5 w-5 text-primary" />
             <AlertTitle className="font-semibold text-primary">No Assigned Categories</AlertTitle>
@@ -167,7 +165,7 @@ export default function NewEntryPage() {
   return (
     <>
       <PageHeader
-        title="Шинэ Бичлэг Үүсгэх"
+        title="Create New Entry" 
         description={selectedCategory ? `Category: ${selectedCategory.name}` : "Select a category to get started."}
       />
       
@@ -190,14 +188,14 @@ export default function NewEntryPage() {
           </SelectContent>
         </Select>
         {!selectedCategoryId && selectableCategories.length > 0 && (
-             <p className="text-sm text-destructive mt-1">Please select a category.</p>
+             <p className="text-sm text-destructive mt-1">Please select a category.</p> 
         )}
       </div>
 
       {selectedCategory && selectedCategory.name ? ( 
         <EntryForm 
           key={selectedCategory.id} 
-          categories={allCategories} // Pass all for form logic, but selection was based on selectable
+          categories={allCategories} 
           selectedCategory={selectedCategory}
           onSubmitSuccess={handleEntryFormSuccess}
         />
@@ -205,7 +203,7 @@ export default function NewEntryPage() {
         selectableCategories.length > 0 && ( 
             <Card className="mt-6">
             <CardContent className="py-10 text-center">
-                <p className="text-muted-foreground">Please select a valid category above to start creating an entry.</p>
+                <p className="text-muted-foreground">Please select a valid category above to start creating an entry.</p> 
             </CardContent>
             </Card>
         )

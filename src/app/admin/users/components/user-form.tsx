@@ -8,35 +8,33 @@ import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription as UiCardDescription } from '@/components/ui/card'; // Renamed CardDescription to UiCardDescription
+import { Card, CardContent, CardHeader, CardTitle, CardDescription as UiCardDescription } from '@/components/ui/card'; 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
-import type { UserProfile, Category } from '@/types'; // Added Category
+import type { UserProfile, Category } from '@/types'; 
 import { UserRole } from '@/types';
-import { Save, Loader2, ListChecks } from 'lucide-react'; // Added ListChecks
+import { Save, Loader2, ListChecks } from 'lucide-react'; 
 import { useRouter } from 'next/navigation'; 
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { getCategories } from '@/lib/actions/categoryActions'; // To fetch categories
+import { getCategories } from '@/lib/actions/categoryActions'; 
 import { useToast } from '@/hooks/use-toast';
 
 
 const userFormSchemaBase = z.object({
-  name: z.string().min(1, "Хэрэглэгчийн нэр шаардлагатай."),
-  email: z.string().email("Имэйл хаяг буруу байна."),
+  name: z.string().min(1, "User name is required."), 
+  email: z.string().email("Invalid email address."), 
   role: z.nativeEnum(UserRole),
-  allowedCategoryIds: z.array(z.string()).optional(), // Array of category IDs
+  allowedCategoryIds: z.array(z.string()).optional(), 
 });
 
-// Schema for creating a new user (includes password)
 const newUserFormSchema = userFormSchemaBase.extend({
-  password: z.string().min(6, "Нууц үг дор хаяж 6 тэмдэгттэй байх ёстой."),
-  confirmPassword: z.string().min(6, "Нууц үгээ баталгаажуулна уу."),
+  password: z.string().min(6, "Password must be at least 6 characters."), 
+  confirmPassword: z.string().min(6, "Please confirm your password."), 
 }).refine(data => data.password === data.confirmPassword, {
-  message: "Нууц үг таарахгүй байна.",
+  message: "Passwords do not match.", 
   path: ["confirmPassword"], 
 });
 
-// Schema for editing an existing user (password is not editable here)
 const editUserFormSchema = userFormSchemaBase;
 
 
@@ -64,7 +62,7 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
         setAllCategories(cats);
       } catch (error) {
         console.error("Failed to fetch categories for UserForm:", error);
-        toast({ title: "Алдаа", description: "Failed to load categories for selection.", variant: "destructive" });
+        toast({ title: "Error", description: "Failed to load categories for selection.", variant: "destructive" });
         setAllCategories([]);
       } finally {
         setLoadingCategories(false);
@@ -106,9 +104,9 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
       <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-8">
         <Card>
           <CardHeader>
-            <CardTitle className="font-headline">{isEditing ? 'Хэрэглэгч Засах' : 'Шинэ Хэрэглэгч Нэмэх'}</CardTitle>
+            <CardTitle className="font-headline">{isEditing ? 'Edit User' : 'Add New User'}</CardTitle> 
             <UiCardDescription>
-              {isEditing ? 'Хэрэглэгчийн дэлгэрэнгүй мэдээлэл, эрхийг шинэчлэх.' : 'Шинэ хэрэглэгчийн дэлгэрэнгүй мэдээллийг оруулна уу.'}
+              {isEditing ? 'Update user details and role.' : 'Enter details for the new user.'} 
             </UiCardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -117,7 +115,7 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Бүтэн Нэр</FormLabel>
+                  <FormLabel>Full Name</FormLabel> 
                   <FormControl>
                     <Input placeholder="John Doe" {...field} />
                   </FormControl>
@@ -130,11 +128,11 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Имэйл Хаяг</FormLabel>
+                  <FormLabel>Email Address</FormLabel> 
                   <FormControl>
                     <Input type="email" placeholder="user@example.com" {...field} disabled={isEditing} />
                   </FormControl>
-                  {isEditing && <FormDescription>Имэйлийг үүсгэсний дараа өөрчлөх боломжгүй.</FormDescription>}
+                  {isEditing && <FormDescription>Email cannot be changed after creation.</FormDescription>} 
                   <FormMessage />
                 </FormItem>
               )}
@@ -144,19 +142,19 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
               name="role"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Эрх</FormLabel>
+                  <FormLabel>Role</FormLabel> 
                   <Select 
                     onValueChange={(value) => {
                       field.onChange(value);
                       if (value !== UserRole.SUB_ADMIN) {
-                        form.setValue('allowedCategoryIds', []); // Clear categories if not Sub Admin
+                        form.setValue('allowedCategoryIds', []); 
                       }
                     }} 
                     defaultValue={field.value}
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Хэрэглэгчийн эрх сонгоно уу" />
+                        <SelectValue placeholder="Select user role" /> 
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -237,7 +235,7 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
                   name="password"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Нууц Үг</FormLabel>
+                      <FormLabel>Password</FormLabel> 
                       <FormControl>
                         <Input type="password" placeholder="••••••••" {...field} />
                       </FormControl>
@@ -250,7 +248,7 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
                   name="confirmPassword"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Нууц Үг Баталгаажуулах</FormLabel>
+                      <FormLabel>Confirm Password</FormLabel> 
                       <FormControl>
                         <Input type="password" placeholder="••••••••" {...field} />
                       </FormControl>
@@ -264,14 +262,14 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
         </Card>
 
         <div className="flex justify-end space-x-2">
-          <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>Цуцлах</Button>
+          <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>Cancel</Button> 
           <Button type="submit" disabled={isSubmitting || loadingCategories}>
             {isSubmitting ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
               <Save className="mr-2 h-4 w-4" />
             )}
-            {isEditing ? 'Өөрчлөлтийг Хадгалах' : 'Хэрэглэгч Үүсгэх'}
+            {isEditing ? 'Save Changes' : 'Create User'} 
           </Button>
         </div>
       </form>

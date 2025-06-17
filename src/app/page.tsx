@@ -15,8 +15,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import Image from "next/image";
 
 const loginSchema = z.object({
-  email: z.string().email({ message: "Имэйл хаяг буруу байна." }),
-  password: z.string().min(6, { message: "Нууц үг дор хаяж 6 тэмдэгттэй байх ёстой." }),
+  email: z.string().email({ message: "Invalid email address." }), 
+  password: z.string().min(6, { message: "Password must be at least 6 characters." }), 
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -50,26 +50,23 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginFormValues) => {
     setIsSubmitting(true);
-    // Pass only email and password to the login function
     await login(data.email, data.password); 
-    // AuthContext handles navigation or error display
     setIsSubmitting(false); 
   };
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-primary/10 via-background to-background p-4">
        <div className="absolute inset-0 overflow-hidden z-0">
-        {/* Decorative background elements can be added here */}
       </div>
       <Card className="w-full max-w-md shadow-2xl z-10 border-primary/20">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 flex items-center justify-center">
-            <Image src="https://placehold.co/80x80.png?bg=FF5733&text=АП" alt="Админ Про Logo" width={80} height={80} className="rounded-lg" data-ai-hint="logo abstract"/>
+            <Image src="https://placehold.co/80x80.png?bg=FF5733&text=AP" alt="Admin Pro Logo" width={80} height={80} className="rounded-lg" data-ai-hint="logo abstract"/>
           </div>
-          <CardTitle className="text-3xl font-headline text-primary">Админ Про</CardTitle>
+          <CardTitle className="text-3xl font-headline text-primary">Admin Pro</CardTitle> 
           <CardDescription className="text-muted-foreground">
-            Системд нэвтэрч контентоо удирдана уу
-          </CardDescription>
+            Log in to your account to manage content
+          </CardDescription> 
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -79,7 +76,7 @@ export default function LoginPage() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel htmlFor="email">Имэйл Хаяг</FormLabel>
+                    <FormLabel htmlFor="email">Email Address</FormLabel> 
                     <FormControl>
                       <Input
                         id="email"
@@ -98,7 +95,7 @@ export default function LoginPage() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel htmlFor="password">Нууц Үг</FormLabel>
+                    <FormLabel htmlFor="password">Password</FormLabel> 
                     <FormControl>
                       <Input
                         id="password"
@@ -118,18 +115,18 @@ export default function LoginPage() {
                 ) : (
                   <LogIn className="mr-2 h-5 w-5" />
                 )}
-                Нэвтрэх
-              </Button>
+                Log In
+              </Button> 
             </form>
           </Form>
         </CardContent>
         <CardFooter className="flex flex-col items-center text-xs text-muted-foreground pt-6">
-          <p>Туршилтаар: 'super@example.com' эсвэл 'sub@example.com' ашиглана уу.</p>
-          <p>Нууц үг: 'password'</p>
+          <p>For demo: use 'super@example.com' or 'sub@example.com'.</p> 
+          <p>Password: 'password'</p> 
         </CardFooter>
       </Card>
       <p className="mt-8 text-center text-sm text-muted-foreground">
-        © {new Date().getFullYear()} Админ Про.
+        © {new Date().getFullYear()} Admin Pro.
       </p>
     </main>
   );

@@ -12,12 +12,12 @@ import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebas
 import { v4 as uuidv4 } from 'uuid';
 
 interface ImageUploaderProps {
-  onUploadComplete: (downloadURL: string | null) => void; // Allow null for deletion
+  onUploadComplete: (downloadURL: string | null) => void; 
   initialImageUrl?: string | null;
-  storagePath?: string; // e.g., "category-covers", "entry-images/gallery"
+  storagePath?: string; 
   maxSizeMB?: number;
-  maxDimension?: number; // Max width/height for compression
-  compressionQuality?: number; // 0.0 to 1.0
+  maxDimension?: number; 
+  compressionQuality?: number; 
   label?: string;
 }
 
@@ -28,7 +28,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
   maxSizeMB = 5,
   maxDimension = 1200,
   compressionQuality = 0.8,
-  label = "Зураг байршуулах",
+  label = "Upload Image", 
 }) => {
   const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(initialUrlProp || null);
   const [uploading, setUploading] = useState(false);
@@ -95,13 +95,13 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
     setError(null);
 
     if (file.size > maxSizeMB * 1024 * 1024) {
-      setError(`Файлын хэмжээ ${maxSizeMB}MB-с их байна.`);
+      setError(`File size exceeds ${maxSizeMB}MB.`); 
       return;
     }
 
     setUploading(true);
     setProgress(0);
-    setPreview(URL.createObjectURL(file)); // Show preview of original before compression
+    setPreview(URL.createObjectURL(file)); 
 
     try {
       const compressedBlob = await handleImageCompression(file);
@@ -117,9 +117,9 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
         },
         (uploadError) => {
           console.error("Upload error:", uploadError);
-          setError(`Зураг байршуулахад алдаа гарлаа: ${uploadError.message}`);
+          setError(`Image upload failed: ${uploadError.message}`); 
           setUploading(false);
-          setPreview(currentImageUrl); // Revert preview if upload fails
+          setPreview(currentImageUrl); 
         },
         async () => {
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
@@ -127,14 +127,14 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
           setPreview(downloadURL);
           onUploadComplete(downloadURL);
           setUploading(false);
-          toast({ title: "Амжилттай", description: "Зураг байршуулагдлаа." });
+          toast({ title: "Success", description: "Image uploaded successfully." }); 
         }
       );
     } catch (compressionError: any) {
       console.error("Compression error:", compressionError);
-      setError(`Зураг шахахад алдаа гарлаа: ${compressionError.message}`);
+      setError(`Image compression failed: ${compressionError.message}`); 
       setUploading(false);
-      setPreview(currentImageUrl); // Revert preview
+      setPreview(currentImageUrl); 
     }
   }, [storagePath, maxSizeMB, compressionQuality, maxDimension, onUploadComplete, toast, currentImageUrl]);
 
@@ -152,7 +152,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
     if (file && file.type.startsWith('image/')) {
       handleFileUpload(file);
     } else {
-      setError("Зөвхөн зурган файл сонгоно уу.");
+      setError("Please select an image file."); 
     }
   }, [handleFileUpload]);
 
@@ -163,32 +163,28 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
 
   const handleRemoveImage = async () => {
     if (!currentImageUrl) return;
-    const confirmation = window.confirm("Та энэ зургийг устгахдаа итгэлтэй байна уу? Энэ үйлдэл Firebase Storage-оос зургийг мөн устгахыг оролдоно (хэрэв боломжтой бол).");
+    const confirmation = window.confirm("Are you sure you want to delete this image? This will also attempt to delete it from Firebase Storage if possible."); // Changed
     if (!confirmation) return;
 
-    // Try to delete from Firebase Storage
-    // Note: This assumes the currentImageUrl is a Firebase Storage URL
-    // For external URLs, this deletion won't work and might error silently or log.
     if (currentImageUrl.includes('firebasestorage.googleapis.com')) {
         try {
             const imageRef = ref(storage, currentImageUrl);
             await deleteObject(imageRef);
-            toast({ title: "Зураг Storage-оос устлаа."});
+            toast({ title: "Image deleted from Storage."}); 
         } catch (deleteError: any) {
             console.warn("Failed to delete image from Firebase Storage:", deleteError);
             if (deleteError.code === 'storage/object-not-found') {
-                // If not found, it's fine, proceed to clear from UI
             } else {
-                toast({ title: "Storage-оос устгах алдаа", description: "Зураг Storage-оос устсангүй, гэхдээ UI-аас цэвэрлэгдэнэ.", variant: "destructive"});
+                toast({ title: "Storage Deletion Error", description: "Image was not deleted from Storage, but will be cleared from UI.", variant: "destructive"}); // Changed
             }
         }
     }
     
     setCurrentImageUrl(null);
     setPreview(null);
-    onUploadComplete(null); // Notify parent that image is removed
+    onUploadComplete(null); 
     if (fileInputRef.current) {
-      fileInputRef.current.value = ""; // Reset file input
+      fileInputRef.current.value = ""; 
     }
   };
 
@@ -213,7 +209,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
         {uploading ? (
           <div className="flex flex-col items-center space-y-2">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">Зураг байршуулж байна...</p>
+            <p className="text-sm text-muted-foreground">Uploading image...</p> 
             <Progress value={progress} className="w-3/4" />
             <p className="text-xs text-muted-foreground">{progress}%</p>
           </div>
@@ -221,7 +217,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
           <div className="relative group w-full max-w-xs mx-auto">
             <Image
               src={preview}
-              alt="Сонгосон зураг"
+              alt="Selected image" 
               width={maxDimension}
               height={maxDimension * (9/16)} 
               className="rounded-md object-contain max-h-48"
@@ -232,7 +228,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
               size="icon"
               className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
               onClick={(e) => { e.stopPropagation(); handleRemoveImage(); }}
-              aria-label="Зургийг устгах"
+              aria-label="Remove image" 
             >
               <XCircle className="h-5 w-5" />
             </Button>
@@ -240,8 +236,8 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
         ) : (
           <div className="flex flex-col items-center space-y-1">
             <UploadCloud className="h-10 w-10 text-muted-foreground/70" />
-            <p className="text-sm font-medium text-foreground">Зургаа энд чирч оруулна уу</p>
-            <p className="text-xs text-muted-foreground">эсвэл дарж сонгоно уу</p>
+            <p className="text-sm font-medium text-foreground">Drag & drop your image here</p> 
+            <p className="text-xs text-muted-foreground">or click to select</p> 
             <p className="text-xs text-muted-foreground mt-1">(Max {maxSizeMB}MB, JPEG/PNG/WEBP/GIF)</p>
           </div>
         )}

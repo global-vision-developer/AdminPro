@@ -85,11 +85,11 @@ export default async function CategoriesPage({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Нэр</TableHead>
-                    <TableHead className="hidden md:table-cell">Тайлбар</TableHead>
-                    <TableHead className="text-center hidden sm:table-cell">Талбарууд</TableHead>
-                    <TableHead className="text-center hidden md:table-cell">Сүүлд Шинэчилсэн</TableHead>
-                    <TableHead className="text-right">Үйлдлүүд</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead className="hidden md:table-cell">Description</TableHead>
+                    <TableHead className="text-center hidden sm:table-cell">Fields</TableHead>
+                    <TableHead className="text-center hidden md:table-cell">Last Updated</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -103,8 +103,8 @@ export default async function CategoriesPage({
                         <p className="text-xs text-muted-foreground md:hidden mt-1">{category.description?.substring(0,50)}...</p>
                       </TableCell>
                       <TableCell className="hidden md:table-cell max-w-sm truncate">
-                        {category.description || <span className="text-muted-foreground italic">Тайлбаргүй</span>}
-                        <p className="text-xs text-muted-foreground mt-1">Слаг: {category.slug}</p>
+                        {category.description || <span className="text-muted-foreground italic">No description</span>}
+                        <p className="text-xs text-muted-foreground mt-1">Slug: {category.slug}</p>
                       </TableCell>
                       <TableCell className="text-center hidden sm:table-cell">
                         <Badge variant="secondary">{category.fields.length}</Badge>

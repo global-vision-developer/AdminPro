@@ -50,18 +50,18 @@ export function DeleteCategoryButton({ categoryId, categoryName }: DeleteCategor
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
+          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
           <AlertDialogDescription>
-            Энэ үйлдлийг буцаах боломжгүй. This will permanently delete the "{categoryName}" category and all its associated entries.
+            This action cannot be undone. This will permanently delete the "{categoryName}" category and all its associated entries.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Цуцлах</AlertDialogCancel>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleDelete}
             className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
           >
-            Устгах
+            Delete
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

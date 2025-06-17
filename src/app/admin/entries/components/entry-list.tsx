@@ -61,14 +61,14 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
     const result = await deleteEntry(entryToDelete.id);
     if (result.error) {
       toast({
-        title: "Алдаа",
+        title: "Error",
         description: result.error,
         variant: "destructive",
       });
     } else {
       toast({
-        title: "Амжилттай",
-        description: `"${entryToDelete.title || 'Гарчиггүй'}" бичлэг устгагдлаа.`,
+        title: "Success",
+        description: `Entry "${entryToDelete.title || 'Untitled Entry'}" deleted.`, // Changed
       });
       // Revalidation is handled by the server action
     }
@@ -90,7 +90,7 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
                 return String(value); 
             }
         case FieldType.BOOLEAN:
-            return value ? "Тийм" : "Үгүй";
+            return value ? "Yes" : "No"; // Changed
         case FieldType.NUMBER:
             return value.toLocaleString();
         case FieldType.IMAGE_GALLERY:
@@ -99,7 +99,7 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
                 return (
                     <div className="flex items-center space-x-1 text-xs">
                         <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span>{galleryValue.length} {galleryValue.length === 1 ? "зураг" : "зураг"}</span>
+                        <span>{galleryValue.length} {galleryValue.length === 1 ? "image" : "images"}</span> // Changed
                         {galleryValue[0]?.imageUrl && (
                              <Image 
                                 data-ai-hint="gallery preview"
@@ -114,7 +114,7 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
                     </div>
                 );
             }
-            return <span className="text-xs text-muted-foreground italic">Хоосон цомог</span>;
+            return <span className="text-xs text-muted-foreground italic">Empty gallery</span>; // Changed
         case FieldType.TEXT:
             if ((field.key === 'nuur-zurag-url' || field.key === 'coverImage' || field.key === 'thumbnailUrl') && typeof value === 'string' && (value.startsWith('http://') || value.startsWith('https://'))) {
                  return (
@@ -129,7 +129,7 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
                         onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                         />
                         <a href={value} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline truncate" title={value}>
-                        Линк
+                        Link
                         </a>
                     </div>
                 );
@@ -147,17 +147,17 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
   const getStatusBadge = (status: Entry['status']) => {
     switch (status) {
       case 'published':
-        return <Badge variant="default" className="bg-green-500 hover:bg-green-600 text-white"><CheckCircle className="mr-1 h-3 w-3" />Нийтлэгдсэн</Badge>;
+        return <Badge variant="default" className="bg-green-500 hover:bg-green-600 text-white"><CheckCircle className="mr-1 h-3 w-3" />Published</Badge>; // Changed
       case 'draft':
-        return <Badge variant="secondary"><Edit3 className="mr-1 h-3 w-3" />Ноорог</Badge>;
+        return <Badge variant="secondary"><Edit3 className="mr-1 h-3 w-3" />Draft</Badge>; // Changed
       case 'scheduled':
-        return <Badge variant="outline" className="border-blue-500 text-blue-500"><CalendarClock className="mr-1 h-3 w-3" />Хуваарьт</Badge>;
+        return <Badge variant="outline" className="border-blue-500 text-blue-500"><CalendarClock className="mr-1 h-3 w-3" />Scheduled</Badge>; // Changed
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
   };
   
-  if (allCategories.length === 0) { // No categories in system, this is covered by parent page usually
+  if (allCategories.length === 0) { 
     return (
        <Card className="mt-8 shadow-lg">
         <CardContent className="py-12 text-center">
@@ -189,7 +189,7 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
        <Card className="mt-8 shadow-lg">
         <CardContent className="py-12 text-center">
             <Newspaper className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-xl font-semibold font-headline">Бичлэг Олдсонгүй</h3>
+            <h3 className="text-xl font-semibold font-headline">No Entries Found</h3> 
             <p className="mt-1 text-sm text-muted-foreground">
             No entries found in the selected (or your permitted) category, or no entries have been created yet.
             </p>
@@ -202,31 +202,31 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
     <TooltipProvider>
       <Card className="mt-6 shadow-lg">
         <CardHeader>
-          <CardTitle className="font-headline text-xl">Бичлэгийн Жагсаалт</CardTitle>
-          <CardDescription>Одоо байгаа бичлэгүүдийг харах, засах, эсвэл устгах.</CardDescription>
+          <CardTitle className="font-headline text-xl">Entry List</CardTitle> 
+          <CardDescription>View, edit, or delete existing entries.</CardDescription> 
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="min-w-[200px]">Гарчиг</TableHead>
+                  <TableHead className="min-w-[200px]">Title</TableHead> 
                   <TableHead className="hidden md:table-cell min-w-[150px]">Category</TableHead>
-                  <TableHead className="min-w-[150px]">Гол Өгөгдлийн Тойм</TableHead>
-                  <TableHead className="text-center hidden sm:table-cell">Төлөв</TableHead>
-                  <TableHead className="text-center hidden md:table-cell">Нийтлэгдсэн</TableHead>
-                  <TableHead className="text-right w-[120px]">Үйлдлүүд</TableHead>
+                  <TableHead className="min-w-[150px]">Main Data Preview</TableHead> 
+                  <TableHead className="text-center hidden sm:table-cell">Status</TableHead> 
+                  <TableHead className="text-center hidden md:table-cell">Published</TableHead> 
+                  <TableHead className="text-right w-[120px]">Actions</TableHead> 
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredEntriesForSubAdmin.map((entry) => {
                   const category = categoriesMap[entry.categoryId];
-                  const previewFields = category?.fields?.filter(f => !f.description?.includes("аппликейшний хэрэглэгчид бөглөнө")).slice(0, 2) || []; 
+                  const previewFields = category?.fields?.filter(f => !f.description?.includes("This field is for app users, not admins.")).slice(0, 2) || []; 
                   return (
                     <TableRow key={entry.id}>
                       <TableCell className="font-medium">
                         <Link href={`/admin/entries/${entry.id}/edit`} className="hover:underline text-primary">
-                          {entry.title || 'Гарчиггүй Бичлэг'}
+                          {entry.title || 'Untitled Entry'} 
                         </Link>
                         <p className="text-xs text-muted-foreground md:hidden mt-1">{entry.categoryName || categoriesMap[entry.categoryId]?.name || 'N/A'}</p>
                       </TableCell>
@@ -236,7 +236,7 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
                           <div key={pf.key} className="text-xs mb-1 last:mb-0 overflow-hidden whitespace-nowrap">
                             <span className="font-semibold">{pf.label}:</span> {getDisplayValue(entry.data[pf.key], pf)}
                           </div>
-                        )) : <span className="text-xs text-muted-foreground italic">Тойм талбар байхгүй.</span>}
+                        )) : <span className="text-xs text-muted-foreground italic">No preview fields.</span>} 
                       </TableCell>
                       <TableCell className="text-center hidden sm:table-cell">{getStatusBadge(entry.status)}</TableCell>
                       <TableCell className="text-center hidden md:table-cell">
@@ -246,44 +246,44 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
                         <div className="flex justify-end gap-1">
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Button variant="ghost" size="icon" aria-label="Бичлэг харах" disabled>
+                              <Button variant="ghost" size="icon" aria-label="View entry" disabled> 
                                 <Eye className="h-4 w-4" />
                               </Button>
                             </TooltipTrigger>
-                            <TooltipContent>Харах (удахгүй)</TooltipContent>
+                            <TooltipContent>View (coming soon)</TooltipContent> 
                           </Tooltip>
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Link href={`/admin/entries/${entry.id}/edit`} passHref>
-                                <Button variant="ghost" size="icon" aria-label="Бичлэг засах">
+                                <Button variant="ghost" size="icon" aria-label="Edit entry"> 
                                   <Edit3 className="h-4 w-4" />
                                 </Button>
                               </Link>
                             </TooltipTrigger>
-                            <TooltipContent>Бичлэг засах</TooltipContent>
+                            <TooltipContent>Edit entry</TooltipContent> 
                           </Tooltip>
                           <AlertDialog open={entryToDelete?.id === entry.id} onOpenChange={(open) => !open && setEntryToDelete(null)}>
                             <AlertDialogTrigger asChild>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/90" onClick={() => handleDeleteConfirm(entry)} aria-label="Бичлэг устгах">
+                                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/90" onClick={() => handleDeleteConfirm(entry)} aria-label="Delete entry"> 
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
                                 </TooltipTrigger>
-                                <TooltipContent>Бичлэг устгах</TooltipContent>
+                                <TooltipContent>Delete entry</TooltipContent> 
                               </Tooltip>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
+                                <AlertDialogTitle>Are you sure?</AlertDialogTitle> 
                                 <AlertDialogDescription>
-                                  Энэ үйлдлийг буцаах боломжгүй. Энэ нь "{entryToDelete?.title || 'Гарчиггүй Бичлэг'}" гарчигтай бичлэгийг бүрмөсөн устгах болно.
+                                  This action cannot be undone. This will permanently delete the entry titled "{entryToDelete?.title || 'Untitled Entry'}".
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
-                                <AlertDialogCancel>Цуцлах</AlertDialogCancel>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel> 
                                 <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
-                                  Устгах
+                                  Delete
                                 </AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>

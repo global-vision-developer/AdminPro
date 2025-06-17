@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect } from 'react';
@@ -42,7 +43,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   if (!currentUser) {
-    return null; // Or a redirect component, though useEffect handles it
+    return null; 
   }
 
   return (
@@ -67,7 +68,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {children}
         </main>
         <footer className="border-t py-4 text-center text-sm text-muted-foreground">
-          © {new Date().getFullYear()} Админ Про. All rights reserved.
+          © {new Date().getFullYear()} Admin Pro. All rights reserved.
         </footer>
       </SidebarInset>
     </SidebarProvider>

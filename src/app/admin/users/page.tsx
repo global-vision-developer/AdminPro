@@ -23,14 +23,14 @@ import { db, auth } from '@/lib/firebase';
 import { collection, getDocs, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
-const ADMINS_COLLECTION = "admins"; // Changed from "users"
+const ADMINS_COLLECTION = "admins"; 
 
 export default function UsersPage() {
   const { currentUser, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
 
-  const [adminUsers, setAdminUsers] = useState<UserProfile[]>([]); // Renamed users to adminUsers
+  const [adminUsers, setAdminUsers] = useState<UserProfile[]>([]); 
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
@@ -50,7 +50,7 @@ export default function UsersPage() {
     }
   }, [currentUser, authLoading, router, toast, addDebugMessage]);
 
-  const fetchAdminUsers = useCallback(async () => { // Renamed fetchUsers to fetchAdminUsers
+  const fetchAdminUsers = useCallback(async () => { 
     const localCurrentUser = auth.currentUser; 
     const contextUserForLog = currentUser; 
 
@@ -70,7 +70,7 @@ export default function UsersPage() {
     setAdminUsers([]);
     addDebugMessage(`fetchAdminUsers: Attempting to fetch admin users from Firestore collection '${ADMINS_COLLECTION}' as Super Admin (UID: ${localCurrentUser.uid})...`);
     try {
-      const adminsCollectionRef = collection(db, ADMINS_COLLECTION); // Use ADMINS_COLLECTION
+      const adminsCollectionRef = collection(db, ADMINS_COLLECTION); 
       const q = query(adminsCollectionRef, orderBy("name", "asc"));
       const querySnapshot = await getDocs(q);
       const fetchedAdminsData: UserProfile[] = [];
@@ -117,7 +117,7 @@ export default function UsersPage() {
   }, [currentUser, authLoading, fetchAdminUsers, addDebugMessage]);
 
 
-  const filteredAdminUsers = useMemo(() => { // Renamed filteredUsers
+  const filteredAdminUsers = useMemo(() => { 
     return adminUsers.filter(user => {
       const nameMatch = user.name ? user.name.toLowerCase().includes(searchTerm.toLowerCase()) : false;
       const emailMatch = user.email ? user.email.toLowerCase().includes(searchTerm.toLowerCase()) : false;
@@ -127,14 +127,14 @@ export default function UsersPage() {
     });
   }, [adminUsers, searchTerm, roleFilter]);
 
-  const handleDeleteAdminUser = async (adminId: string, adminName: string) => { // Renamed handleDeleteUser
+  const handleDeleteAdminUser = async (adminId: string, adminName: string) => { 
     if (adminId === currentUser?.id) {
       toast({ title: "Error", description: "You cannot delete your own account.", variant: "destructive" });
       return;
     }
     addDebugMessage(`Attempting to delete admin user: ${adminId} (${adminName}) by admin: ${currentUser?.id}`);
     try {
-      await deleteDoc(doc(db, ADMINS_COLLECTION, adminId)); // Use ADMINS_COLLECTION
+      await deleteDoc(doc(db, ADMINS_COLLECTION, adminId)); 
       setAdminUsers(prev => prev.filter(u => u.id !== adminId));
       toast({ title: "Admin User Firestore Record Deleted", description: `Firestore record for admin user \"${adminName}\" has been removed.` });
       toast({
@@ -234,7 +234,7 @@ export default function UsersPage() {
             <div className="relative w-full sm:max-w-xs">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search admins by name or email..."
+                placeholder="Search admins by name or email..." 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -242,10 +242,10 @@ export default function UsersPage() {
             </div>
             <Select value={roleFilter} onValueChange={(value) => setRoleFilter(value as UserRole | 'all')}>
               <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue placeholder="Filter by Role" />
+                <SelectValue placeholder="Filter by Role" /> 
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Roles</SelectItem>
+                <SelectItem value="all">All Roles</SelectItem> 
                 <SelectItem value={UserRole.SUPER_ADMIN}>Super Admin</SelectItem>
                 <SelectItem value={UserRole.SUB_ADMIN}>Sub Admin</SelectItem>
               </SelectContent>
@@ -258,11 +258,11 @@ export default function UsersPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[80px] hidden sm:table-cell">Avatar</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead className="hidden md:table-cell">Email</TableHead>
-                    <TableHead className="text-center">Role</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="w-[80px] hidden sm:table-cell">Avatar</TableHead> 
+                    <TableHead>Name</TableHead> 
+                    <TableHead className="hidden md:table-cell">Email</TableHead> 
+                    <TableHead className="text-center">Role</TableHead> 
+                    <TableHead className="text-right">Actions</TableHead> 
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -287,35 +287,35 @@ export default function UsersPage() {
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Link href={`/admin/users/${user.id}/edit`} passHref>
-                                <Button variant="ghost" size="icon" aria-label="Edit admin user">
+                                <Button variant="ghost" size="icon" aria-label="Edit admin user"> 
                                   <UserCog className="h-4 w-4" />
                                 </Button>
                               </Link>
                             </TooltipTrigger>
-                            <TooltipContent>Edit Admin User / Change Role</TooltipContent>
+                            <TooltipContent>Edit Admin User / Change Role</TooltipContent> 
                           </Tooltip>
                           {user.id !== currentUser?.id && (
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                  <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/90" aria-label="Delete admin user">
+                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/90" aria-label="Delete admin user"> 
                                       <Trash2 className="h-4 w-4" />
                                     </Button>
                                   </TooltipTrigger>
-                                  <TooltipContent>Delete Admin User (Firestore Record)</TooltipContent>
+                                  <TooltipContent>Delete Admin User (Firestore Record)</TooltipContent> 
                                 </Tooltip>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
-                                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                  <AlertDialogTitle>Are you sure?</AlertDialogTitle> 
                                   <AlertDialogDescription>
                                     This action will delete the admin user record for "{user.name}" from the database.
                                     Deleting the authentication record requires backend action.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel> 
                                   <AlertDialogAction
                                     onClick={() => handleDeleteAdminUser(user.id, user.name)}
                                     className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
@@ -336,10 +336,10 @@ export default function UsersPage() {
           ) : (
              <div className="text-center py-12">
               <UsersIcon className="mx-auto h-12 w-12 text-muted-foreground" />
-              <h3 className="mt-4 text-lg font-semibold">No admin users found</h3>
+              <h3 className="mt-4 text-lg font-semibold">No admin users found</h3> 
               <p className="mt-1 text-sm text-muted-foreground">
                 {adminUsers.length === 0 && !isLoading && !authLoading && !searchTerm && roleFilter === 'all' ? `No admin users exist in the '${ADMINS_COLLECTION}' collection, or access was denied. Ensure Firestore rules grant 'list' access to your Super Admin user AND your Super Admin user's document in Firestore has 'role: "Super Admin"'.` :
-                (searchTerm || roleFilter !== 'all' ? "Try adjusting your search or filter." : "Get started by adding a new admin user.")}
+                (searchTerm || roleFilter !== 'all' ? "Try adjusting your search or filter." : "Get started by adding a new admin user.")} 
               </p>
               {!(searchTerm || roleFilter !== 'all') && adminUsers.length === 0 && !isLoading && !authLoading && (
                 <Button asChild className="mt-4">
@@ -361,5 +361,3 @@ export default function UsersPage() {
     </TooltipProvider>
   );
 }
-
-    

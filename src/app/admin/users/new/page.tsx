@@ -54,7 +54,7 @@ export default function NewUserPage() {
     }
 
     let newUserAuth;
-    const currentSuperAdminAuthUID = auth.currentUser?.uid; // Preserve Super Admin's Auth UID
+    const currentSuperAdminAuthUID = auth.currentUser?.uid; 
 
     try {
       addDebugMessage("Step 1: Creating user in Firebase Authentication...");
@@ -67,7 +67,6 @@ export default function NewUserPage() {
       await updateProfile(newUserAuth, { displayName: data.name, photoURL: photoURL });
       addDebugMessage("Step 2 Success: Firebase Auth profile updated for new user.");
 
-      // Step 3: Create Firestore document for the new admin in 'admins' collection
       const adminDocRef = doc(db, ADMINS_COLLECTION, newUserAuth.uid);
       const firestoreAdminData: any = {
         uid: newUserAuth.uid,
@@ -176,8 +175,8 @@ export default function NewUserPage() {
   return (
     <>
       <PageHeader
-        title="Add New User"
-        description="Create a new Firebase Authentication user and corresponding Firestore admin document."
+        title="Add New User" 
+        description="Create a new Firebase Authentication user and corresponding Firestore admin document." 
       />
       <UserForm onSubmit={handleSubmit} isSubmitting={isSubmitting} isEditing={false} />
       <Card className="mt-4">

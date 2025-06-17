@@ -29,7 +29,7 @@ const ADMINS_COLLECTION = "admins";
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [currentUser, setCurrentUserLocal] = useState<UserProfile | null>(null); // Renamed to avoid conflict
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
@@ -77,7 +77,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const avatarForDoc = firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${nameForDoc.substring(0,2).toUpperCase()}&bg=FF5733&txt=FFFFFF`;
             
             try {
-              const newFirestoreDocData: any = { // Use 'any' for flexibility during creation
+              const newFirestoreDocData: any = { 
                 uid: firebaseUser.uid,
                 email: firebaseUser.email,
                 name: nameForDoc,
@@ -87,7 +87,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 updatedAt: serverTimestamp(),
               };
               if (newFirestoreDocData.role === UserRole.SUB_ADMIN) {
-                newFirestoreDocData.allowedCategoryIds = []; // Initialize for Sub Admins
+                newFirestoreDocData.allowedCategoryIds = []; 
               }
 
               await setDoc(userDocRef, newFirestoreDocData);
@@ -96,12 +96,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               userRoleFromFirestore = UserRole.SUB_ADMIN; 
               allowedCategoryIdsFromFirestore = [];
               console.log(`AuthContext: Firestore document CREATED in '${ADMINS_COLLECTION}' for ${firebaseUser.uid} with default role: ${userRoleFromFirestore}. Data:`, JSON.stringify(newFirestoreDocData));
-              toast({title: "Админы Профайл Эхлүүлэгдлээ", description: `Таны админы профайл Firestore-т ${userRoleFromFirestore} эрхтэйгээр эхлүүлэгдлээ.`, duration: 7000});
+              toast({title: "Admin Profile Initialized", description: `Your admin profile has been initialized in Firestore with role ${userRoleFromFirestore}.`, duration: 7000});
             } catch (firestoreSetError: any) {
                 console.error(`AuthContext: FAILED to create Firestore document in '${ADMINS_COLLECTION}' for admin ${firebaseUser.uid}. Error:`, firestoreSetError);
                 toast({ 
-                    title: "Firestore Админы Профайл Үүсгэхэд Алдаа Гарлаа", 
-                    description: `Админ данс ${firebaseUser.email}-д Auth-д байгаа ч '${ADMINS_COLLECTION}' коллекцид Firestore профайл үүсгэхэд алдаа гарлаа. Алдаа: ${firestoreSetError.message}. Админ эрх оноох шаардлагатай байж магадгүй. Үндсэн эрхийг харуулж байна.`, 
+                    title: "Firestore Admin Profile Creation Error", 
+                    description: `Admin account ${firebaseUser.email} exists in Auth, but failed to create Firestore profile in '${ADMINS_COLLECTION}'. Error: ${firestoreSetError.message}. Admin rights assignment might be needed. Displaying default access.`, 
                     variant: "destructive", 
                     duration: 20000 
                 });
@@ -116,23 +116,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             avatar: profileAvatar,
             ...(userRoleFromFirestore === UserRole.SUB_ADMIN && { allowedCategoryIds: allowedCategoryIdsFromFirestore }),
           };
-          setCurrentUser(userProfile);
+          setCurrentUserLocal(userProfile);
           console.log(`AuthContext: currentUser (admin) set in context for ${firebaseUser.uid}:`, JSON.stringify(userProfile));
 
         } catch (error: any) {
           console.error(`AuthContext: Critical error processing admin data from Firestore ('${ADMINS_COLLECTION}') for UID ${firebaseUser.uid}. Error:`, error);
-          let firestoreErrorMsg = "Админы эрх, мэдээллийг Firestore-оос уншихад/хадгалахад алдаа гарлаа. Таны эрх хүрэхгүй байж магадгүй эсвэл системд доголдол гарсан байх.";
+          let firestoreErrorMsg = "Error reading/saving admin role/data from Firestore. You might not have permissions or there's a system issue.";
           if (error.code === 'permission-denied' || (error.message && error.message.toLowerCase().includes('permission-denied'))) {
-            firestoreErrorMsg = `Firestore Permission Denied: Админы мэдээллийг '${ADMINS_COLLECTION}' коллекцоос унших/хадгалах зөвшөөрөлгүй байна. Firestore Rules болон нэвтэрсэн админы '${ADMINS_COLLECTION}' document дахь 'role' талбарыг шалгана уу. Error: ${error.message}`;
+            firestoreErrorMsg = `Firestore Permission Denied: Cannot read/save admin data from '${ADMINS_COLLECTION}'. Check Firestore Rules and the 'role' field in your logged-in admin's document within '${ADMINS_COLLECTION}'. Error: ${error.message}`;
           } else if (error.name === 'FirebaseError') {
              firestoreErrorMsg = `Firebase Firestore Error (code: ${error.code}): ${error.message}. UID: ${firebaseUser.uid}`;
           }
-          toast({ title: "Алдаа гарлаа (AuthContext)", description: firestoreErrorMsg, variant: "destructive", duration: 20000 });
-          setCurrentUser(null); 
+          toast({ title: "Error (AuthContext)", description: firestoreErrorMsg, variant: "destructive", duration: 20000 });
+          setCurrentUserLocal(null); 
           console.warn("AuthContext: Critical error led to currentUser being set to null. Admin might be logged out or redirected.");
         }
       } else {
-        setCurrentUser(null);
+        setCurrentUserLocal(null);
         console.log("AuthContext: No FirebaseUser in onAuthStateChanged. currentUser set to null.");
       }
       setLoading(false);
@@ -151,25 +151,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await signInWithEmailAndPassword(auth, email, password);
       console.log(`AuthContext: Login successful for ${email}. onAuthStateChanged will handle setting admin data.`);
-      // No direct navigation here, onAuthStateChanged handles it.
     } catch (error: any) {
       console.error("AuthContext: Firebase login error:", error);
-      let friendlyMessage = "Нэвтрэхэд алдаа гарлаа. Таны имэйл эсвэл нууц үг буруу байна.";
+      let friendlyMessage = "Login failed. Please check your email or password.";
       if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-email') {
-        friendlyMessage = "Хэрэглэгч олдсонгүй эсвэл имэйл буруу байна. Бүртгэлтэй имэйл хаягаа шалгана уу.";
+        friendlyMessage = "User not found or email is invalid. Please check your registered email address.";
       } else if (error.code === 'auth/wrong-password') {
-        friendlyMessage = "Нууц үг буруу байна. Нууц үгээ шалгана уу.";
+        friendlyMessage = "Incorrect password. Please check your password.";
       } else if (error.code === 'auth/invalid-credential') {
-        friendlyMessage = "Имэйл эсвэл нууц үг буруу байна. Та Firebase прожектийн тохиргоо болон Authentication хэсэгт хэрэглэгч үүсгэсэн эсэх, Email/Password нэвтрэх арга идэвхжсэн эсэхийг шалгана уу.";
+        friendlyMessage = "Invalid email or password. Please ensure you have created a user in your Firebase project Authentication section and that Email/Password sign-in method is enabled.";
       } else if (error.code === 'auth/too-many-requests') {
-        friendlyMessage = "Хэт олон удаагийн буруу оролдлого. Түр хүлээгээд дахин оролдоно уу.";
+        friendlyMessage = "Too many failed login attempts. Please try again later.";
       } else if (error.message) {
-        friendlyMessage = `Алдаа: ${error.message} (Код: ${error.code})`;
+        friendlyMessage = `Error: ${error.message} (Code: ${error.code})`;
       }
-      toast({ title: "Нэвтрэхэд алдаа гарлаа", description: friendlyMessage, variant: "destructive", duration: 10000 });
+      toast({ title: "Login Failed", description: friendlyMessage, variant: "destructive", duration: 10000 });
       setLoading(false); 
     }
-    // setLoading(false) is handled by onAuthStateChanged or catch block
   }, [toast]);
 
   const logout = useCallback(async () => {
@@ -180,16 +178,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await firebaseSignOut(auth);
       router.push('/'); 
       console.log("AuthContext: Logout successful. Navigated to /. onAuthStateChanged will confirm currentUser is null.");
-      toast({ title: "Системээс гарлаа", description: "Та амжилттай системээс гарлаа.", duration: 3000});
+      toast({ title: "Logged Out", description: "You have been successfully logged out.", duration: 3000});
     } catch (error: any) {
       console.error("AuthContext: Firebase logout error:", error);
-      toast({ title: "Гарахад алдаа гарлаа", description: error.message, variant: "destructive" });
+      toast({ title: "Logout Error", description: error.message, variant: "destructive" });
     }
-    // setLoading(false) will be handled by onAuthStateChanged
   }, [router, toast]);
 
   return (
-    <AuthContext.Provider value={{ currentUser, login, logout, loading }}>
+    <AuthContext.Provider value={{ currentUser: currentUser, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

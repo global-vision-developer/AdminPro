@@ -55,14 +55,14 @@ export default async function EntriesPage({
 
   return (
     <>
-      <PageHeader title="Контентын Бичлэгүүд" description="Manage content entries across all categories.">
+      <PageHeader title="Content Entries" description="Manage content entries across all categories.">
         {/* Link to create new entry. The /new page will handle category restrictions for SubAdmins. */}
         <Link 
           href={`/admin/entries/new${selectedCategoryIdQuery && selectedCategoryIdQuery !== 'all' ? `?category=${selectedCategoryIdQuery}` : ''}`} 
           passHref
         >
           <Button>
-            <PlusCircle className="mr-2 h-4 w-4" /> Шинэ Бичлэг Үүсгэх
+            <PlusCircle className="mr-2 h-4 w-4" /> Create New Entry
           </Button>
         </Link>
       </PageHeader>
@@ -100,5 +100,5 @@ export default async function EntriesPage({
 }
 
 export const metadata = {
-  title: "Бичлэгүүд | Админ Про",
+  title: "Entries | Admin Pro",
 };

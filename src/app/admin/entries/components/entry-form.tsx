@@ -35,11 +35,11 @@ interface EntryFormProps {
   onSubmitSuccess?: () => void;
 }
 
-const USER_ONLY_FIELD_MARKER = "аппликейшний хэрэглэгчид бөглөнө";
+const USER_ONLY_FIELD_MARKER = "This field is for app users, not admins."; // Changed to English
 
 const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, any> => {
   const shape: Record<string, z.ZodTypeAny> = {
-    title: z.string().trim().min(1, { message: "Бичлэгийн гарчгийг заавал бөглөнө үү." }),
+    title: z.string().trim().min(1, { message: "Entry title is required." }), // Changed
     status: z.enum(['draft', 'published', 'scheduled']).default('draft'),
     publishAt: z.date().optional().nullable(),
     data: z.object({}).passthrough(), 
@@ -55,18 +55,17 @@ const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, a
     let fieldSchema: z.ZodTypeAny;
     switch (field.type) {
       case FieldType.TEXT:
-        // For image URLs managed by ImageUploader, make them string | null
         if (field.key === 'nuur-zurag-url' || field.label.toLowerCase().includes('image url') || field.label.toLowerCase().includes('cover image')) {
-            fieldSchema = z.string().url("Зургийн URL буруу байна.").nullable().optional();
+            fieldSchema = z.string().url("Invalid image URL.").nullable().optional(); // Changed
         } else if (field.required) {
-          fieldSchema = z.string().trim().min(1, { message: `${field.label} талбарыг заавал бөглөнө үү.` });
+          fieldSchema = z.string().trim().min(1, { message: `${field.label} field is required.` }); // Changed
         } else {
           fieldSchema = z.string().optional().nullable().transform(val => val ?? '');
         }
         break;
       case FieldType.TEXTAREA:
         if (field.required) {
-          fieldSchema = z.string().trim().min(1, { message: `${field.label} талбарыг заавал бөглөнө үү.` });
+          fieldSchema = z.string().trim().min(1, { message: `${field.label} field is required.` }); // Changed
         } else {
           fieldSchema = z.string().optional().nullable().transform(val => val ?? '');
         }
@@ -74,11 +73,11 @@ const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, a
       case FieldType.NUMBER:
         const baseNumberPreprocessor = (val: unknown) => (val === "" || val === undefined || val === null) ? undefined : String(val);
         const numberValidation = z.string()
-          .refine((val) => val === undefined || val === null || val === '' || !isNaN(parseFloat(val)), { message: `${field.label} тоон утга байх ёстой.` })
+          .refine((val) => val === undefined || val === null || val === '' || !isNaN(parseFloat(val)), { message: `${field.label} must be a number.` }) // Changed
           .transform(val => (val === undefined || val === null || val === '') ? null : Number(val));
 
         if (field.required) {
-          fieldSchema = z.preprocess(baseNumberPreprocessor, z.string().nonempty({ message: `${field.label} талбарыг заавал бөглөнө үү.` }).pipe(numberValidation));
+          fieldSchema = z.preprocess(baseNumberPreprocessor, z.string().nonempty({ message: `${field.label} field is required.` }).pipe(numberValidation)); // Changed
         } else {
           fieldSchema = z.preprocess(baseNumberPreprocessor, z.string().optional().nullable().pipe(numberValidation.optional().nullable()));
         }
@@ -86,12 +85,12 @@ const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, a
       case FieldType.DATE:
         if (field.required) {
           fieldSchema = z.date({
-            required_error: `${field.label} талбарыг заавал бөглөнө үү.`,
-            invalid_type_error: `${field.label} зөв огноо байх ёстой.`,
+            required_error: `${field.label} field is required.`, // Changed
+            invalid_type_error: `${field.label} must be a valid date.`, // Changed
           });
         } else {
           fieldSchema = z.date({
-            invalid_type_error: `${field.label} зөв огноо байх ёстой.`,
+            invalid_type_error: `${field.label} must be a valid date.`, // Changed
           }).optional().nullable();
         }
         break;
@@ -101,16 +100,15 @@ const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, a
       case FieldType.IMAGE_GALLERY:
         const imageGalleryItemSchema = z.object({
             clientId: z.string(), 
-            imageUrl: z.string().url({ message: `${field.label}: Зургийн URL буруу байна.` }).nullable(), // Allow null
+            imageUrl: z.string().url({ message: `${field.label}: Invalid image URL.` }).nullable(), // Allow null // Changed
             description: z.string().optional().transform(val => val === '' ? undefined : val),
         });
         
         fieldSchema = z.array(imageGalleryItemSchema).optional().default([]);
         if (field.required) {
-            // Validate that at least one item in the array has a non-null imageUrl
-            fieldSchema = fieldSchema.min(1, { message: `${field.label}: Дор хаяж нэг зураг оруулна уу.` })
+            fieldSchema = fieldSchema.min(1, { message: `${field.label}: At least one image is required.` }) // Changed
                                      .refine(items => items.some(item => item.imageUrl !== null), {
-                                        message: `${field.label}: Дор хаяж нэг зургийн URL оруулах шаардлагатай.`,
+                                        message: `${field.label}: At least one image URL is required.`, // Changed
                                       });
         }
         break;
@@ -128,7 +126,7 @@ const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, a
     }
     return true;
   }, {
-    message: "Нийтлэх огноо, цагийг сонгоно уу.",
+    message: "Please select a publish date and time for scheduled entries.", // Changed
     path: ["publishAt"],
   });
 };
@@ -235,7 +233,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
     }
 
     if (!entryContent.trim()) {
-      setAiError("Контент оруулна уу (гарчиг эсвэл бусад талбар).");
+      setAiError("Please provide some content (title or other fields)."); // Changed
       return;
     }
 
@@ -247,7 +245,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
       setAiSuggestions(result.suggestions);
     } catch (error) {
       console.error("AI suggestion error:", error);
-      setAiError("Зөвлөмж авахад алдаа гарлаа. Дахин оролдоно уу.");
+      setAiError("Failed to get suggestions. Please try again."); // Changed
     }
     setIsSuggesting(false);
   };
@@ -318,7 +316,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
     setIsSubmitting(false);
 
     if (result && "id" in result && result.id) {
-        toast({ title: "Амжилттай", description: `Бичлэг ${initialData ? 'шинэчлэгдлээ' : 'үүслээ'}.`});
+        toast({ title: "Success", description: `Entry ${initialData ? 'updated' : 'created'}.`}); // Changed
         if (onSubmitSuccess) onSubmitSuccess();
         else router.push(`/admin/entries?category=${selectedCategory.id}`);
         
@@ -327,7 +325,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         }
 
     } else if (result && "error" in result && result.error) {
-        toast({ title: "Алдаа", description: result.error, variant: "destructive" });
+        toast({ title: "Error", description: result.error, variant: "destructive" }); // Changed
     }
   };
 
@@ -343,9 +341,9 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
           <div className="lg:col-span-2 space-y-8">
             <Card>
               <CardHeader>
-                <CardTitle className="font-headline">Бичлэгийн Дэлгэрэнгүй</CardTitle>
+                <CardTitle className="font-headline">Entry Details</CardTitle> 
                 <UiCardDescription>
-                  Category content: <span className="font-semibold text-primary">{selectedCategory.name}</span>
+                  Content for category: <span className="font-semibold text-primary">{selectedCategory.name}</span>
                 </UiCardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -354,11 +352,11 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                     name="title"
                     render={({ field }) => (
                         <FormItem>
-                        <FormLabel>Бичлэгийн гарчиг</FormLabel>
+                        <FormLabel>Entry Title</FormLabel> 
                         <FormControl>
-                            <Input placeholder="Энэ бичлэгийг төлөөлөх гарчиг оруулна уу" {...field} />
+                            <Input placeholder="Enter a title to represent this entry" {...field} /> 
                         </FormControl>
-                        <FormDescription>Энэ гарчиг жагсаалт болон тоймд ашиглагдана.</FormDescription>
+                        <FormDescription>This title will be used in lists and summaries.</FormDescription> 
                         <FormMessage />
                         </FormItem>
                     )}
@@ -366,7 +364,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
 
                 {selectedCategory?.fields.map(catField => {
                   const isUserOnlyField = catField.description?.includes(USER_ONLY_FIELD_MARKER);
-                  const Icon = catField.key === 'unelgee' ? Star : catField.key === 'setgegdel' ? MessageSquareText : null;
+                  const Icon = catField.key === 'rating' ? Star : catField.key === 'comment' ? MessageSquareText : null; // Changed keys
                   const isCoverImageField = catField.type === FieldType.TEXT && (catField.key === 'nuur-zurag-url' || catField.label.toLowerCase().includes('image url') || catField.label.toLowerCase().includes('cover image'));
 
                   if (isUserOnlyField) {
@@ -378,9 +376,9 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                         </FormLabel>
                         {catField.description && <FormDescription>{catField.description}</FormDescription>}
                         <div className="p-3 mt-1 text-sm text-muted-foreground border rounded-md bg-muted/30 shadow-sm">
-                          Энэ талбарт админ утга оруулахгүй. Аппликейшний хэрэглэгчид бөглөнө.
+                          This field is not editable by admins. It is populated by application users.
                            {initialData?.data?.[catField.key] !== undefined && initialData?.data?.[catField.key] !== null && (
-                            <span className="block mt-1 text-xs italic"> (Одоогийн утга: {String(initialData.data[catField.key])})</span>
+                            <span className="block mt-1 text-xs italic"> (Current value: {String(initialData.data[catField.key])})</span>
                            )}
                         </div>
                       </FormItem>
@@ -409,12 +407,11 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                                     <ImageUploader
                                       initialImageUrl={galleryItemField.value}
                                       onUploadComplete={(url) => {
-                                        // Use update from useFieldArray to set the value
                                         const currentItem = form.getValues(`data.${catField.key}`)[index];
                                         updateGalleryItem(index, { ...currentItem, imageUrl: url });
                                       }}
                                       storagePath={`entries/${selectedCategory.slug || selectedCategory.id}/${catField.key}`}
-                                      label="Зураг"
+                                      label="Image" // Changed
                                     />
                                   )}
                                 />
@@ -423,9 +420,9 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                                   name={`data.${catField.key}.${index}.description` as const}
                                   render={({ field: galleryItemField }) => (
                                     <FormItem>
-                                      <FormLabel className="text-xs">Тайлбар (Заавал биш)</FormLabel>
+                                      <FormLabel className="text-xs">Description (Optional)</FormLabel> 
                                       <FormControl>
-                                        <Textarea placeholder="Зургийн тайлбар" {...galleryItemField} rows={2} />
+                                        <Textarea placeholder="Image description" {...galleryItemField} rows={2} /> 
                                       </FormControl>
                                       <FormMessage />
                                     </FormItem>
@@ -439,7 +436,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                                 onClick={() => remove(index)}
                                 className="mt-2 text-destructive hover:text-destructive/90"
                               >
-                                <Trash2 className="mr-1 h-3.5 w-3.5" /> Устгах
+                                <Trash2 className="mr-1 h-3.5 w-3.5" /> Delete
                               </Button>
                             </Card>
                           ))}
@@ -449,7 +446,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                             size="sm"
                             onClick={() => append({ clientId: uuidv4(), imageUrl: null, description: '' })}
                           >
-                            <PlusCircle className="mr-2 h-4 w-4" /> Зураг нэмэх
+                            <PlusCircle className="mr-2 h-4 w-4" /> Add Image
                           </Button>
                         </div>
                         <FormMessage /> 
@@ -500,7 +497,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                                 <Input 
                                     placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} 
                                     {...formHookField}
-                                    value={formHookField.value === null ? '' : formHookField.value} // Handle null from ImageUploader
+                                    value={formHookField.value === null ? '' : formHookField.value} 
                                 />
                                 </FormControl>
                             )}
@@ -586,25 +583,25 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
              {selectedCategory && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="font-headline flex items-center"><Wand2 className="mr-2 h-5 w-5 text-primary"/>AI Контент Зөвлөмж</CardTitle>
-                  <UiCardDescription>Бичлэгийнхээ контентыг сайжруулахын тулд AI-д суурилсан зөвлөмж авна уу.</UiCardDescription>
+                  <CardTitle className="font-headline flex items-center"><Wand2 className="mr-2 h-5 w-5 text-primary"/>AI Content Suggestions</CardTitle> 
+                  <UiCardDescription>Get AI-powered suggestions to improve your entry content.</UiCardDescription> 
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <Button type="button" variant="outline" onClick={handleGetSuggestions} disabled={isSuggesting || !selectedCategory}>
                     {isSuggesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                    Зөвлөмж Авах
+                    Get Suggestions
                   </Button>
                   {aiError && (
                     <Alert variant="destructive">
                       <AlertTriangle className="h-4 w-4" />
-                      <AlertTitle>Алдаа</AlertTitle>
+                      <AlertTitle>Error</AlertTitle> 
                       <AlertDescription>{aiError}</AlertDescription>
                     </Alert>
                   )}
                   {aiSuggestions.length > 0 && (
                     <Alert variant="default" className="border-primary/50">
                       <Info className="h-4 w-4 text-primary" />
-                      <AlertTitle className="text-primary">Зөвлөмж Хүлээн Авсан</AlertTitle>
+                      <AlertTitle className="text-primary">Suggestions Received</AlertTitle> 
                       <AlertDescription>
                         <ScrollArea className="h-40 mt-2">
                           <ul className="list-disc pl-5 space-y-1 text-sm">
@@ -622,7 +619,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
           <div className="lg:col-span-1 space-y-8">
             <Card>
               <CardHeader>
-                <CardTitle className="font-headline">Нийтлэх</CardTitle>
+                <CardTitle className="font-headline">Publish</CardTitle> 
               </CardHeader>
               <CardContent className="space-y-6">
                 <FormField
@@ -630,17 +627,17 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                   name="status"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Төлөв</FormLabel>
+                      <FormLabel>Status</FormLabel> 
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Төлөв сонгоно уу" />
+                            <SelectValue placeholder="Select status" /> 
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="draft">Ноорог</SelectItem>
-                          <SelectItem value="published">Нийтлэгдсэн</SelectItem>
-                          <SelectItem value="scheduled">Хуваарьт</SelectItem>
+                          <SelectItem value="draft">Draft</SelectItem> 
+                          <SelectItem value="published">Published</SelectItem> 
+                          <SelectItem value="scheduled">Scheduled</SelectItem> 
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -653,7 +650,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                     name="publishAt"
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
-                        <FormLabel>Нийтлэх Огноо & Цаг</FormLabel>
+                        <FormLabel>Publish Date & Time</FormLabel> 
                         <Popover>
                           <PopoverTrigger asChild>
                             <FormControl>
@@ -667,7 +664,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                                 {field.value ? (
                                   format(field.value, "PPP HH:mm")
                                 ) : (
-                                  <span>Огноо, цаг сонгоно уу</span>
+                                  <span>Pick a date and time</span> 
                                 )}
                                 <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                               </Button>
@@ -716,14 +713,14 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         </div>
 
         <div className="flex justify-end space-x-2 pt-8 border-t mt-8">
-          <Button type="button" variant="outline" disabled={isSubmitting} onClick={handleCancel}>Цуцлах</Button>
+          <Button type="button" variant="outline" disabled={isSubmitting} onClick={handleCancel}>Cancel</Button> 
           <Button type="submit" disabled={isSubmitting || !selectedCategory || !selectedCategory.fields?.length}>
             {isSubmitting ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
               <Save className="mr-2 h-4 w-4" />
             )}
-            {initialData ? 'Өөрчлөлтийг Хадгалах' : 'Create Entry'}
+            {initialData ? 'Save Changes' : 'Create Entry'} 
           </Button>
         </div>
       </form>
