@@ -41,7 +41,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard }, 
   {
-    href: "/admin/content", label: "Content", icon: Library, 
+    href: "/admin/content", label: "Контент", icon: Library, 
     subItems: [
       { href: "/admin/categories", label: "Categories", icon: Library, roles: [UserRole.SUPER_ADMIN] }, 
       { href: "/admin/entries", label: "Entries", icon: Newspaper, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] }, 
@@ -183,3 +183,4 @@ export function SidebarNav() {
     </nav>
   );
 }
+
