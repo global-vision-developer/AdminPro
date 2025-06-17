@@ -17,7 +17,7 @@ Stores admin user profile information and roles for the CMS. This collection is 
 *   **Fields:**
     *   `email: string` (Admin's email)
     *   `name: string` (Admin's display name)
-    *   `role: string` (e.g., "Супер Админ", "Sub Admin" - matching `UserRole` enum from `src/types/index.ts`)
+    *   `role: string` (e.g., "Super Admin", "Sub Admin" - matching `UserRole` enum from `src/types/index.ts`)
     *   `avatar: string` (URL to avatar image, optional)
     *   `createdAt: firebase.firestore.Timestamp` (Server timestamp when the admin document was created)
     *   `updatedAt: firebase.firestore.Timestamp` (Server timestamp when the admin document was last updated, optional)
@@ -109,14 +109,14 @@ service cloud.firestore {
     // Admins collection
     match /admins/{adminId} {
       allow read: if request.auth != null && request.auth.uid == adminId; // Own record
-      allow list, write: if request.auth != null && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Супер Админ';
+      allow list, write: if request.auth != null && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin';
     }
 
     // Categories collection
     match /categories/{categoryId} {
       allow read: if request.auth != null; // Authenticated admins can read
       allow list, create, update, delete: if request.auth != null && 
-                                          (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Супер Админ' ||
+                                          (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
                                            get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
     }
 
@@ -124,7 +124,7 @@ service cloud.firestore {
     match /entries/{entryId} {
       allow read: if request.auth != null; // Authenticated admins can read
       allow list, create, update, delete: if request.auth != null &&
-                                          (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Супер Админ' ||
+                                          (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
                                            get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
     }
   }
