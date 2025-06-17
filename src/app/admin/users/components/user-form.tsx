@@ -142,7 +142,7 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
               name="role"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Role</FormLabel> 
+                  <FormLabel>Хандах Эрх</FormLabel> 
                   <Select 
                     onValueChange={(value) => {
                       field.onChange(value);
@@ -158,9 +158,15 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {Object.values(UserRole).map((role) => (
-                        <SelectItem key={role} value={role}>{role}</SelectItem>
-                      ))}
+                      {Object.values(UserRole).map((roleValue) => {
+                        let roleDisplay = '';
+                        if (roleValue === UserRole.SUPER_ADMIN) roleDisplay = 'Сүпер Админ';
+                        else if (roleValue === UserRole.SUB_ADMIN) roleDisplay = 'Дэд Админ';
+                        else roleDisplay = roleValue;
+                        return (
+                          <SelectItem key={roleValue} value={roleValue}>{roleDisplay}</SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                   <FormMessage />
