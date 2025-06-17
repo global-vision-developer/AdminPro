@@ -43,7 +43,7 @@ export function UserNav() {
               {currentUser.email}
             </p>
             <p className="text-xs leading-none text-muted-foreground mt-1">
-              Role: {currentUser.role}
+              Үүрэг: {currentUser.role}
             </p>
           </div>
         </DropdownMenuLabel>
@@ -63,3 +63,4 @@ export function UserNav() {
     </DropdownMenu>
   );
 }
+
