@@ -261,7 +261,7 @@ export default function UsersPage() {
                     <TableHead className="w-[80px] hidden sm:table-cell">Avatar</TableHead> 
                     <TableHead>Нэр</TableHead> 
                     <TableHead className="hidden md:table-cell">Имейл</TableHead> 
-                    <TableHead className="text-center">Role</TableHead> 
+                    <TableHead className="text-center">Хандах эрх</TableHead> 
                     <TableHead className="text-right">Actions</TableHead> 
                   </TableRow>
                 </TableHeader>
@@ -361,6 +361,7 @@ export default function UsersPage() {
     </TooltipProvider>
   );
 }
+
 
 
 
