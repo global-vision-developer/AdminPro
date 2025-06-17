@@ -67,7 +67,7 @@ export default function DashboardPage() {
           ) : null}
           {currentUser.role === UserRole.SUPER_ADMIN && (
             <Link href="/admin/users/new">
-              <Button variant="outline"><Users className="mr-2 h-4 w-4" /> Add User</Button>
+              <Button variant="outline"><Users className="mr-2 h-4 w-4" /> Хэрэглэгч Нэмэх</Button>
             </Link>
           )}
         </CardContent>
