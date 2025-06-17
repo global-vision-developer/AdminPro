@@ -57,7 +57,7 @@ export default async function CategoriesPage({
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 name="search"
-                placeholder="Search categories..."
+                placeholder="Ангилал хайх"
                 defaultValue={searchTerm}
                 className="pl-10"
               />
