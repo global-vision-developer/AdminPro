@@ -147,7 +147,7 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
   const getStatusBadge = (status: Entry['status']) => {
     switch (status) {
       case 'published':
-        return <Badge variant="default" className="bg-green-500 hover:bg-green-600 text-white"><CheckCircle className="mr-1 h-3 w-3" />Published</Badge>; // Changed
+        return <Badge variant="default" className="bg-green-500 hover:bg-green-600 text-white"><CheckCircle className="mr-1 h-3 w-3" />Нийтлэгдсэн</Badge>; // Changed
       case 'draft':
         return <Badge variant="secondary"><Edit3 className="mr-1 h-3 w-3" />Draft</Badge>; // Changed
       case 'scheduled':
@@ -301,3 +301,4 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
     </TooltipProvider>
   );
 }
+
