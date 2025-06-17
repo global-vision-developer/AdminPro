@@ -55,7 +55,7 @@ export default async function EntriesPage({
 
   return (
     <>
-      <PageHeader title="Content Entries" description="Manage content entries across all categories.">
+      <PageHeader title="Контентийн Бүртгэл" description="Manage content entries across all categories.">
         {/* Link to create new entry. The /new page will handle category restrictions for SubAdmins. */}
         <Link 
           href={`/admin/entries/new${selectedCategoryIdQuery && selectedCategoryIdQuery !== 'all' ? `?category=${selectedCategoryIdQuery}` : ''}`} 
@@ -102,3 +102,4 @@ export default async function EntriesPage({
 export const metadata = {
   title: "Entries | Admin Pro",
 };
+
