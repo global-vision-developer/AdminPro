@@ -165,9 +165,9 @@ export default function UsersPage() {
   if (isLoading || authLoading) {
      return (
       <>
-        <PageHeader title="User Management" description="Manage admin accounts and their roles.">
+        <PageHeader title="Хэрэглэгчийн менежмент" description="Manage admin accounts and their roles.">
            <Button disabled>
-            <PlusCircle className="mr-2 h-4 w-4" /> Add New User
+            <PlusCircle className="mr-2 h-4 w-4" /> Шинэ хэрэглэгч нэмэх
           </Button>
         </PageHeader>
         <Card className="shadow-lg">
@@ -220,7 +220,7 @@ export default function UsersPage() {
 
   return (
     <TooltipProvider>
-      <PageHeader title="User Management" description="Manage admin accounts and their roles in the CMS.">
+      <PageHeader title="Хэрэглэгчийн менежмент" description="Manage admin accounts and their roles in the CMS.">
         <Link href="/admin/users/new" passHref>
           <Button>
             <PlusCircle className="mr-2 h-4 w-4" /> Шинэ хэрэглэгч нэмэх
@@ -361,6 +361,7 @@ export default function UsersPage() {
     </TooltipProvider>
   );
 }
+
 
 
 
