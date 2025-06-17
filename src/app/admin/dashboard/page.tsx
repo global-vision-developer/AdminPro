@@ -24,8 +24,8 @@ export default function DashboardPage() {
   return (
     <>
       <PageHeader
-        title={`Welcome, ${currentUser.name || currentUser.email}!`}
-        description="Here's an overview of your content and system status."
+        title={`Тавтай морил, ${currentUser.name || currentUser.email}!`}
+        description="таны системийн статус болон контентийн тойм."
       />
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {summaryCards.map((card) => 
@@ -73,3 +73,4 @@ export default function DashboardPage() {
     </>
   );
 }
+
