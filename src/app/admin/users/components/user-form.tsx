@@ -182,7 +182,7 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
                   <FormItem>
                     <FormLabel className="flex items-center">
                       <ListChecks className="mr-2 h-5 w-5 text-primary" />
-                      Allowed Categories for Sub Admin
+                      Дэд админд зөвшөөрсөн ангиллууд
                     </FormLabel>
                     <FormDescription>Select the entry categories this Sub Admin can manage.</FormDescription>
                     {loadingCategories ? (
