@@ -280,7 +280,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Тайлбар (Заавал биш)</FormLabel>
+                    <FormLabel>Тайлбар (Сонголтоор)</FormLabel>
                     <FormControl>
                       <Textarea placeholder="A brief description of what this category is for." {...field} />
                     </FormControl>
