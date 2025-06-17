@@ -103,7 +103,7 @@ export default function NewEntryPage() {
   if (isLoading) {
     return (
       <>
-        <PageHeader title="Create New Entry" /> 
+        <PageHeader title="Шинэ Бүртгэл Үүсгэх" /> 
         <div className="space-y-4 p-4">
           <Skeleton className="h-10 w-full sm:w-1/3 mb-4" /> 
           <Skeleton className="h-10 w-full" /> 
@@ -126,7 +126,7 @@ export default function NewEntryPage() {
   if (allCategories.length === 0) { 
     return (
       <>
-        <PageHeader title="Create New Entry" /> 
+        <PageHeader title="Шинэ Бүртгэл Үүсгэх" /> 
         <Card className="mt-6">
           <CardContent className="py-10 text-center">
              <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
@@ -148,7 +148,7 @@ export default function NewEntryPage() {
   if (currentUser.role === UserRole.SUB_ADMIN && selectableCategories.length === 0) {
     return (
       <>
-        <PageHeader title="Create New Entry" /> 
+        <PageHeader title="Шинэ Бүртгэл Үүсгэх" /> 
         <Alert variant="default" className="mt-6 border-primary/50">
             <Info className="h-5 w-5 text-primary" />
             <AlertTitle className="font-semibold text-primary">No Assigned Categories</AlertTitle>
@@ -165,17 +165,17 @@ export default function NewEntryPage() {
   return (
     <>
       <PageHeader
-        title="Create New Entry" 
-        description={selectedCategory ? `Category: ${selectedCategory.name}` : "Select a category to get started."}
+        title="Шинэ Бүртгэл Үүсгэх" 
+        description={selectedCategory ? `Ангилал: ${selectedCategory.name}` : "Эхлэхийн тулд ангилал сонгоно уу."}
       />
       
       <div className="mb-6 max-w-md"> 
         <label htmlFor="category-select" className="block text-sm font-medium text-foreground mb-1">
-          Selected Category <span className="text-destructive">*</span>
+          Сонгогдсон ангилал <span className="text-destructive">*</span>
         </label>
         <Select value={selectedCategoryId || ""} onValueChange={handleCategoryChange} required>
           <SelectTrigger id="category-select" className="w-full">
-            <SelectValue placeholder="Select a category..." />
+            <SelectValue placeholder="Ангилал сонгоно уу..." />
           </SelectTrigger>
           <SelectContent>
             {selectableCategories.map(cat => (
@@ -188,7 +188,7 @@ export default function NewEntryPage() {
           </SelectContent>
         </Select>
         {!selectedCategoryId && selectableCategories.length > 0 && (
-             <p className="text-sm text-destructive mt-1">Please select a category.</p> 
+             <p className="text-sm text-destructive mt-1">Ангилал сонгоно уу.</p> 
         )}
       </div>
 
@@ -203,7 +203,7 @@ export default function NewEntryPage() {
         selectableCategories.length > 0 && ( 
             <Card className="mt-6">
             <CardContent className="py-10 text-center">
-                <p className="text-muted-foreground">Please select a valid category above to start creating an entry.</p> 
+                <p className="text-muted-foreground">Бүртгэл үүсгэж эхлэхийн тулд дээрээс хүчинтэй ангилал сонгоно уу.</p> 
             </CardContent>
             </Card>
         )
