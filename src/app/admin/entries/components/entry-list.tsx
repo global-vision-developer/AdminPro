@@ -147,11 +147,11 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
   const getStatusBadge = (status: Entry['status']) => {
     switch (status) {
       case 'published':
-        return <Badge variant="default" className="bg-green-500 hover:bg-green-600 text-white"><CheckCircle className="mr-1 h-3 w-3" />Нийтлэгдсэн</Badge>; // Changed
+        return <Badge variant="default" className="bg-green-500 hover:bg-green-600 text-white"><CheckCircle className="mr-1 h-3 w-3" />Нийтлэгдсэн</Badge>;
       case 'draft':
-        return <Badge variant="secondary"><Edit3 className="mr-1 h-3 w-3" />Draft</Badge>; // Changed
+        return <Badge variant="secondary"><Edit3 className="mr-1 h-3 w-3" />Draft</Badge>; 
       case 'scheduled':
-        return <Badge variant="outline" className="border-blue-500 text-blue-500"><CalendarClock className="mr-1 h-3 w-3" />Scheduled</Badge>; // Changed
+        return <Badge variant="outline" className="border-blue-500 text-blue-500"><CalendarClock className="mr-1 h-3 w-3" />Scheduled</Badge>; 
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -214,7 +214,7 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
                   <TableHead className="hidden md:table-cell min-w-[150px]">Category</TableHead>
                   <TableHead className="min-w-[150px]">Үндсэн дата тойм</TableHead> 
                   <TableHead className="text-center hidden sm:table-cell">Төлөв</TableHead> 
-                  <TableHead className="text-center hidden md:table-cell">Published</TableHead> 
+                  <TableHead className="text-center hidden md:table-cell">Нийтлэгдсэн</TableHead> 
                   <TableHead className="text-right w-[120px]">Actions</TableHead> 
                 </TableRow>
               </TableHeader>
