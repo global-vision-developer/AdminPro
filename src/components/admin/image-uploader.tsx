@@ -28,7 +28,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
   maxSizeMB = 5,
   maxDimension = 1200,
   compressionQuality = 0.8,
-  label = "Upload Image", 
+  label = "Зураг байршуулах", 
 }) => {
   const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(initialUrlProp || null);
   const [uploading, setUploading] = useState(false);
@@ -95,7 +95,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
     setError(null);
 
     if (file.size > maxSizeMB * 1024 * 1024) {
-      setError(`File size exceeds ${maxSizeMB}MB.`); 
+      setError(`Файлын хэмжээ ${maxSizeMB}MB-аас хэтэрсэн байна.`); 
       return;
     }
 
@@ -117,7 +117,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
         },
         (uploadError) => {
           console.error("Upload error:", uploadError);
-          setError(`Image upload failed: ${uploadError.message}`); 
+          setError(`Зураг байршуулахад алдаа гарлаа: ${uploadError.message}`); 
           setUploading(false);
           setPreview(currentImageUrl); 
         },
@@ -127,12 +127,12 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
           setPreview(downloadURL);
           onUploadComplete(downloadURL);
           setUploading(false);
-          toast({ title: "Success", description: "Image uploaded successfully." }); 
+          toast({ title: "Амжилттай", description: "Зураг амжилттай байршуулагдлаа." }); 
         }
       );
     } catch (compressionError: any) {
       console.error("Compression error:", compressionError);
-      setError(`Image compression failed: ${compressionError.message}`); 
+      setError(`Зураг шахахад алдаа гарлаа: ${compressionError.message}`); 
       setUploading(false);
       setPreview(currentImageUrl); 
     }
@@ -152,7 +152,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
     if (file && file.type.startsWith('image/')) {
       handleFileUpload(file);
     } else {
-      setError("Please select an image file."); 
+      setError("Зургийн файл сонгоно уу."); 
     }
   }, [handleFileUpload]);
 
@@ -163,19 +163,19 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
 
   const handleRemoveImage = async () => {
     if (!currentImageUrl) return;
-    const confirmation = window.confirm("Are you sure you want to delete this image? This will also attempt to delete it from Firebase Storage if possible."); // Changed
+    const confirmation = window.confirm("Та энэ зургийг устгахдаа итгэлтэй байна уу? Энэ нь боломжтой бол Firebase Storage-аас мөн устгах болно."); 
     if (!confirmation) return;
 
     if (currentImageUrl.includes('firebasestorage.googleapis.com')) {
         try {
             const imageRef = ref(storage, currentImageUrl);
             await deleteObject(imageRef);
-            toast({ title: "Image deleted from Storage."}); 
+            toast({ title: "Зураг Storage-оос устгагдлаа."}); 
         } catch (deleteError: any) {
             console.warn("Failed to delete image from Firebase Storage:", deleteError);
             if (deleteError.code === 'storage/object-not-found') {
             } else {
-                toast({ title: "Storage Deletion Error", description: "Image was not deleted from Storage, but will be cleared from UI.", variant: "destructive"}); // Changed
+                toast({ title: "Storage-оос устгах алдаа", description: "Зураг Storage-оос устгагдсангүй, гэхдээ UI-аас цэвэрлэгдэх болно.", variant: "destructive"}); 
             }
         }
     }
@@ -209,7 +209,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
         {uploading ? (
           <div className="flex flex-col items-center space-y-2">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">Uploading image...</p> 
+            <p className="text-sm text-muted-foreground">Зураг байршуулж байна...</p> 
             <Progress value={progress} className="w-3/4" />
             <p className="text-xs text-muted-foreground">{progress}%</p>
           </div>
@@ -217,7 +217,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
           <div className="relative group w-full max-w-xs mx-auto">
             <Image
               src={preview}
-              alt="Selected image" 
+              alt="Сонгосон зураг" 
               width={maxDimension}
               height={maxDimension * (9/16)} 
               className="rounded-md object-contain max-h-48"
@@ -228,7 +228,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
               size="icon"
               className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
               onClick={(e) => { e.stopPropagation(); handleRemoveImage(); }}
-              aria-label="Remove image" 
+              aria-label="Зургийг устгах" 
             >
               <XCircle className="h-5 w-5" />
             </Button>
@@ -236,9 +236,9 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
         ) : (
           <div className="flex flex-col items-center space-y-1">
             <UploadCloud className="h-10 w-10 text-muted-foreground/70" />
-            <p className="text-sm font-medium text-foreground">Drag & drop your image here</p> 
-            <p className="text-xs text-muted-foreground">or click to select</p> 
-            <p className="text-xs text-muted-foreground mt-1">(Max {maxSizeMB}MB, JPEG/PNG/WEBP/GIF)</p>
+            <p className="text-sm font-medium text-foreground">Зургаа чирж оруулна уу</p> 
+            <p className="text-xs text-muted-foreground">эсвэл дарж сонгоно уу</p> 
+            <p className="text-xs text-muted-foreground mt-1">(Хамгийн ихдээ {maxSizeMB}MB, JPEG/PNG/WEBP/GIF форматтай)</p>
           </div>
         )}
       </div>
