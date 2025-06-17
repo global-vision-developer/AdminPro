@@ -223,7 +223,7 @@ export default function UsersPage() {
       <PageHeader title="Хэрэглэгчийн менежмент" description="CMS дэх админ бүртгэл, эрхүүдийг удирдах">
         <Link href="/admin/users/new" passHref>
           <Button>
-            <PlusCircle className="mr-2 h-4 w-4" /> Шинэ хэрэглэгч нэмэх
+            <PlusCircle className="mr-2 h-4 w-4" /> Админ нэмэх
           </Button>
         </Link>
       </PageHeader>
@@ -361,4 +361,3 @@ export default function UsersPage() {
     </TooltipProvider>
   );
 }
-
