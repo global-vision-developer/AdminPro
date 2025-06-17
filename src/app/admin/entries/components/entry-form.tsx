@@ -619,7 +619,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
           <div className="lg:col-span-1 space-y-8">
             <Card>
               <CardHeader>
-                <CardTitle className="font-headline">Publish</CardTitle> 
+                <CardTitle className="font-headline">Нийтлэх</CardTitle> 
               </CardHeader>
               <CardContent className="space-y-6">
                 <FormField
