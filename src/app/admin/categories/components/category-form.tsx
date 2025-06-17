@@ -255,7 +255,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                   <FormItem>
                     <FormLabel>Нэр</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., Blog Posts, Products" {...field} onChange={handleNameChange} />
+                      <Input placeholder="жишээ: Blog Posts, Products" {...field} onChange={handleNameChange} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
