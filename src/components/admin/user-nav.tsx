@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/use-auth";
 import { LogOut, UserCircle } from "lucide-react";
+import { UserRole } from "@/types"; // Import UserRole
 
 export function UserNav() {
   const { currentUser, logout } = useAuth();
@@ -24,6 +25,18 @@ export function UserNav() {
 
   const fallbackName = currentUser.name ? currentUser.name.substring(0, 2).toUpperCase() : currentUser.email.substring(0, 2).toUpperCase();
   const displayName = currentUser.name === "Admin" ? "Админ" : currentUser.name;
+
+  let displayRole: string;
+  switch (currentUser.role) {
+    case UserRole.SUPER_ADMIN:
+      displayRole = "Сүпер Админ";
+      break;
+    case UserRole.SUB_ADMIN:
+      displayRole = "Дэд Админ";
+      break;
+    default:
+      displayRole = currentUser.role;
+  }
 
   return (
     <DropdownMenu>
@@ -43,7 +56,7 @@ export function UserNav() {
               {currentUser.email}
             </p>
             <p className="text-xs leading-none text-muted-foreground mt-1">
-              Үүрэг: {currentUser.role}
+              Үүрэг: {displayRole}
             </p>
           </div>
         </DropdownMenuLabel>
