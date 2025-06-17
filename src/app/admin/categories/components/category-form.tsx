@@ -244,8 +244,8 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
         <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-8">
           <Card>
             <CardHeader>
-              <CardTitle className="font-headline">Category Details</CardTitle>
-              <UiCardDescription>Define the name, slug, and description for this category.</UiCardDescription>
+              <CardTitle className="font-headline">Ангиллын дэлгэрэнгүй</CardTitle>
+              <UiCardDescription>Энэ ангиллын нэр, товчлол, тайлбарыг тодорхойлно уу.</UiCardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <FormField
@@ -253,7 +253,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Category Name</FormLabel>
+                    <FormLabel>Нэр</FormLabel>
                     <FormControl>
                       <Input placeholder="e.g., Blog Posts, Products" {...field} onChange={handleNameChange} />
                     </FormControl>
@@ -266,7 +266,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                 name="slug"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Slug (URL Identifier)</FormLabel>
+                    <FormLabel>Товчлол (URL Identifier)</FormLabel>
                     <FormControl>
                       <Input placeholder="e.g., blog-posts, product-info" {...field} />
                     </FormControl>
@@ -280,7 +280,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Description (Optional)</FormLabel>
+                    <FormLabel>Тайлбар (Заавал биш)</FormLabel>
                     <FormControl>
                       <Textarea placeholder="A brief description of what this category is for." {...field} />
                     </FormControl>
@@ -293,16 +293,16 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                 name="coverImageUrl"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Category Cover Image</FormLabel>
+                    <FormLabel>Ангиллын нүүр зураг</FormLabel>
                     <FormControl>
                        <ImageUploader
                         initialImageUrl={field.value}
                         onUploadComplete={(url) => field.onChange(url)}
                         storagePath="category-covers"
-                        label="Category Cover Image"
+                        label="Ангиллын нүүр зураг"
                       />
                     </FormControl>
-                    <FormDescription>Upload a cover image for this category.</FormDescription>
+                    <FormDescription>Энэ ангиллын нүүр зургийг байршуулна уу.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -312,13 +312,13 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
 
           <Card>
             <CardHeader>
-              <CardTitle className="font-headline">Field Definitions</CardTitle>
-              <UiCardDescription>Define the data structure for entries belonging to this category.</UiCardDescription>
+              <CardTitle className="font-headline">Талбарын тодорхойлолт</CardTitle>
+              <UiCardDescription>Энэ ангилалд хамаарах бүртгэлийн өгөгдлийн бүтцийг тодорхойлно уу.</UiCardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {fields.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-4">
-                  No fields defined. Click "Add New Field" to get started.
+                  Талбар тодорхойлоогүй байна. Эхлэхийн тулд "Шинэ талбар нэмэх" дээр дарна уу.
                 </p>
               )}
               <ScrollArea className={fields.length > 3 ? "h-72" : ""}>
@@ -327,8 +327,8 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                     <div key={fieldItem.fieldFormId} className="flex items-center justify-between p-3 border rounded-md bg-background shadow-sm hover:shadow-md transition-shadow">
                       <div>
                         <p className="font-medium text-foreground">{fieldItem.label}</p>
-                        <p className="text-xs text-muted-foreground">Type: {fieldItem.type} | Key: <span className="font-mono bg-muted px-1 rounded">{fieldItem.key}</span> {fieldItem.required && <span className="text-destructive font-semibold">(required)</span>}</p>
-                        {fieldItem.description && <p className="text-xs text-muted-foreground mt-1">Description: {fieldItem.description.substring(0,50)}{fieldItem.description.length > 50 ? '...' : ''}</p>}
+                        <p className="text-xs text-muted-foreground">Төрөл: {fieldItem.type} | Түлхүүр: <span className="font-mono bg-muted px-1 rounded">{fieldItem.key}</span> {fieldItem.required && <span className="text-destructive font-semibold">(заавал)</span>}</p>
+                        {fieldItem.description && <p className="text-xs text-muted-foreground mt-1">Тайлбар: {fieldItem.description.substring(0,50)}{fieldItem.description.length > 50 ? '...' : ''}</p>}
                       </div>
                       <div className="flex gap-1">
                         <Button type="button" variant="ghost" size="icon" onClick={() => openFieldForm(index)} aria-label="Edit field">
@@ -343,7 +343,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                 </div>
               </ScrollArea>
                <Button type="button" variant="outline" onClick={() => openFieldForm()} className="w-full mt-4">
-                 <PlusCircle className="mr-2 h-4 w-4" /> Add New Field
+                 <PlusCircle className="mr-2 h-4 w-4" /> Шинэ талбар нэмэх
                </Button>
                {form.formState.errors.fields && !form.formState.errors.fields.root && (
                  <FormMessage>{form.formState.errors.fields.message}</FormMessage>
@@ -355,14 +355,14 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
           </Card>
 
           <div className="flex justify-end space-x-2 pt-6 border-t">
-            <Button type="button" variant="outline" disabled={isSubmittingGlobal} onClick={() => router.back()}>Cancel</Button>
+            <Button type="button" variant="outline" disabled={isSubmittingGlobal} onClick={() => router.back()}>Цуцлах</Button>
             <Button type="submit" disabled={isSubmittingGlobal}>
               {isSubmittingGlobal ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <Save className="mr-2 h-4 w-4" />
               )}
-              {initialData ? 'Save Changes' : 'Create Category'}
+              {initialData ? 'Өөрчлөлтийг хадгалах' : 'Ангилал үүсгэх'}
             </Button>
           </div>
         </form>
@@ -378,9 +378,9 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
       }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="font-headline">{editingFieldIndex !== null ? "Edit Field" : "Add New Field"}</DialogTitle>
+            <DialogTitle className="font-headline">{editingFieldIndex !== null ? "Талбар засах" : "Шинэ талбар нэмэх"}</DialogTitle>
             <DialogDescription>
-              Define the properties for this field. The 'Field Key' will be auto-generated from the label. Ensure field labels are unique within the category.
+              Энэ талбарын шинж чанарыг тодорхойлно уу. 'Талбарын түлхүүр' нь шошгоноос автоматаар үүсгэгдэнэ. Ангиллын доторх талбарын шошго давтагдахгүй байх ёстой.
             </DialogDescription>
           </DialogHeader>
           <Form {...fieldFormMethods}>
@@ -390,7 +390,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                 name="label"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Field Label</FormLabel>
+                    <FormLabel>Талбарын шошго</FormLabel>
                     <FormControl>
                       <Input 
                         placeholder="e.g., Author Name, Product Price" 
@@ -411,7 +411,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                 name="key"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Field Key (auto-generated)</FormLabel>
+                    <FormLabel>Талбарын түлхүүр (автоматаар үүсгэгдсэн)</FormLabel>
                     <FormControl>
                       <Input placeholder="auto-generated-key" {...field} readOnly className="bg-muted/50" />
                     </FormControl>
@@ -425,7 +425,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                 name="type"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Field Type</FormLabel>
+                    <FormLabel>Талбарын төрөл</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
@@ -447,7 +447,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                 name="placeholder"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Placeholder (Optional)</FormLabel>
+                    <FormLabel>Placeholder (Заавал биш)</FormLabel>
                     <FormControl>
                       <Input placeholder="e.g., Enter title here" {...field} value={field.value || ''}/>
                     </FormControl>
@@ -460,7 +460,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Field Description/Help Text (Optional)</FormLabel>
+                    <FormLabel>Талбарын тайлбар/Туслах текст (Заавал биш)</FormLabel>
                     <FormControl>
                       <Textarea placeholder="A short explanation of what this field is for." {...field} value={field.value || ''}/>
                     </FormControl>
@@ -480,17 +480,17 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                       />
                     </FormControl>
                     <FormLabel className="font-normal mb-0!">
-                      This field is required
+                      Энэ талбар заавал бөглөх ёстой
                     </FormLabel>
                   </FormItem>
                 )}
               />
               <DialogFooter className="pt-4">
                 <DialogClose asChild>
-                  <Button type="button" variant="outline">Cancel</Button>
+                  <Button type="button" variant="outline">Цуцлах</Button>
                 </DialogClose>
                 <Button type="submit">
-                  {editingFieldIndex !== null ? "Save Field Changes" : "Add Field to Category"}
+                  {editingFieldIndex !== null ? "Талбарын өөрчлөлтийг хадгалах" : "Ангилалд талбар нэмэх"}
                 </Button>
               </DialogFooter>
             </form>
