@@ -104,7 +104,7 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
       <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-8">
         <Card>
           <CardHeader>
-            <CardTitle className="font-headline">{isEditing ? 'Edit User' : 'Add New User'}</CardTitle> 
+            <CardTitle className="font-headline">{isEditing ? 'Edit User' : 'Шинэ Хэрэглэгч Нэмэх'}</CardTitle> 
             <UiCardDescription>
               {isEditing ? 'Update user details and role.' : 'Enter details for the new user.'} 
             </UiCardDescription>
@@ -276,3 +276,4 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
     </Form>
   );
 }
+
