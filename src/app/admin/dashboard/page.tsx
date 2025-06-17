@@ -21,12 +21,12 @@ export default function DashboardPage() {
 
   if (!currentUser) return null;
 
-  const displayName = currentUser.name === "Admin" ? "Admin" : currentUser.name;
+  const displayName = currentUser.name === "Admin" ? "Админ" : currentUser.name;
 
   return (
     <>
       <PageHeader
-        title={`Welcome, ${displayName || currentUser.email}!`}
+        title={`Тавтай морил, ${displayName || currentUser.email}!`}
         description="Here's an overview of your content and system status."
       />
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -75,3 +75,4 @@ export default function DashboardPage() {
     </>
   );
 }
+
