@@ -120,7 +120,7 @@ export default function EditUserPage() {
   if (isLoading) {
     return (
       <>
-        <PageHeader title="Edit Admin User" /> 
+        <PageHeader title="Админ эрх өөрчлөх" /> 
         <div className="space-y-4">
           <Skeleton className="h-10 w-1/2" />
           <Skeleton className="h-20 w-full" />
@@ -137,7 +137,7 @@ export default function EditUserPage() {
   return (
     <>
       <PageHeader
-        title={`Edit Admin User: ${userToEdit.name}`} 
+        title={`Админ эрх өөрчлөх: ${userToEdit.name}`} 
         description="Update admin user details, role, and assigned categories for Sub Admins." 
       />
       <UserForm initialData={userToEdit} onSubmit={handleSubmit} isSubmitting={isSubmitting} isEditing={true} />
