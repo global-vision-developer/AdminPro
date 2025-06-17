@@ -50,7 +50,13 @@ const nextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'www.international.gc.ca', // Added this new hostname
+        hostname: 'www.international.gc.ca',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'm.buro247.mn', // Added this new hostname
         port: '',
         pathname: '/**',
       }
