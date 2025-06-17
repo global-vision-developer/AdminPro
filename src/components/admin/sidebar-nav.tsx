@@ -47,7 +47,7 @@ const navItems: NavItem[] = [
       { href: "/admin/entries", label: "Entries", icon: Newspaper, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] }, 
     ]
   },
-  { href: "/admin/users", label: "User Management", icon: Users, roles: [UserRole.SUPER_ADMIN] }, 
+  { href: "/admin/users", label: "Хэрэглэгчид", icon: Users, roles: [UserRole.SUPER_ADMIN] }, 
   // { href: "/admin/settings", label: "Settings", icon: Settings }, 
 ];
 
