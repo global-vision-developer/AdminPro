@@ -44,7 +44,7 @@ export default async function CategoriesPage({
       <PageHeader title="Контентийн ангилал" description="контент бүтэц удирдах хэсэг.">
         <Link href="/admin/categories/new" passHref>
           <Button>
-            <PlusCircle className="mr-2 h-4 w-4" /> Create New Category
+            <PlusCircle className="mr-2 h-4 w-4" /> Шинэ ангилал үүсгэх
           </Button>
         </Link>
       </PageHeader>
