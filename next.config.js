@@ -80,7 +80,13 @@ const nextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'img03.71360.com', // Added this new hostname
+        hostname: 'img03.71360.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'firebasestorage.googleapis.com', // Added Firebase Storage
         port: '',
         pathname: '/**',
       }

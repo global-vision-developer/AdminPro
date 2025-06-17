@@ -19,19 +19,19 @@ export enum FieldType {
   NUMBER = 'Number',
   DATE = 'Date',
   BOOLEAN = 'Boolean',
-  IMAGE_GALLERY = 'Image Gallery', // New FieldType
+  IMAGE_GALLERY = 'Image Gallery', 
 }
 
 // Interface for items within an Image Gallery field in the form
 export interface ImageGalleryItemForm {
   clientId: string; // For react-hook-form useFieldArray key
-  imageUrl: string;
+  imageUrl: string | null; // Can be null if image is removed
   description?: string;
 }
 
 // Firestore-д хадгалагдах зургийн цомгийн нэг зүйлийн бүтэц
 export interface ImageGalleryItemStored {
-  imageUrl: string;
+  imageUrl: string; // Should always have a URL if stored
   description?: string;
 }
 
@@ -52,6 +52,7 @@ export interface Category {
   slug: string; 
   description?: string; 
   fields: FieldDefinition[];
+  coverImageUrl?: string | null; // Added for category cover image
   createdAt?: string; 
   updatedAt?: string; 
 }
@@ -60,8 +61,8 @@ export interface Entry {
   id: string; 
   categoryId: string; 
   title?: string; 
-  categoryName?: string; // Added for convenience in EntryList, to avoid extra lookups if already available
-  data: Record<string, any | ImageGalleryItemStored[]>; // data can hold ImageGalleryItemStored arrays
+  categoryName?: string; 
+  data: Record<string, any | ImageGalleryItemStored[]>; 
   status: 'draft' | 'published' | 'scheduled';
   publishAt?: string; 
   createdAt: string; 

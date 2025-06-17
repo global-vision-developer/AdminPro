@@ -1,0 +1,259 @@
+
+"use client";
+
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import Image from 'next/image';
+import { UploadCloud, XCircle, Loader2, AlertTriangle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { useToast } from '@/hooks/use-toast';
+import { storage } from '@/lib/firebase';
+import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
+import { v4 as uuidv4 } from 'uuid';
+
+interface ImageUploaderProps {
+  onUploadComplete: (downloadURL: string | null) => void; // Allow null for deletion
+  initialImageUrl?: string | null;
+  storagePath?: string; // e.g., "category-covers", "entry-images/gallery"
+  maxSizeMB?: number;
+  maxDimension?: number; // Max width/height for compression
+  compressionQuality?: number; // 0.0 to 1.0
+  label?: string;
+}
+
+const ImageUploader: React.FC<ImageUploaderProps> = ({
+  onUploadComplete,
+  initialImageUrl: initialUrlProp,
+  storagePath = "general-uploads",
+  maxSizeMB = 5,
+  maxDimension = 1200,
+  compressionQuality = 0.8,
+  label = "Зураг байршуулах",
+}) => {
+  const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(initialUrlProp || null);
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string | null>(initialUrlProp || null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    setCurrentImageUrl(initialUrlProp || null);
+    setPreview(initialUrlProp || null);
+  }, [initialUrlProp]);
+
+  const handleImageCompression = (file: File): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = document.createElement('img');
+        img.onload = () => {
+          let { width, height } = img;
+          if (width > height) {
+            if (width > maxDimension) {
+              height = Math.round((height * maxDimension) / width);
+              width = maxDimension;
+            }
+          } else {
+            if (height > maxDimension) {
+              width = Math.round((width * maxDimension) / height);
+              height = maxDimension;
+            }
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            return reject(new Error('Failed to get canvas context'));
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                resolve(blob);
+              } else {
+                reject(new Error('Canvas to Blob conversion failed'));
+              }
+            },
+            'image/jpeg',
+            compressionQuality
+          );
+        };
+        img.onerror = reject;
+        img.src = event.target?.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleFileUpload = useCallback(async (file: File) => {
+    if (!file) return;
+    setError(null);
+
+    if (file.size > maxSizeMB * 1024 * 1024) {
+      setError(`Файлын хэмжээ ${maxSizeMB}MB-с их байна.`);
+      return;
+    }
+
+    setUploading(true);
+    setProgress(0);
+    setPreview(URL.createObjectURL(file)); // Show preview of original before compression
+
+    try {
+      const compressedBlob = await handleImageCompression(file);
+      const fileName = `${uuidv4()}-${file.name.replace(/\s+/g, '_')}`;
+      const imageRef = ref(storage, `${storagePath}/${fileName}`);
+      const uploadTask = uploadBytesResumable(imageRef, compressedBlob);
+
+      uploadTask.on(
+        'state_changed',
+        (snapshot) => {
+          const prog = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+          setProgress(prog);
+        },
+        (uploadError) => {
+          console.error("Upload error:", uploadError);
+          setError(`Зураг байршуулахад алдаа гарлаа: ${uploadError.message}`);
+          setUploading(false);
+          setPreview(currentImageUrl); // Revert preview if upload fails
+        },
+        async () => {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          setCurrentImageUrl(downloadURL);
+          setPreview(downloadURL);
+          onUploadComplete(downloadURL);
+          setUploading(false);
+          toast({ title: "Амжилттай", description: "Зураг байршуулагдлаа." });
+        }
+      );
+    } catch (compressionError: any) {
+      console.error("Compression error:", compressionError);
+      setError(`Зураг шахахад алдаа гарлаа: ${compressionError.message}`);
+      setUploading(false);
+      setPreview(currentImageUrl); // Revert preview
+    }
+  }, [storagePath, maxSizeMB, compressionQuality, maxDimension, onUploadComplete, toast, currentImageUrl]);
+
+  const onFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      handleFileUpload(file);
+    }
+  };
+  
+  const onDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const file = event.dataTransfer.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      handleFileUpload(file);
+    } else {
+      setError("Зөвхөн зурган файл сонгоно уу.");
+    }
+  }, [handleFileUpload]);
+
+  const onDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const handleRemoveImage = async () => {
+    if (!currentImageUrl) return;
+    const confirmation = window.confirm("Та энэ зургийг устгахдаа итгэлтэй байна уу? Энэ үйлдэл Firebase Storage-оос зургийг мөн устгахыг оролдоно (хэрэв боломжтой бол).");
+    if (!confirmation) return;
+
+    // Try to delete from Firebase Storage
+    // Note: This assumes the currentImageUrl is a Firebase Storage URL
+    // For external URLs, this deletion won't work and might error silently or log.
+    if (currentImageUrl.includes('firebasestorage.googleapis.com')) {
+        try {
+            const imageRef = ref(storage, currentImageUrl);
+            await deleteObject(imageRef);
+            toast({ title: "Зураг Storage-оос устлаа."});
+        } catch (deleteError: any) {
+            console.warn("Failed to delete image from Firebase Storage:", deleteError);
+            if (deleteError.code === 'storage/object-not-found') {
+                // If not found, it's fine, proceed to clear from UI
+            } else {
+                toast({ title: "Storage-оос устгах алдаа", description: "Зураг Storage-оос устсангүй, гэхдээ UI-аас цэвэрлэгдэнэ.", variant: "destructive"});
+            }
+        }
+    }
+    
+    setCurrentImageUrl(null);
+    setPreview(null);
+    onUploadComplete(null); // Notify parent that image is removed
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""; // Reset file input
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      {label && <label className="text-sm font-medium text-foreground block">{label}</label>}
+      <div 
+        className="w-full p-4 border-2 border-dashed border-muted-foreground/50 rounded-md flex flex-col items-center justify-center text-center cursor-pointer hover:border-primary transition-colors min-h-[150px] bg-muted/20"
+        onClick={() => fileInputRef.current?.click()}
+        onDrop={onDrop}
+        onDragOver={onDragOver}
+        onDragEnter={onDragOver}
+      >
+        <input
+          type="file"
+          accept="image/jpeg, image/png, image/webp, image/gif"
+          ref={fileInputRef}
+          onChange={onFileChange}
+          className="hidden"
+          disabled={uploading}
+        />
+        {uploading ? (
+          <div className="flex flex-col items-center space-y-2">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">Зураг байршуулж байна...</p>
+            <Progress value={progress} className="w-3/4" />
+            <p className="text-xs text-muted-foreground">{progress}%</p>
+          </div>
+        ) : preview ? (
+          <div className="relative group w-full max-w-xs mx-auto">
+            <Image
+              src={preview}
+              alt="Сонгосон зураг"
+              width={maxDimension}
+              height={maxDimension * (9/16)} 
+              className="rounded-md object-contain max-h-48"
+              data-ai-hint="uploaded image preview"
+            />
+            <Button
+              variant="destructive"
+              size="icon"
+              className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={(e) => { e.stopPropagation(); handleRemoveImage(); }}
+              aria-label="Зургийг устгах"
+            >
+              <XCircle className="h-5 w-5" />
+            </Button>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center space-y-1">
+            <UploadCloud className="h-10 w-10 text-muted-foreground/70" />
+            <p className="text-sm font-medium text-foreground">Зургаа энд чирч оруулна уу</p>
+            <p className="text-xs text-muted-foreground">эсвэл дарж сонгоно уу</p>
+            <p className="text-xs text-muted-foreground mt-1">(Max {maxSizeMB}MB, JPEG/PNG/WEBP/GIF)</p>
+          </div>
+        )}
+      </div>
+      {error && (
+        <div className="flex items-center text-destructive text-sm mt-1">
+          <AlertTriangle className="h-4 w-4 mr-1" />
+          {error}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ImageUploader;

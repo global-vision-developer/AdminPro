@@ -21,6 +21,7 @@ import { slugify } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useRouter } from 'next/navigation';
+import ImageUploader from '@/components/admin/image-uploader'; // Import ImageUploader
 
 const fieldDefinitionClientSchema = z.object({
   id: z.string().default(() => uuidv4()),
@@ -36,6 +37,7 @@ const categoryFormSchema = z.object({
   name: z.string(),
   slug: z.string().min(1, "Slug is required.").regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug must be lowercase alphanumeric with hyphens."),
   description: z.string().optional().default(''),
+  coverImageUrl: z.string().url("Нүүр зургийн URL буруу байна.").nullable().optional(), // Added for cover image
   fields: z.array(fieldDefinitionClientSchema).min(0, "You can save a category without fields initially."),
 });
 
@@ -56,15 +58,6 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
   const [editingFieldIndex, setEditingFieldIndex] = useState<number | null>(null);
 
   const defaultFieldsForNewCategory: FieldDefinition[] = [
-      {
-        id: uuidv4(),
-        label: 'Нүүр зураг URL',
-        key: 'nuur-zurag-url',
-        type: FieldType.TEXT,
-        required: false,
-        placeholder: 'https://example.com/image.png',
-        description: 'Энэ бичлэгийн гол нүүр зургийн интернет хаяг.'
-      },
       {
         id: uuidv4(),
         label: 'Нэр',
@@ -110,11 +103,13 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
       name: initialData.name,
       slug: initialData.slug,
       description: initialData.description || '',
+      coverImageUrl: initialData.coverImageUrl || null, // Initialize coverImageUrl
       fields: initialData.fields.map(f => ({ ...f, id: f.id || uuidv4(), key: f.key || slugify(f.label) }))
     } : {
       name: '',
       slug: '',
       description: '',
+      coverImageUrl: null, // Default coverImageUrl
       fields: defaultFieldsForNewCategory,
     },
   });
@@ -207,11 +202,13 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
         name: initialData.name,
         slug: initialData.slug,
         description: initialData.description || '',
+        coverImageUrl: initialData.coverImageUrl || null,
         fields: initialData.fields.map(f => ({ ...f, id: f.id || uuidv4(), key: f.key || slugify(f.label) }))
       } : {
         name: '',
         slug: '',
         description: '',
+        coverImageUrl: null,
         fields: defaultFieldsForNewCategory, 
       }); 
     }
@@ -231,7 +228,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
           id: uuidv4(),
           label: '',
           key: '',
-          type: FieldType.TEXT, // Default type for new field
+          type: FieldType.TEXT, 
           required: false,
           placeholder: undefined,
           description: undefined,
@@ -287,6 +284,25 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                     <FormControl>
                       <Textarea placeholder="A brief description of what this category is for." {...field} />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="coverImageUrl"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Category Cover Image</FormLabel>
+                    <FormControl>
+                       <ImageUploader
+                        initialImageUrl={field.value}
+                        onUploadComplete={(url) => field.onChange(url)}
+                        storagePath="category-covers"
+                        label="Категорийн нүүр зураг"
+                      />
+                    </FormControl>
+                    <FormDescription>Upload a cover image for this category.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

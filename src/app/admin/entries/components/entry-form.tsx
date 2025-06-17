@@ -17,7 +17,7 @@ import { Calendar } from '@/components/ui/calendar';
 import type { Category, Entry, FieldDefinition, ImageGalleryItemForm, ImageGalleryItemStored } from '@/types';
 import { FieldType } from '@/types';
 import { CalendarIcon, Save, Loader2, Wand2, AlertTriangle, Info, MessageSquareText, Star, PlusCircle, Trash2, Image as ImageIcon } from 'lucide-react';
-import { cn, slugify } from '@/lib/utils'; // slugify might not be needed here, but cn is
+import { cn } from '@/lib/utils'; 
 import { format, parseISO } from 'date-fns';
 import { suggestContent } from '@/ai/flows/suggest-content-on-schedule';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -25,7 +25,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { addEntry, updateEntry } from '@/lib/actions/entryActions';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { v4 as uuidv4 } from 'uuid'; // For client-side unique IDs for gallery items
+import { v4 as uuidv4 } from 'uuid'; 
+import ImageUploader from '@/components/admin/image-uploader'; // Import ImageUploader
 
 interface EntryFormProps {
   initialData?: Entry | null;
@@ -54,6 +55,15 @@ const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, a
     let fieldSchema: z.ZodTypeAny;
     switch (field.type) {
       case FieldType.TEXT:
+        // For image URLs managed by ImageUploader, make them string | null
+        if (field.key === 'nuur-zurag-url' || field.label.toLowerCase().includes('image url') || field.label.toLowerCase().includes('cover image')) {
+            fieldSchema = z.string().url("Зургийн URL буруу байна.").nullable().optional();
+        } else if (field.required) {
+          fieldSchema = z.string().trim().min(1, { message: `${field.label} талбарыг заавал бөглөнө үү.` });
+        } else {
+          fieldSchema = z.string().optional().nullable().transform(val => val ?? '');
+        }
+        break;
       case FieldType.TEXTAREA:
         if (field.required) {
           fieldSchema = z.string().trim().min(1, { message: `${field.label} талбарыг заавал бөглөнө үү.` });
@@ -90,14 +100,18 @@ const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, a
         break;
       case FieldType.IMAGE_GALLERY:
         const imageGalleryItemSchema = z.object({
-            clientId: z.string(), // For useFieldArray client-side keying
-            imageUrl: z.string().url({ message: `${field.label}: Зургийн URL буруу байна.` }).min(1, { message: `${field.label}: Зургийн URL заавал оруулна уу.` }),
+            clientId: z.string(), 
+            imageUrl: z.string().url({ message: `${field.label}: Зургийн URL буруу байна.` }).nullable(), // Allow null
             description: z.string().optional().transform(val => val === '' ? undefined : val),
         });
         
         fieldSchema = z.array(imageGalleryItemSchema).optional().default([]);
         if (field.required) {
-            fieldSchema = fieldSchema.min(1, { message: `${field.label}: Дор хаяж нэг зураг оруулна уу.` });
+            // Validate that at least one item in the array has a non-null imageUrl
+            fieldSchema = fieldSchema.min(1, { message: `${field.label}: Дор хаяж нэг зураг оруулна уу.` })
+                                     .refine(items => items.some(item => item.imageUrl !== null), {
+                                        message: `${field.label}: Дор хаяж нэг зургийн URL оруулах шаардлагатай.`,
+                                      });
         }
         break;
       default:
@@ -150,9 +164,8 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
             } else if (field.type === FieldType.NUMBER) {
                  defaultDataValues[field.key] = (initialValueFromData === '' || initialValueFromData === null || initialValueFromData === undefined) ? undefined : initialValueFromData;
             } else if (field.type === FieldType.IMAGE_GALLERY) {
-                // Ensure gallery items have a clientId for useFieldArray
                 defaultDataValues[field.key] = Array.isArray(initialValueFromData) 
-                    ? initialValueFromData.map((item: ImageGalleryItemStored) => ({ ...item, clientId: uuidv4() })) 
+                    ? initialValueFromData.map((item: ImageGalleryItemStored) => ({ ...item, clientId: uuidv4(), imageUrl: item.imageUrl || null })) 
                     : [];
             }
              else {
@@ -163,6 +176,9 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
             else if (field.type === FieldType.NUMBER) defaultDataValues[field.key] = undefined; 
             else if (field.type === FieldType.DATE) defaultDataValues[field.key] = undefined;
             else if (field.type === FieldType.IMAGE_GALLERY) defaultDataValues[field.key] = [];
+            else if (field.key === 'nuur-zurag-url' || field.label.toLowerCase().includes('image url') || field.label.toLowerCase().includes('cover image')) {
+                 defaultDataValues[field.key] = null; // For ImageUploader fields
+            }
             else defaultDataValues[field.key] = '';
         }
     });
@@ -268,15 +284,15 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
           break;
         case FieldType.TEXT:
         case FieldType.TEXTAREA:
-          valueToSave = (typeof valueFromForm === 'string') ? valueFromForm : '';
+          valueToSave = (typeof valueFromForm === 'string') ? valueFromForm : (valueFromForm === null ? null : '');
           break;
         case FieldType.IMAGE_GALLERY:
           valueToSave = Array.isArray(valueFromForm)
-            ? valueFromForm.map((item: ImageGalleryItemForm) => ({
-                imageUrl: item.imageUrl,
+            ? valueFromForm.filter(item => item.imageUrl !== null).map((item: ImageGalleryItemForm) => ({ // Filter out items with null imageUrl
+                imageUrl: item.imageUrl as string, // Cast as string since nulls are filtered
                 description: item.description,
               }))
-            : []; // Default to empty array if not an array
+            : []; 
           break;
         default:
           valueToSave = valueFromForm;
@@ -287,7 +303,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
     const submissionPayload = {
         title: formDataFromHook.title,
         categoryId: selectedCategory.id,
-        categoryName: selectedCategory.name, // Ensure categoryName is passed
+        categoryName: selectedCategory.name, 
         status: formDataFromHook.status,
         publishAt: formDataFromHook.status === 'scheduled' && formDataFromHook.publishAt ? formDataFromHook.publishAt.toISOString() : null,
         data: adminEditableData,
@@ -351,6 +367,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                 {selectedCategory?.fields.map(catField => {
                   const isUserOnlyField = catField.description?.includes(USER_ONLY_FIELD_MARKER);
                   const Icon = catField.key === 'unelgee' ? Star : catField.key === 'setgegdel' ? MessageSquareText : null;
+                  const isCoverImageField = catField.type === FieldType.TEXT && (catField.key === 'nuur-zurag-url' || catField.label.toLowerCase().includes('image url') || catField.label.toLowerCase().includes('cover image'));
 
                   if (isUserOnlyField) {
                     return (
@@ -370,12 +387,11 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                     );
                   }
                   
-                  // IMAGE_GALLERY Field Rendering
                   if (catField.type === FieldType.IMAGE_GALLERY) {
-                    const { fields: galleryFields, append, remove } = useFieldArray({
+                    const { fields: galleryFields, append, remove, update: updateGalleryItem } = useFieldArray({
                       control: form.control,
-                      name: `data.${catField.key}` as any, // Cast to any to satisfy TS for nested field array
-                      keyName: "clientId", // Use clientId from ImageGalleryItemForm as the key
+                      name: `data.${catField.key}` as any, 
+                      keyName: "clientId", 
                     });
 
                     return (
@@ -386,17 +402,20 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                           {galleryFields.map((item, index) => (
                             <Card key={item.clientId} className="p-3 bg-muted/50">
                               <div className="space-y-3">
-                                <FormField
+                                <Controller
                                   control={form.control}
                                   name={`data.${catField.key}.${index}.imageUrl` as const}
                                   render={({ field: galleryItemField }) => (
-                                    <FormItem>
-                                      <FormLabel className="text-xs">Зургийн URL</FormLabel>
-                                      <FormControl>
-                                        <Input placeholder="https://example.com/image.png" {...galleryItemField} />
-                                      </FormControl>
-                                      <FormMessage />
-                                    </FormItem>
+                                    <ImageUploader
+                                      initialImageUrl={galleryItemField.value}
+                                      onUploadComplete={(url) => {
+                                        // Use update from useFieldArray to set the value
+                                        const currentItem = form.getValues(`data.${catField.key}`)[index];
+                                        updateGalleryItem(index, { ...currentItem, imageUrl: url });
+                                      }}
+                                      storagePath={`entries/${selectedCategory.slug || selectedCategory.id}/${catField.key}`}
+                                      label="Зураг"
+                                    />
                                   )}
                                 />
                                 <FormField
@@ -428,17 +447,42 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={() => append({ clientId: uuidv4(), imageUrl: '', description: '' })}
+                            onClick={() => append({ clientId: uuidv4(), imageUrl: null, description: '' })}
                           >
                             <PlusCircle className="mr-2 h-4 w-4" /> Зураг нэмэх
                           </Button>
                         </div>
-                        <FormMessage /> {/* For array-level errors like min items */}
+                        <FormMessage /> 
                       </FormItem>
                     );
                   }
+                  
+                  if (isCoverImageField) {
+                     return (
+                        <FormField
+                            key={catField.id}
+                            control={form.control}
+                            name={`data.${catField.key}`}
+                            render={({ field: formHookField }) => (
+                                <FormItem>
+                                    <FormLabel>{catField.label}{catField.required && <span className="text-destructive">*</span>}</FormLabel>
+                                    {catField.description && <FormDescription>{catField.description}</FormDescription>}
+                                    <FormControl>
+                                        <ImageUploader
+                                            initialImageUrl={formHookField.value}
+                                            onUploadComplete={(url) => formHookField.onChange(url)}
+                                            storagePath={`entries/${selectedCategory.slug || selectedCategory.id}/cover-images`}
+                                            label={catField.label}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                     );
+                  }
 
-                  // Standard Field Rendering
+
                   return (
                     <FormField
                       key={catField.id}
@@ -456,6 +500,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                                 <Input 
                                     placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`} 
                                     {...formHookField}
+                                    value={formHookField.value === null ? '' : formHookField.value} // Handle null from ImageUploader
                                 />
                                 </FormControl>
                             )}

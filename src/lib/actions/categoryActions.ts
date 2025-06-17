@@ -15,11 +15,11 @@ import {
   query,
   orderBy,
   Timestamp,
-  writeBatch, // Import writeBatch
-  where // Import where
+  writeBatch, 
+  where 
 } from "firebase/firestore";
 import { revalidatePath } from "next/cache";
-import { slugify } from "@/lib/utils"; // Import slugify
+import { slugify } from "@/lib/utils"; 
 
 const CATEGORIES_COLLECTION = "categories";
 const ENTRIES_COLLECTION = "entries";
@@ -28,6 +28,7 @@ interface CategoryFirestoreData {
   name: string;
   slug: string;
   description?: string;
+  coverImageUrl?: string | null; // Added coverImageUrl
   fields: FieldDefinition[];
   createdAt: Timestamp | ReturnType<typeof serverTimestamp>;
   updatedAt: Timestamp | ReturnType<typeof serverTimestamp>;
@@ -35,13 +36,14 @@ interface CategoryFirestoreData {
 
 
 export async function addCategory(
-  categoryData: Pick<Category, "name" | "slug" | "description" | "fields">
+  categoryData: Pick<Category, "name" | "slug" | "description" | "fields" | "coverImageUrl">
 ): Promise<{ id: string } | { error: string }> {
   try {
     const dataToSave: Omit<CategoryFirestoreData, "createdAt" | "updatedAt"> & { createdAt: any, updatedAt: any } = {
       name: categoryData.name,
-      slug: categoryData.slug || slugify(categoryData.name), // Ensure slug exists
+      slug: categoryData.slug || slugify(categoryData.name), 
       description: categoryData.description || "",
+      coverImageUrl: categoryData.coverImageUrl || null, // Save coverImageUrl
       fields: categoryData.fields,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -70,13 +72,14 @@ export async function getCategories(): Promise<Category[]> {
       return {
         id: doc.id,
         name: data.name,
-        slug: data.slug || slugify(data.name), // Ensure slug exists or generate it
+        slug: data.slug || slugify(data.name), 
         description: data.description || '',
+        coverImageUrl: data.coverImageUrl || null, // Retrieve coverImageUrl
         fields: data.fields || [],
         createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : undefined,
         updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().toISOString() : undefined,
       } as Category;
-    }).filter(Boolean) as Category[]; // Filter out nulls if any category was invalid
+    }).filter(Boolean) as Category[]; 
   } catch (e: any) {
     console.error("Error getting categories: ", e);
     return [];
@@ -96,8 +99,9 @@ export async function getCategory(id: string): Promise<Category | null> {
       return {
         id: docSnap.id,
         name: data.name,
-        slug: data.slug || slugify(data.name), // Ensure slug exists or generate it
+        slug: data.slug || slugify(data.name), 
         description: data.description || '',
+        coverImageUrl: data.coverImageUrl || null, // Retrieve coverImageUrl
         fields: data.fields || [],
         createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : undefined,
         updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().toISOString() : undefined,
@@ -112,14 +116,18 @@ export async function getCategory(id: string): Promise<Category | null> {
 
 export async function updateCategory(
   id: string,
-  categoryData: Partial<Pick<Category, "name" | "slug" | "description" | "fields">>
+  categoryData: Partial<Pick<Category, "name" | "slug" | "description" | "fields" | "coverImageUrl">>
 ): Promise<{ success: boolean } | { error: string }> {
   try {
     const docRef = doc(db, CATEGORIES_COLLECTION, id);
     
     const dataToUpdate: Record<string, any> = { ...categoryData };
-    if (categoryData.name && !categoryData.slug) { // If name changes and slug isn't provided, update slug
+    if (categoryData.name && !categoryData.slug) { 
         dataToUpdate.slug = slugify(categoryData.name);
+    }
+     // Explicitly handle null for coverImageUrl to allow unsetting it
+    if (categoryData.hasOwnProperty('coverImageUrl')) {
+        dataToUpdate.coverImageUrl = categoryData.coverImageUrl === undefined ? null : categoryData.coverImageUrl;
     }
     
     delete dataToUpdate.createdAt; 
@@ -145,7 +153,6 @@ export async function deleteCategory(id: string): Promise<{ success: boolean } |
     const categoryDocRef = doc(db, CATEGORIES_COLLECTION, id);
     const batch = writeBatch(db);
 
-    // Find and delete all entries associated with this category
     const entriesRef = collection(db, ENTRIES_COLLECTION);
     const entriesQuery = query(entriesRef, where("categoryId", "==", id));
     const entriesSnapshot = await getDocs(entriesQuery);
@@ -154,18 +161,14 @@ export async function deleteCategory(id: string): Promise<{ success: boolean } |
       batch.delete(doc(db, ENTRIES_COLLECTION, entryDoc.id));
     });
 
-    // Delete the category document itself
     batch.delete(categoryDocRef);
-
-    // Commit the batch
     await batch.commit();
 
     revalidatePath("/admin/categories");
-    revalidatePath("/admin/entries"); // Revalidate entries as well, since they've been deleted
+    revalidatePath("/admin/entries"); 
     return { success: true };
   } catch (e: any) {
     console.error("Error deleting category and its entries: ", e);
-    // Provide a more specific error message if the batch commit fails due to size or other reasons
     if (e.message && e.message.includes("maximum 500 writes")) {
         return { error: "Failed to delete category: Too many associated entries to delete at once. Please reduce entries or contact support." };
     }
