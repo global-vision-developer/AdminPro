@@ -27,7 +27,7 @@ export default function DashboardPage() {
     <>
       <PageHeader
         title={`Тавтай морил, ${displayName || currentUser.email}!`}
-        description="Here's an overview of your content and system status."
+        description="таны системийн статус болон контентийн тойм."
       />
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {summaryCards.map((card) => 
