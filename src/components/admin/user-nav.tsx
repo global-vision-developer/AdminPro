@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -22,13 +23,14 @@ export function UserNav() {
   }
 
   const fallbackName = currentUser.name ? currentUser.name.substring(0, 2).toUpperCase() : currentUser.email.substring(0, 2).toUpperCase();
+  const displayName = currentUser.name === "Admin" ? "Админ" : currentUser.name;
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-9 w-9 rounded-full">
           <Avatar className="h-9 w-9">
-            <AvatarImage src={currentUser.avatar} alt={currentUser.name || currentUser.email} data-ai-hint="user avatar" />
+            <AvatarImage src={currentUser.avatar} alt={displayName || currentUser.email} data-ai-hint="user avatar" />
             <AvatarFallback>{fallbackName}</AvatarFallback>
           </Avatar>
         </Button>
@@ -36,7 +38,7 @@ export function UserNav() {
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{currentUser.name}</p>
+            <p className="text-sm font-medium leading-none">{displayName}</p>
             <p className="text-xs leading-none text-muted-foreground">
               {currentUser.email}
             </p>
