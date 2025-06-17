@@ -393,7 +393,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                     <FormLabel>Талбарын шошго</FormLabel>
                     <FormControl>
                       <Input 
-                        placeholder="e.g., Author Name, Product Price" 
+                        placeholder="жишээ: Author Name, Product Price" 
                         {...field} 
                         onChange={(e) => {
                            field.onChange(e); 
@@ -415,7 +415,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                     <FormControl>
                       <Input placeholder="auto-generated-key" {...field} readOnly className="bg-muted/50" />
                     </FormControl>
-                    <FormDescription>This unique key is used in the database. It is generated from the label and must be unique.</FormDescription>
+                    <FormDescription>Энэ key нь database-д ашиглагдана. Энэ нь шошгоноос үүсгэгдэж, давтагдашгүй байх ёстой.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
