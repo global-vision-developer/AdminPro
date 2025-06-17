@@ -106,7 +106,7 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
           <CardHeader>
             <CardTitle className="font-headline">{isEditing ? 'Edit User' : 'Шинэ Хэрэглэгч Нэмэх'}</CardTitle> 
             <UiCardDescription>
-              {isEditing ? 'Update user details and role.' : 'Enter details for the new user.'} 
+              {isEditing ? 'Update user details and role.' : 'Шинэ хэрэглэгчийн дэлгэрэнгүй мэдээллийг оруулах'} 
             </UiCardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
