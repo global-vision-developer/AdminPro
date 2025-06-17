@@ -292,7 +292,7 @@ export default function UsersPage() {
                                 </Button>
                               </Link>
                             </TooltipTrigger>
-                            <TooltipContent>Edit Admin User / Change Role</TooltipContent> 
+                            <TooltipContent>Админ эрх засах / хандах эрх өөрчлөх</TooltipContent> 
                           </Tooltip>
                           {user.id !== currentUser?.id && (
                             <AlertDialog>
@@ -361,6 +361,7 @@ export default function UsersPage() {
     </TooltipProvider>
   );
 }
+
 
 
 
