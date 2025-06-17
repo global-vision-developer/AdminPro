@@ -55,7 +55,7 @@ export default async function EntriesPage({
 
   return (
     <>
-      <PageHeader title="Контентийн Бүртгэл" description="Manage content entries across all categories.">
+      <PageHeader title="Контентийн Бүртгэл" description="контентийн бүх бүртгэлийг удирдах.">
         {/* Link to create new entry. The /new page will handle category restrictions for SubAdmins. */}
         <Link 
           href={`/admin/entries/new${selectedCategoryIdQuery && selectedCategoryIdQuery !== 'all' ? `?category=${selectedCategoryIdQuery}` : ''}`} 
