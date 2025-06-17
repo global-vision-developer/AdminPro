@@ -68,9 +68,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {children}
         </main>
         <footer className="border-t py-4 text-center text-sm text-muted-foreground">
-          © {new Date().getFullYear()} Admin Pro. All rights reserved.
+          © {new Date().getFullYear()} Админ Про. Бүх эрх хуулиар хамгаалагдсан.
         </footer>
       </SidebarInset>
     </SidebarProvider>
   );
 }
+
