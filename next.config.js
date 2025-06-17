@@ -56,7 +56,13 @@ const nextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'm.buro247.mn', // Added this new hostname
+        hostname: 'm.buro247.mn', 
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'ae01.alicdn.com', // Added this new hostname
         port: '',
         pathname: '/**',
       }
