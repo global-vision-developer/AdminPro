@@ -25,7 +25,7 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'www.ubhotel.mn', 
+        hostname: 'www.ubhotel.mn',
         port: '',
         pathname: '/**',
       },
@@ -43,7 +43,13 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'cdn.prod.website-files.com', // Added this new hostname
+        hostname: 'cdn.prod.website-files.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'www.international.gc.ca', // Added this new hostname
         port: '',
         pathname: '/**',
       }
