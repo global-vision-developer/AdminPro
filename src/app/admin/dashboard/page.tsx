@@ -13,7 +13,7 @@ export default function DashboardPage() {
   const { currentUser } = useAuth();
 
   const summaryCards = [
-    { title: "Total Categories", value: "5", icon: Library, href: "/admin/categories", roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
+    { title: "Нийт ангилал", value: "5", icon: Library, href: "/admin/categories", roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
     { title: "Total Entries", value: "27", icon: Newspaper, href: "/admin/entries", roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
     { title: "Registered Users", value: "3", icon: Users, href: "/admin/users", roles: [UserRole.SUPER_ADMIN] },
     // { title: "Recent Activity", value: "12", icon: Activity, href: "#" },
@@ -30,7 +30,7 @@ export default function DashboardPage() {
         description="таны системийн статус болон контентийн тойм."
       />
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {summaryCards.map((card) => 
+        {summaryCards.map((card) =>
           (!card.roles || card.roles.includes(currentUser.role)) && (
           <Link href={card.href} key={card.title} className="hover:no-underline">
               <Card className="hover:shadow-lg transition-shadow duration-200 cursor-pointer border-l-4 border-primary">
@@ -75,4 +75,4 @@ export default function DashboardPage() {
     </>
   );
 }
-
+    
