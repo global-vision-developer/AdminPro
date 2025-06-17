@@ -35,7 +35,7 @@ export default function NewCategoryPage() {
     <>
       <PageHeader
         title="Шинэ Ангилал Үүсгэх"
-        description="Define a new content structure for your entries."
+        description="Шинэ контентын бүтэц зохиож, бүртгэлд ашиглах"
       />
       <CategoryForm 
         onSubmit={handleSubmit} 
