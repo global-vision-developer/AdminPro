@@ -162,9 +162,9 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
        <Card className="mt-8 shadow-lg">
         <CardContent className="py-12 text-center">
             <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
-            <h3 className="text-xl font-semibold font-headline">Ангилал байхгүй байна</h3>
+            <h3 className="text-xl font-semibold font-headline">No categories exist</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-                Эхлээд ангилал үүсгэнэ үү.
+                Please create a category first.
             </p>
         </CardContent>
        </Card>
@@ -175,10 +175,10 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
     return (
         <Alert variant="default" className="mt-6 border-primary/50">
             <Info className="h-5 w-5 text-primary" />
-            <AlertTitle className="font-semibold text-primary">Оноогдсон Ангилал Байхгүй</AlertTitle>
+            <AlertTitle className="font-semibold text-primary">No Assigned Categories</AlertTitle>
             <AlertDescription>
-                Танд бичлэг удирдах ангилал оноогоогүй байна. 
-                Супер Админаас ангилал оноохыг хүснэ үү.
+                You have not been assigned any categories to manage entries. 
+                Please request category assignment from a Super Admin.
             </AlertDescription>
         </Alert>
     );
@@ -191,7 +191,7 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
             <Newspaper className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-xl font-semibold font-headline">Бичлэг Олдсонгүй</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-            Сонгосон (эсвэл таны зөвшөөрөгдсөн) ангилалд бичлэг байхгүй, эсвэл огт бичлэг үүсгээгүй байна.
+            No entries found in the selected (or your permitted) category, or no entries have been created yet.
             </p>
         </CardContent>
        </Card>
@@ -211,7 +211,7 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
               <TableHeader>
                 <TableRow>
                   <TableHead className="min-w-[200px]">Гарчиг</TableHead>
-                  <TableHead className="hidden md:table-cell min-w-[150px]">Ангилал</TableHead>
+                  <TableHead className="hidden md:table-cell min-w-[150px]">Category</TableHead>
                   <TableHead className="min-w-[150px]">Гол Өгөгдлийн Тойм</TableHead>
                   <TableHead className="text-center hidden sm:table-cell">Төлөв</TableHead>
                   <TableHead className="text-center hidden md:table-cell">Нийтлэгдсэн</TableHead>

@@ -55,7 +55,7 @@ export default async function EntriesPage({
 
   return (
     <>
-      <PageHeader title="Контентын Бичлэгүүд" description="Бүх ангиллын контентын бичлэгүүдийг удирдах.">
+      <PageHeader title="Контентын Бичлэгүүд" description="Manage content entries across all categories.">
         {/* Link to create new entry. The /new page will handle category restrictions for SubAdmins. */}
         <Link 
           href={`/admin/entries/new${selectedCategoryIdQuery && selectedCategoryIdQuery !== 'all' ? `?category=${selectedCategoryIdQuery}` : ''}`} 
@@ -71,12 +71,12 @@ export default async function EntriesPage({
         <Card className="mt-6 shadow-lg">
           <CardContent className="py-10 text-center">
             <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
-            <h3 className="text-xl font-semibold">Ангилал Олдсонгүй</h3>
-            <p className="text-sm text-muted-foreground mb-4">Бичлэг нэмэхийн тулд эхлээд ангилал үүсгэнэ үү. Зөвхөн Супер Админууд ангилал үүсгэж болно.</p>
+            <h3 className="text-xl font-semibold">No Categories Found</h3>
+            <p className="text-sm text-muted-foreground mb-4">To add entries, please create a category first. Only Super Admins can create categories.</p>
             {/* Assuming a way to check role on server (difficult without proper session) or hide via client: */}
             {/* For now, this button remains, and the categories/new page handles actual creation rights */}
             <Button asChild>
-              <Link href="/admin/categories/new">Ангилал Үүсгэх</Link>
+              <Link href="/admin/categories/new">Create Category</Link>
             </Button>
           </CardContent>
         </Card>

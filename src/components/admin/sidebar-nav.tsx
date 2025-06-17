@@ -41,10 +41,10 @@ interface NavItem {
 const navItems: NavItem[] = [
   { href: "/admin/dashboard", label: "Хянах самбар", icon: LayoutDashboard },
   {
-    href: "/admin/content", label: "Контент", icon: Library, 
+    href: "/admin/content", label: "Content", icon: Library, 
     subItems: [
-      { href: "/admin/categories", label: "Ангилалууд", icon: Library, roles: [UserRole.SUPER_ADMIN] }, // Only Super Admin can see Categories
-      { href: "/admin/entries", label: "Бичлэгүүд", icon: Newspaper, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
+      { href: "/admin/categories", label: "Categories", icon: Library, roles: [UserRole.SUPER_ADMIN] }, // Only Super Admin can see Categories
+      { href: "/admin/entries", label: "Entries", icon: Newspaper, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
     ]
   },
   { href: "/admin/users", label: "Хэрэглэгчийн удирдлага", icon: Users, roles: [UserRole.SUPER_ADMIN] },
@@ -73,7 +73,7 @@ export function SidebarNav() {
     if (item.hideIfSubAdmin && currentUser.role === UserRole.SUB_ADMIN) {
         return null;
     }
-    if (item.label === "Ангилалууд" && currentUser.role === UserRole.SUB_ADMIN) { // Explicitly hide Categories for SubAdmin
+    if (item.label === "Categories" && currentUser.role === UserRole.SUB_ADMIN) { // Explicitly hide Categories for SubAdmin
         return null;
     }
 
@@ -83,7 +83,7 @@ export function SidebarNav() {
     if (item.subItems && !itemIsActive) {
         itemIsActive = item.subItems.some(sub => {
             // Don't consider hidden sub-items for parent active state for SubAdmins
-            if (sub.label === "Ангилалууд" && currentUser.role === UserRole.SUB_ADMIN) return false;
+            if (sub.label === "Categories" && currentUser.role === UserRole.SUB_ADMIN) return false;
             return pathname.startsWith(sub.href);
         });
     }
@@ -95,7 +95,7 @@ export function SidebarNav() {
       const visibleSubItems = item.subItems.filter(subItem => {
         if (subItem.roles && !subItem.roles.includes(currentUser.role)) return false;
         if (subItem.hideIfSubAdmin && currentUser.role === UserRole.SUB_ADMIN) return false;
-        if (subItem.label === "Ангилалууд" && currentUser.role === UserRole.SUB_ADMIN) return false;
+        if (subItem.label === "Categories" && currentUser.role === UserRole.SUB_ADMIN) return false;
         return true;
       });
 

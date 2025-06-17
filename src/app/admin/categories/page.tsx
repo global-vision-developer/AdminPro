@@ -41,10 +41,10 @@ export default async function CategoriesPage({
 
   return (
     <TooltipProvider>
-      <PageHeader title="Контентын Ангилалууд" description="Контентын бүтэц, талбаруудаа удирдана уу.">
+      <PageHeader title="Content Categories" description="Manage your content structures and fields.">
         <Link href="/admin/categories/new" passHref>
           <Button>
-            <PlusCircle className="mr-2 h-4 w-4" /> Шинэ Ангилал Үүсгэх
+            <PlusCircle className="mr-2 h-4 w-4" /> Create New Category
           </Button>
         </Link>
       </PageHeader>
@@ -57,7 +57,7 @@ export default async function CategoriesPage({
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 name="search"
-                placeholder="Ангилал хайх..."
+                placeholder="Search categories..."
                 defaultValue={searchTerm}
                 className="pl-10"
               />
@@ -117,12 +117,12 @@ export default async function CategoriesPage({
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Link href={`/admin/categories/${category.id}/edit`} passHref>
-                                <Button variant="ghost" size="icon" aria-label="Ангилал засах">
+                                <Button variant="ghost" size="icon" aria-label="Edit category">
                                   <Edit className="h-4 w-4" />
                                 </Button>
                               </Link>
                             </TooltipTrigger>
-                            <TooltipContent>Ангилал засах</TooltipContent>
+                            <TooltipContent>Edit category</TooltipContent>
                           </Tooltip>
                           <DeleteCategoryButton categoryId={category.id} categoryName={category.name} />
                         </div>
@@ -135,14 +135,14 @@ export default async function CategoriesPage({
           ) : (
             <div className="text-center py-12">
               <Library className="mx-auto h-12 w-12 text-muted-foreground" />
-              <h3 className="mt-4 text-lg font-semibold">Ангилал олдсонгүй</h3>
+              <h3 className="mt-4 text-lg font-semibold">No categories found</h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                {searchTerm ? "Хайлтаа өөрчилж үзнэ үү." : "Шинэ ангилал үүсгэж эхэлнэ үү."}
+                {searchTerm ? "Try modifying your search." : "Get started by creating a new category."}
               </p>
               {!searchTerm && (
                 <Button asChild className="mt-4">
                   <Link href="/admin/categories/new">
-                    <PlusCircle className="mr-2 h-4 w-4" /> Ангилал Үүсгэх
+                    <PlusCircle className="mr-2 h-4 w-4" /> Create Category
                   </Link>
                 </Button>
               )}
@@ -155,5 +155,5 @@ export default async function CategoriesPage({
 }
 
 export const metadata = {
-  title: "Ангилалууд | Админ Про",
+  title: "Categories | Admin Pro",
 };

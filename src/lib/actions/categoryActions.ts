@@ -55,7 +55,7 @@ export async function addCategory(
     return { id: docRef.id };
   } catch (e: any) {
     console.error("Error adding category: ", e);
-    return { error: e.message || "Ангилал нэмэхэд алдаа гарлаа." };
+    return { error: e.message || "Error adding category." };
   }
 }
 
@@ -66,7 +66,7 @@ export async function getCategories(): Promise<Category[]> {
     return querySnapshot.docs.map((doc) => {
       const data = doc.data();
       if (!data.name || typeof data.name !== 'string') {
-        console.warn(`Ангиллын баримт бичиг (ID: ${doc.id}) хүчинтэй нэргүй байна. Алгасаж байна.`);
+        console.warn(`Category document (ID: ${doc.id}) has no valid name. Skipping.`);
         return null; 
       }
       return {
@@ -93,7 +93,7 @@ export async function getCategory(id: string): Promise<Category | null> {
     if (docSnap.exists()) {
       const data = docSnap.data();
       if (!data.name || typeof data.name !== 'string') {
-        console.error(`Ангиллын баримт бичиг (ID: ${id}) хүчинтэй нэргүй байна.`);
+        console.error(`Category document (ID: ${id}) has no valid name.`);
         return null; 
       }
       return {
@@ -144,7 +144,7 @@ export async function updateCategory(
     return { success: true };
   } catch (e: any) {
     console.error("Error updating category: ", e);
-    return { error: e.message || "Ангилал шинэчлэхэд алдаа гарлаа." };
+    return { error: e.message || "Error updating category." };
   }
 }
 
@@ -170,8 +170,8 @@ export async function deleteCategory(id: string): Promise<{ success: boolean } |
   } catch (e: any) {
     console.error("Error deleting category and its entries: ", e);
     if (e.message && e.message.includes("maximum 500 writes")) {
-        return { error: "Ангилал устгахад алдаа гарлаа: Нэг дор устгах боломжтой бичлэгийн тоо хэтэрсэн байна. Бичлэгийн тоог багасгах эсвэл дэмжлэгтэй холбогдоно уу." };
+        return { error: "Error deleting category: The number of entries to delete at once exceeds the limit. Reduce the number of entries or contact support." };
     }
-    return { error: e.message || "Ангилал болон түүнд хамаарах бичлэгүүдийг устгахад алдаа гарлаа." };
+    return { error: e.message || "Error deleting category and its associated entries." };
   }
 }

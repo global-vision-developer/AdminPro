@@ -51,7 +51,7 @@ export async function addEntry(
     return { id: docRef.id };
   } catch (e: any) {
     console.error("Error adding entry: ", e);
-    return { error: e.message || "Бичлэг нэмэхэд алдаа гарлаа." };
+    return { error: e.message || "Error adding entry." };
   }
 }
 
@@ -74,7 +74,7 @@ export async function getEntries(categoryId?: string): Promise<Entry[]> {
         return {
             id: doc.id,
             categoryId: data.categoryId,
-            categoryName: data.categoryName || "Тодорхойгүй Ангилал", // Fallback for categoryName
+            categoryName: data.categoryName || "Unknown Category", // Fallback for categoryName
             title: data.title || "", // Fallback for title
             data: data.data || {},
             status: data.status || 'draft', // Fallback for status
@@ -102,7 +102,7 @@ export async function getEntry(id: string): Promise<Entry | null> {
       return {
         id: docSnap.id,
         categoryId: data.categoryId,
-        categoryName: data.categoryName || "Тодорхойгүй Ангилал",
+        categoryName: data.categoryName || "Unknown Category",
         title: data.title || "",
         data: data.data || {},
         status: data.status || 'draft',
@@ -132,7 +132,7 @@ export async function updateEntry(
 
     const existingEntrySnap = await getDoc(docRef);
     if (!existingEntrySnap.exists()) {
-        return { error: "Шинэчлэх бичлэг олдсонгүй." };
+        return { error: "Entry to update not found." };
     }
     const categoryId = existingEntrySnap.data().categoryId;
 
@@ -175,7 +175,7 @@ export async function updateEntry(
     return { success: true };
   } catch (e: any) {
     console.error("Error updating entry: ", e);
-    return { error: e.message || "Бичлэг шинэчлэхэд алдаа гарлаа." };
+    return { error: e.message || "Error updating entry." };
   }
 }
 
@@ -197,6 +197,6 @@ export async function deleteEntry(id: string): Promise<{ success: boolean } | { 
     return { success: true };
   } catch (e: any) {
     console.error("Error deleting entry: ", e);
-    return { error: e.message || "Бичлэг устгахад алдаа гарлаа." };
+    return { error: e.message || "Error deleting entry." };
   }
 }

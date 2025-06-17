@@ -59,7 +59,7 @@ export default function NewEntryPage() {
 
       } catch (error) {
         console.error("Failed to load categories:", error);
-        toast({ title: "Алдаа", description: "Ангилалуудыг ачааллахад алдаа гарлаа.", variant: "destructive" });
+        toast({ title: "Алдаа", description: "Failed to load categories.", variant: "destructive" });
         setAllCategories([]);
         setSelectableCategories([]);
         setSelectedCategoryId(undefined);
@@ -131,13 +131,13 @@ export default function NewEntryPage() {
         <Card className="mt-6">
           <CardContent className="py-10 text-center">
              <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
-            <h3 className="text-xl font-semibold mb-2">Ангилал Байхгүй</h3>
+            <h3 className="text-xl font-semibold mb-2">No Categories Available</h3>
             <p className="text-muted-foreground mb-4">
-              Бичлэг нэмэхийн тулд эхлээд ангилал үүсгэх шаардлагатай. Энэ үйлдлийг зөвхөн Супер Админ хийх боломжтой.
+              To add an entry, a category must be created first. This action can only be performed by a Super Admin.
             </p>
             {currentUser.role === UserRole.SUPER_ADMIN && (
                 <Button asChild>
-                <Link href="/admin/categories/new">Ангилал Үүсгэх</Link>
+                <Link href="/admin/categories/new">Create Category</Link>
                 </Button>
             )}
           </CardContent>
@@ -153,10 +153,10 @@ export default function NewEntryPage() {
         <PageHeader title="Шинэ Бичлэг Үүсгэх" />
         <Alert variant="default" className="mt-6 border-primary/50">
             <Info className="h-5 w-5 text-primary" />
-            <AlertTitle className="font-semibold text-primary">Оноогдсон Ангилал Байхгүй</AlertTitle>
+            <AlertTitle className="font-semibold text-primary">No Assigned Categories</AlertTitle>
             <AlertDescription>
-                Танд одоогоор бичлэг удирдах ангилал оноогоогүй байна. 
-                Супер Админтай холбогдож дансандаа ангилал оноолгоно уу.
+                You are currently not assigned any categories to manage entries. 
+                Please contact a Super Admin to assign categories to your account.
             </AlertDescription>
         </Alert>
       </>
@@ -168,16 +168,16 @@ export default function NewEntryPage() {
     <>
       <PageHeader
         title="Шинэ Бичлэг Үүсгэх"
-        description={selectedCategory ? `Ангилал: ${selectedCategory.name}` : "Эхлэхийн тулд ангилал сонгоно уу."}
+        description={selectedCategory ? `Category: ${selectedCategory.name}` : "Select a category to get started."}
       />
       
       <div className="mb-6 max-w-md"> 
         <label htmlFor="category-select" className="block text-sm font-medium text-foreground mb-1">
-          Сонгосон Ангилал <span className="text-destructive">*</span>
+          Selected Category <span className="text-destructive">*</span>
         </label>
         <Select value={selectedCategoryId || ""} onValueChange={handleCategoryChange} required>
           <SelectTrigger id="category-select" className="w-full">
-            <SelectValue placeholder="Ангилал сонгоно уу..." />
+            <SelectValue placeholder="Select a category..." />
           </SelectTrigger>
           <SelectContent>
             {selectableCategories.map(cat => (
@@ -190,7 +190,7 @@ export default function NewEntryPage() {
           </SelectContent>
         </Select>
         {!selectedCategoryId && selectableCategories.length > 0 && (
-             <p className="text-sm text-destructive mt-1">Ангилал сонгоно уу.</p>
+             <p className="text-sm text-destructive mt-1">Please select a category.</p>
         )}
       </div>
 
@@ -205,7 +205,7 @@ export default function NewEntryPage() {
         selectableCategories.length > 0 && ( 
             <Card className="mt-6">
             <CardContent className="py-10 text-center">
-                <p className="text-muted-foreground">Бичлэг үүсгэж эхлэхийн тулд дээрээс хүчинтэй ангилал сонгоно уу.</p>
+                <p className="text-muted-foreground">Please select a valid category above to start creating an entry.</p>
             </CardContent>
             </Card>
         )

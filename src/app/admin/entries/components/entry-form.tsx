@@ -217,7 +217,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
 
   const handleGetSuggestions = async () => {
     if (!selectedCategory) {
-      setAiError("Ангилал сонгогдоогүй байна.");
+      setAiError("Category not selected.");
       return;
     }
     const formDataValues = form.getValues(); 
@@ -345,7 +345,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
               <CardHeader>
                 <CardTitle className="font-headline">Бичлэгийн Дэлгэрэнгүй</CardTitle>
                 <UiCardDescription>
-                  Ангиллын контент: <span className="font-semibold text-primary">{selectedCategory.name}</span>
+                  Category content: <span className="font-semibold text-primary">{selectedCategory.name}</span>
                 </UiCardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -723,7 +723,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
             ) : (
               <Save className="mr-2 h-4 w-4" />
             )}
-            {initialData ? 'Өөрчлөлтийг Хадгалах' : 'Бичлэг Үүсгэх'}
+            {initialData ? 'Өөрчлөлтийг Хадгалах' : 'Create Entry'}
           </Button>
         </div>
       </form>

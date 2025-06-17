@@ -23,13 +23,13 @@ export function DeleteCategoryButton({ categoryId, categoryName }: DeleteCategor
     const result = await deleteCategory(categoryId);
     if (result.success) {
       toast({
-        title: "Ангилал Устгагдлаа",
-        description: `"${categoryName}" ангилал болон түүнд хамаарах бүх бичлэгүүд амжилттай устгагдлаа.`,
+        title: "Category Deleted",
+        description: `Category "${categoryName}" and all its associated entries have been successfully deleted.`,
       });
       // No need to call router.refresh() due to revalidatePath in action
     } else if (result.error) {
       toast({
-        title: "Ангилал Устгахад Алдаа Гарлаа",
+        title: "Error Deleting Category",
         description: result.error,
         variant: "destructive",
       });
@@ -41,18 +41,18 @@ export function DeleteCategoryButton({ categoryId, categoryName }: DeleteCategor
       <AlertDialogTrigger asChild>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/90" aria-label="Ангилал устгах">
+            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/90" aria-label="Delete category">
               <Trash2 className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Ангилал устгах</TooltipContent>
+          <TooltipContent>Delete category</TooltipContent>
         </Tooltip>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
           <AlertDialogDescription>
-            Энэ үйлдлийг буцаах боломжгүй. Энэ нь "{categoryName}" ангиллыг болон түүнд хамаарах бүх бичлэгүүдийг бүрмөсөн устгах болно.
+            Энэ үйлдлийг буцаах боломжгүй. This will permanently delete the "{categoryName}" category and all its associated entries.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

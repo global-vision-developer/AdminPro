@@ -64,7 +64,7 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
         setAllCategories(cats);
       } catch (error) {
         console.error("Failed to fetch categories for UserForm:", error);
-        toast({ title: "Алдаа", description: "Сонголтод зориулсан ангилалуудыг ачааллахад алдаа гарлаа.", variant: "destructive" });
+        toast({ title: "Алдаа", description: "Failed to load categories for selection.", variant: "destructive" });
         setAllCategories([]);
       } finally {
         setLoadingCategories(false);
@@ -178,13 +178,13 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
                   <FormItem>
                     <FormLabel className="flex items-center">
                       <ListChecks className="mr-2 h-5 w-5 text-primary" />
-                      Sub Admin-д Зөвшөөрөгдсөн Ангилалууд
+                      Allowed Categories for Sub Admin
                     </FormLabel>
-                    <FormDescription>Энэ Sub Admin-ийн удирдаж болох бичлэгийн ангилалуудыг сонгоно уу.</FormDescription>
+                    <FormDescription>Select the entry categories this Sub Admin can manage.</FormDescription>
                     {loadingCategories ? (
-                      <p>Ангилалуудыг ачааллаж байна...</p>
+                      <p>Loading categories...</p>
                     ) : allCategories.length === 0 ? (
-                      <p className="text-muted-foreground">Оноох ангилал байхгүй. Эхлээд ангилал үүсгэнэ үү.</p>
+                      <p className="text-muted-foreground">No categories available to assign. Please create categories first.</p>
                     ) : (
                       <ScrollArea className="h-48 rounded-md border p-3">
                         <div className="space-y-2">

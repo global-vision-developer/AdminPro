@@ -162,10 +162,10 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
 
   const handleFormSubmit = async (data: CategoryFormValues) => {
     if (data.name.trim() === "") {
-        form.setError("name", { type: "manual", message: "Ангиллын нэр хоосон байж болохгүй." });
+        form.setError("name", { type: "manual", message: "Category name cannot be empty." });
         toast({
             title: "Validation Error",
-            description: "Ангиллын нэр шаардлагатай бөгөөд хоосон байж болохгүй.",
+            description: "Category name is required and cannot be empty.",
             variant: "destructive",
         });
         return;
@@ -195,7 +195,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
     } else if (result && (("id" in result && result.id) || ("success" in result && result.success))) {
        toast({
         title: "Амжилттай",
-        description: `Ангилал ${initialData ? "шинэчлэгдлээ" : "үүслээ"}.`,
+        description: `Category ${initialData ? "updated" : "created"}.`,
       });
       if (onFormSuccess) onFormSuccess();
       form.reset(initialData ? { 
@@ -244,8 +244,8 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
         <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-8">
           <Card>
             <CardHeader>
-              <CardTitle className="font-headline">Ангиллын Дэлгэрэнгүй</CardTitle>
-              <UiCardDescription>Энэ ангиллын нэр, слаг, тайлбарыг тодорхойлно уу.</UiCardDescription>
+              <CardTitle className="font-headline">Category Details</CardTitle>
+              <UiCardDescription>Define the name, slug, and description for this category.</UiCardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <FormField
@@ -253,9 +253,9 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Ангиллын нэр</FormLabel>
+                    <FormLabel>Category Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="Жишээ нь: Мэдээ, Бүтээгдэхүүн" {...field} onChange={handleNameChange} />
+                      <Input placeholder="e.g., Blog Posts, Products" {...field} onChange={handleNameChange} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -268,7 +268,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                   <FormItem>
                     <FormLabel>Слаг (URL танигч)</FormLabel>
                     <FormControl>
-                      <Input placeholder="Жишээ нь: medee, buteegdehuun-info" {...field} />
+                      <Input placeholder="e.g., blog-posts, product-info" {...field} />
                     </FormControl>
                     <FormDescription>Өвөрмөц, жижиг үсгээр, зөвхөн үсэг, тоо, зураас агуулсан байна.</FormDescription>
                     <FormMessage />
@@ -282,7 +282,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                   <FormItem>
                     <FormLabel>Тайлбар (Заавал биш)</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="Энэ ангилал юунд зориулагдсан талаар товч тайлбар." {...field} />
+                      <Textarea placeholder="A brief description of what this category is for." {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -293,16 +293,16 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                 name="coverImageUrl"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Ангиллын нүүр зураг</FormLabel>
+                    <FormLabel>Category Cover Image</FormLabel>
                     <FormControl>
                        <ImageUploader
                         initialImageUrl={field.value}
                         onUploadComplete={(url) => field.onChange(url)}
                         storagePath="category-covers"
-                        label="Ангиллын нүүр зураг"
+                        label="Category Cover Image"
                       />
                     </FormControl>
-                    <FormDescription>Энэ ангилалд зориулж нүүр зураг байршуулна уу.</FormDescription>
+                    <FormDescription>Upload a cover image for this category.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -362,7 +362,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
               ) : (
                 <Save className="mr-2 h-4 w-4" />
               )}
-              {initialData ? 'Өөрчлөлтийг Хадгалах' : 'Ангилал Үүсгэх'}
+              {initialData ? 'Өөрчлөлтийг Хадгалах' : 'Create Category'}
             </Button>
           </div>
         </form>
@@ -490,7 +490,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                   <Button type="button" variant="outline">Цуцлах</Button>
                 </DialogClose>
                 <Button type="submit">
-                  {editingFieldIndex !== null ? "Талбарт Өөрчлөлт Хадгалах" : "Ангилалд Талбар Нэмэх"}
+                  {editingFieldIndex !== null ? "Талбарт Өөрчлөлт Хадгалах" : "Add Field to Category"}
                 </Button>
               </DialogFooter>
             </form>

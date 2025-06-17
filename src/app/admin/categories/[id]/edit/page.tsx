@@ -30,14 +30,14 @@ export default function EditCategoryPage() {
             setCategory(fetchedCategory);
           } else {
             // toast({ title: "Error", description: "Category not found.", variant: "destructive" });
-            alert("Ангилал олдсонгүй. Жагсаалт руу буцаж байна..."); // Simple alert for now
+            alert("Category not found. Returning to list..."); // Simple alert for now
             router.push('/admin/categories');
           }
         })
         .catch(err => {
           console.error("Failed to fetch category:", err);
           // toast({ title: "Error", description: "Failed to load category data.", variant: "destructive" });
-          alert("Ангиллын мэдээлэл татахад алдаа гарлаа. Жагсаалт руу буцаж байна...");
+          alert("Failed to load category data. Returning to list...");
           router.push('/admin/categories');
         })
         .finally(() => setIsLoading(false));
@@ -45,7 +45,7 @@ export default function EditCategoryPage() {
   }, [categoryId, router]);
 
   const handleSubmit = async (data: CategoryFormValues) => {
-    if (!category) return { error: "Ангиллын мэдээлэл ачаалагдаагүй байна." };
+    if (!category) return { error: "Category data not loaded." };
     setIsSubmitting(true);
     // Only pass fields that can be updated, id is from URL param.
     // Timestamps are handled by the server action.
@@ -67,7 +67,7 @@ export default function EditCategoryPage() {
   if (isLoading) {
     return (
       <>
-        <PageHeader title="Ангилал Засах" />
+        <PageHeader title="Edit Category" />
         <div className="space-y-4 p-4">
           <Skeleton className="h-10 w-1/2" />
           <Skeleton className="h-8 w-1/3" />
@@ -86,14 +86,14 @@ export default function EditCategoryPage() {
   }
 
   if (!category) {
-    return <PageHeader title="Ангилал Олдсонгүй" description="Энэ ангиллыг ачаалах боломжгүй эсвэл байхгүй байна." />;
+    return <PageHeader title="Category Not Found" description="This category could not be loaded or does not exist." />;
   }
 
   return (
     <>
       <PageHeader
-        title={`Ангилал Засах: ${category.name}`}
-        description="Энэ ангиллын бүтэц, дэлгэрэнгүй мэдээллийг өөрчлөх."
+        title={`Edit Category: ${category.name}`}
+        description="Modify the structure and details of this category."
       />
       <CategoryForm 
         initialData={category} 

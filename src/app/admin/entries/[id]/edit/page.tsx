@@ -61,7 +61,7 @@ export default function EditEntryPage() {
               setAccessDenied(true);
               setEntry(null);
               setCategories([]);
-              toast({ title: "Хандах Эрхгүй", description: "Та энэ бичлэгийг засах эрхгүй байна.", variant: "destructive" });
+              toast({ title: "Хандах Эрхгүй", description: "You do not have permission to edit this entry.", variant: "destructive" });
               setIsLoading(false); // Explicitly set loading false here for early exit
               return;
             }
@@ -83,7 +83,7 @@ export default function EditEntryPage() {
 
     loadData();
 
-  }, [entryId, currentUser, router, toast]); // isLoading removed from dependencies
+  }, [entryId, currentUser, router, toast]); 
 
   const selectedCategory = useMemo(() => {
     if (!entry || categories.length === 0) return undefined;
@@ -144,7 +144,7 @@ export default function EditEntryPage() {
   if (!entry || !selectedCategory) {
     return (
         <>
-         <PageHeader title="Бичлэг Ачаалахад Алдаа Гарлаа" description="Бичлэг эсвэл түүний ангиллыг ачаалах боломжгүй байна." />
+         <PageHeader title="Бичлэг Ачаалахад Алдаа Гарлаа" description="Entry or its category could not be loaded." />
          <p className="mt-4 p-4">
             Бичлэг байгаа эсэх болон түүний ангилалд хандах эрхтэй эсэхээ шалгана уу.
             Хэрэв асуудал хэвээр байвал дахин ачааллах эсвэл дэлгэрэнгүй мэдээллийг консолоос шалгана уу.
@@ -158,7 +158,7 @@ export default function EditEntryPage() {
     <>
       <PageHeader
         title={`Бичлэг Засах: ${entry.title || 'Гарчиггүй'}`}
-        description={`Ангиллын контент өөрчилж байна: ${selectedCategory.name}`}
+        description={`Editing content for category: ${selectedCategory.name}`}
       />
       <EntryForm
         key={entry.categoryId}
