@@ -270,7 +270,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                     <FormControl>
                       <Input placeholder="e.g., blog-posts, product-info" {...field} />
                     </FormControl>
-                    <FormDescription>Unique, lowercase, only letters, numbers, and hyphens.</FormDescription>
+                    <FormDescription>Давтагдашгүй, жижиг үсгээр, зөвхөн үсэг, тоо, зураас (-) агуулна.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
