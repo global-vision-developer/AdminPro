@@ -282,7 +282,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                   <FormItem>
                     <FormLabel>Тайлбар (Сонголтоор)</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="A brief description of what this category is for." {...field} />
+                      <Textarea placeholder="Энэ нь ангиллын зориулалтыг товч тайлбарлана." {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
