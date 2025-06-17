@@ -115,7 +115,7 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Full Name</FormLabel> 
+                  <FormLabel>Овог Нэр</FormLabel> 
                   <FormControl>
                     <Input placeholder="John Doe" {...field} />
                   </FormControl>
@@ -128,7 +128,7 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email Address</FormLabel> 
+                  <FormLabel>Имейл Хаяг</FormLabel> 
                   <FormControl>
                     <Input type="email" placeholder="user@example.com" {...field} disabled={isEditing} />
                   </FormControl>
