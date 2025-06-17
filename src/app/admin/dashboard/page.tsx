@@ -52,7 +52,7 @@ export default function DashboardPage() {
       </div>
       <Card className="mt-8">
         <CardHeader>
-          <CardTitle className="font-headline">Quick Actions</CardTitle>
+          <CardTitle className="font-headline">Командын цэс</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-4">
           {currentUser.role === UserRole.SUPER_ADMIN || currentUser.role === UserRole.SUB_ADMIN ? (
