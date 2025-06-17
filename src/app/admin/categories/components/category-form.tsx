@@ -245,7 +245,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
           <Card>
             <CardHeader>
               <CardTitle className="font-headline">Ангиллын дэлгэрэнгүй</CardTitle>
-              <UiCardDescription>Энэ ангиллын нэр, товчлол, тайлбарыг тодорхойлно уу.</UiCardDescription>
+              <UiCardDescription>Энэ ангиллын нэр, slug, тайлбарыг үүсгэнэ үү.</UiCardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <FormField
@@ -500,3 +500,5 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
     </>
   );
 }
+
+    
