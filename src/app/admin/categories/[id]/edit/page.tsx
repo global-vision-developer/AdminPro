@@ -13,7 +13,8 @@ import { Card, CardHeader, CardContent } from '@/components/ui/card'; // Added i
 
 export default function EditCategoryPage() {
   const router = useRouter();
-  const params = useParams();
+  const rawParams = useParams();
+  const params = { ...rawParams }; // Ensure params is a plain object by spreading
   const categoryId = params.id as string;
   
   // const { toast } = useToast(); // Handled by CategoryForm
@@ -104,3 +105,5 @@ export default function EditCategoryPage() {
     </>
   );
 }
+
+    
