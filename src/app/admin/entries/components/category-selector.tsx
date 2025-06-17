@@ -77,7 +77,7 @@ export function CategorySelector({ allCategories, selectedCategoryIdForUrl }: Ca
           <SelectValue placeholder="Select a category..." />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Categories</SelectItem>
+          <SelectItem value="all">Ангилал</SelectItem>
           {displayCategories.map((category) => (
             <SelectItem key={category.id} value={category.id}>
               {category.name}
