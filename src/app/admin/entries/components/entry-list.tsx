@@ -213,7 +213,7 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
                   <TableHead className="min-w-[200px]">Title</TableHead> 
                   <TableHead className="hidden md:table-cell min-w-[150px]">Category</TableHead>
                   <TableHead className="min-w-[150px]">Үндсэн дата тойм</TableHead> 
-                  <TableHead className="text-center hidden sm:table-cell">Status</TableHead> 
+                  <TableHead className="text-center hidden sm:table-cell">Төлөв</TableHead> 
                   <TableHead className="text-center hidden md:table-cell">Published</TableHead> 
                   <TableHead className="text-right w-[120px]">Actions</TableHead> 
                 </TableRow>
