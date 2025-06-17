@@ -203,7 +203,7 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
       <Card className="mt-6 shadow-lg">
         <CardHeader>
           <CardTitle className="font-headline text-xl">Entry List</CardTitle> 
-          <CardDescription>View, edit, or delete existing entries.</CardDescription> 
+          <CardDescription>бүртгэлийг үзэх, засах, устгах</CardDescription> 
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
