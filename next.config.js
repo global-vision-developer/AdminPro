@@ -74,7 +74,13 @@ const nextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'ik.imgkit.net', // Added this new hostname
+        hostname: 'ik.imgkit.net',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'img03.71360.com', // Added this new hostname
         port: '',
         pathname: '/**',
       }
