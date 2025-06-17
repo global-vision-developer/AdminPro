@@ -64,7 +64,7 @@ export function UserNav() {
         <DropdownMenuGroup>
           <DropdownMenuItem disabled>
             <UserCircle className="mr-2 h-4 w-4" />
-            <span>Profile</span>
+            <span>Профайл</span>
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
