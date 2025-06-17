@@ -61,7 +61,13 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'ae01.alicdn.com', // Added this new hostname
+        hostname: 'ae01.alicdn.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'encrypted-tbn0.gstatic.com', // Added this new hostname
         port: '',
         pathname: '/**',
       }
