@@ -303,7 +303,7 @@ export default function UsersPage() {
                                       <Trash2 className="h-4 w-4" />
                                     </Button>
                                   </TooltipTrigger>
-                                  <TooltipContent>Delete Admin User (Firestore Record)</TooltipContent> 
+                                  <TooltipContent>Админ хэрэглэгч устгах (Firestore рекорд)</TooltipContent> 
                                 </Tooltip>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
@@ -361,6 +361,7 @@ export default function UsersPage() {
     </TooltipProvider>
   );
 }
+
 
 
 
