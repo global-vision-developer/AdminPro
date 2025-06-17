@@ -26,12 +26,7 @@ async function getCurrentAdminUser(): Promise<UserProfile | null> {
   // For client-side Firebase Auth, this direct access is not available on server.
   // We'll try to fetch based on an assumed UID (placeholder).
   // A proper solution needs actual session management.
-  // For now, we'll assume we can get the current user from somewhere or pass it.
-
-  // This function cannot directly use client-side `useAuth()` hook.
-  // A more robust way to get the current user on the server is needed for production (e.g., NextAuth.js or server-side session).
-  // For this prototype, we will rely on client-side filtering in components if this proves too complex.
-  // Let's simulate that we don't have user details here to force client-side logic for permission checks.
+  // For now, we'll assume we don't have user details here to force client-side logic for permission checks.
   return null; 
 }
 
@@ -60,14 +55,14 @@ export default async function EntriesPage({
 
   return (
     <>
-      <PageHeader title="Content Entries" description="Manage all your content entries across categories.">
+      <PageHeader title="Контентын Бичлэгүүд" description="Бүх ангиллын контентын бичлэгүүдийг удирдах.">
         {/* Link to create new entry. The /new page will handle category restrictions for SubAdmins. */}
         <Link 
           href={`/admin/entries/new${selectedCategoryIdQuery && selectedCategoryIdQuery !== 'all' ? `?category=${selectedCategoryIdQuery}` : ''}`} 
           passHref
         >
           <Button>
-            <PlusCircle className="mr-2 h-4 w-4" /> Create New Entry
+            <PlusCircle className="mr-2 h-4 w-4" /> Шинэ Бичлэг Үүсгэх
           </Button>
         </Link>
       </PageHeader>
@@ -76,12 +71,12 @@ export default async function EntriesPage({
         <Card className="mt-6 shadow-lg">
           <CardContent className="py-10 text-center">
             <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
-            <h3 className="text-xl font-semibold">No Categories Found</h3>
-            <p className="text-sm text-muted-foreground mb-4">Please create a category first to add entries. Only Super Admins can create categories.</p>
+            <h3 className="text-xl font-semibold">Ангилал Олдсонгүй</h3>
+            <p className="text-sm text-muted-foreground mb-4">Бичлэг нэмэхийн тулд эхлээд ангилал үүсгэнэ үү. Зөвхөн Супер Админууд ангилал үүсгэж болно.</p>
             {/* Assuming a way to check role on server (difficult without proper session) or hide via client: */}
             {/* For now, this button remains, and the categories/new page handles actual creation rights */}
             <Button asChild>
-              <Link href="/admin/categories/new">Create Category</Link>
+              <Link href="/admin/categories/new">Ангилал Үүсгэх</Link>
             </Button>
           </CardContent>
         </Card>
@@ -105,5 +100,5 @@ export default async function EntriesPage({
 }
 
 export const metadata = {
-  title: "Entries | Админ Про",
+  title: "Бичлэгүүд | Админ Про",
 };

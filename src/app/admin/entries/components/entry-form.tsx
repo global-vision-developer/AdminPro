@@ -217,7 +217,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
 
   const handleGetSuggestions = async () => {
     if (!selectedCategory) {
-      setAiError("Please ensure a category is selected.");
+      setAiError("Ангилал сонгогдоогүй байна.");
       return;
     }
     const formDataValues = form.getValues(); 
@@ -235,7 +235,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
     }
 
     if (!entryContent.trim()) {
-      setAiError("Please provide some content (title or other fields).");
+      setAiError("Контент оруулна уу (гарчиг эсвэл бусад талбар).");
       return;
     }
 
@@ -247,7 +247,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
       setAiSuggestions(result.suggestions);
     } catch (error) {
       console.error("AI suggestion error:", error);
-      setAiError("Failed to get suggestions. Please try again.");
+      setAiError("Зөвлөмж авахад алдаа гарлаа. Дахин оролдоно уу.");
     }
     setIsSuggesting(false);
   };
@@ -318,7 +318,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
     setIsSubmitting(false);
 
     if (result && "id" in result && result.id) {
-        toast({ title: "Success", description: `Entry ${initialData ? 'updated' : 'created'} successfully.`});
+        toast({ title: "Амжилттай", description: `Бичлэг ${initialData ? 'шинэчлэгдлээ' : 'үүслээ'}.`});
         if (onSubmitSuccess) onSubmitSuccess();
         else router.push(`/admin/entries?category=${selectedCategory.id}`);
         
@@ -327,7 +327,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         }
 
     } else if (result && "error" in result && result.error) {
-        toast({ title: "Error", description: result.error, variant: "destructive" });
+        toast({ title: "Алдаа", description: result.error, variant: "destructive" });
     }
   };
 
@@ -343,9 +343,9 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
           <div className="lg:col-span-2 space-y-8">
             <Card>
               <CardHeader>
-                <CardTitle className="font-headline">Entry Details</CardTitle>
+                <CardTitle className="font-headline">Бичлэгийн Дэлгэрэнгүй</CardTitle>
                 <UiCardDescription>
-                  Content for category: <span className="font-semibold text-primary">{selectedCategory.name}</span>
+                  Ангиллын контент: <span className="font-semibold text-primary">{selectedCategory.name}</span>
                 </UiCardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -354,11 +354,11 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                     name="title"
                     render={({ field }) => (
                         <FormItem>
-                        <FormLabel>Entry Title</FormLabel>
+                        <FormLabel>Бичлэгийн гарчиг</FormLabel>
                         <FormControl>
-                            <Input placeholder="Enter a representative title for this entry" {...field} />
+                            <Input placeholder="Энэ бичлэгийг төлөөлөх гарчиг оруулна уу" {...field} />
                         </FormControl>
-                        <FormDescription>This title is used for lists and overviews.</FormDescription>
+                        <FormDescription>Энэ гарчиг жагсаалт болон тоймд ашиглагдана.</FormDescription>
                         <FormMessage />
                         </FormItem>
                     )}
@@ -423,7 +423,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                                   name={`data.${catField.key}.${index}.description` as const}
                                   render={({ field: galleryItemField }) => (
                                     <FormItem>
-                                      <FormLabel className="text-xs">Тайлбар (Optional)</FormLabel>
+                                      <FormLabel className="text-xs">Тайлбар (Заавал биш)</FormLabel>
                                       <FormControl>
                                         <Textarea placeholder="Зургийн тайлбар" {...galleryItemField} rows={2} />
                                       </FormControl>
@@ -586,25 +586,25 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
              {selectedCategory && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="font-headline flex items-center"><Wand2 className="mr-2 h-5 w-5 text-primary"/>AI Content Suggestions</CardTitle>
-                  <UiCardDescription>Get AI-powered suggestions to enhance your entry content.</UiCardDescription>
+                  <CardTitle className="font-headline flex items-center"><Wand2 className="mr-2 h-5 w-5 text-primary"/>AI Контент Зөвлөмж</CardTitle>
+                  <UiCardDescription>Бичлэгийнхээ контентыг сайжруулахын тулд AI-д суурилсан зөвлөмж авна уу.</UiCardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <Button type="button" variant="outline" onClick={handleGetSuggestions} disabled={isSuggesting || !selectedCategory}>
                     {isSuggesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                    Get Suggestions
+                    Зөвлөмж Авах
                   </Button>
                   {aiError && (
                     <Alert variant="destructive">
                       <AlertTriangle className="h-4 w-4" />
-                      <AlertTitle>Error</AlertTitle>
+                      <AlertTitle>Алдаа</AlertTitle>
                       <AlertDescription>{aiError}</AlertDescription>
                     </Alert>
                   )}
                   {aiSuggestions.length > 0 && (
                     <Alert variant="default" className="border-primary/50">
                       <Info className="h-4 w-4 text-primary" />
-                      <AlertTitle className="text-primary">Suggestions Received</AlertTitle>
+                      <AlertTitle className="text-primary">Зөвлөмж Хүлээн Авсан</AlertTitle>
                       <AlertDescription>
                         <ScrollArea className="h-40 mt-2">
                           <ul className="list-disc pl-5 space-y-1 text-sm">
@@ -622,7 +622,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
           <div className="lg:col-span-1 space-y-8">
             <Card>
               <CardHeader>
-                <CardTitle className="font-headline">Publishing</CardTitle>
+                <CardTitle className="font-headline">Нийтлэх</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
                 <FormField
@@ -630,17 +630,17 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                   name="status"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Status</FormLabel>
+                      <FormLabel>Төлөв</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select status" />
+                            <SelectValue placeholder="Төлөв сонгоно уу" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="draft">Draft</SelectItem>
-                          <SelectItem value="published">Published</SelectItem>
-                          <SelectItem value="scheduled">Scheduled</SelectItem>
+                          <SelectItem value="draft">Ноорог</SelectItem>
+                          <SelectItem value="published">Нийтлэгдсэн</SelectItem>
+                          <SelectItem value="scheduled">Хуваарьт</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -653,7 +653,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                     name="publishAt"
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
-                        <FormLabel>Publish Date & Time</FormLabel>
+                        <FormLabel>Нийтлэх Огноо & Цаг</FormLabel>
                         <Popover>
                           <PopoverTrigger asChild>
                             <FormControl>
@@ -667,7 +667,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                                 {field.value ? (
                                   format(field.value, "PPP HH:mm")
                                 ) : (
-                                  <span>Pick a date and time</span>
+                                  <span>Огноо, цаг сонгоно уу</span>
                                 )}
                                 <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                               </Button>
@@ -716,14 +716,14 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         </div>
 
         <div className="flex justify-end space-x-2 pt-8 border-t mt-8">
-          <Button type="button" variant="outline" disabled={isSubmitting} onClick={handleCancel}>Cancel</Button>
+          <Button type="button" variant="outline" disabled={isSubmitting} onClick={handleCancel}>Цуцлах</Button>
           <Button type="submit" disabled={isSubmitting || !selectedCategory || !selectedCategory.fields?.length}>
             {isSubmitting ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
               <Save className="mr-2 h-4 w-4" />
             )}
-            {initialData ? 'Save Changes' : 'Create Entry'}
+            {initialData ? 'Өөрчлөлтийг Хадгалах' : 'Бичлэг Үүсгэх'}
           </Button>
         </div>
       </form>

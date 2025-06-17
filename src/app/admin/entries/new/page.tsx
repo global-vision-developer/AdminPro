@@ -59,7 +59,7 @@ export default function NewEntryPage() {
 
       } catch (error) {
         console.error("Failed to load categories:", error);
-        toast({ title: "Error", description: "Could not load categories.", variant: "destructive" });
+        toast({ title: "Алдаа", description: "Ангилалуудыг ачааллахад алдаа гарлаа.", variant: "destructive" });
         setAllCategories([]);
         setSelectableCategories([]);
         setSelectedCategoryId(undefined);
@@ -104,7 +104,7 @@ export default function NewEntryPage() {
   if (isLoading) {
     return (
       <>
-        <PageHeader title="Create New Entry" />
+        <PageHeader title="Шинэ Бичлэг Үүсгэх" />
         <div className="space-y-4 p-4">
           <Skeleton className="h-10 w-full sm:w-1/3 mb-4" /> 
           <Skeleton className="h-10 w-full" /> 
@@ -119,7 +119,7 @@ export default function NewEntryPage() {
   if (!currentUser) { // If currentUser is still null after loading (e.g. redirecting)
     return (
         <div className="p-4">
-            <p>Authenticating user...</p>
+            <p>Хэрэглэгчийн нэвтрэлтийг шалгаж байна...</p>
         </div>
     );
   }
@@ -127,17 +127,17 @@ export default function NewEntryPage() {
   if (allCategories.length === 0) { // No categories exist in the system at all
     return (
       <>
-        <PageHeader title="Create New Entry" />
+        <PageHeader title="Шинэ Бичлэг Үүсгэх" />
         <Card className="mt-6">
           <CardContent className="py-10 text-center">
              <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
-            <h3 className="text-xl font-semibold mb-2">No Categories Available</h3>
+            <h3 className="text-xl font-semibold mb-2">Ангилал Байхгүй</h3>
             <p className="text-muted-foreground mb-4">
-              You must create a category before you can add an entry. This action is available to Super Admins.
+              Бичлэг нэмэхийн тулд эхлээд ангилал үүсгэх шаардлагатай. Энэ үйлдлийг зөвхөн Супер Админ хийх боломжтой.
             </p>
             {currentUser.role === UserRole.SUPER_ADMIN && (
                 <Button asChild>
-                <Link href="/admin/categories/new">Create a Category</Link>
+                <Link href="/admin/categories/new">Ангилал Үүсгэх</Link>
                 </Button>
             )}
           </CardContent>
@@ -150,13 +150,13 @@ export default function NewEntryPage() {
   if (currentUser.role === UserRole.SUB_ADMIN && selectableCategories.length === 0) {
     return (
       <>
-        <PageHeader title="Create New Entry" />
+        <PageHeader title="Шинэ Бичлэг Үүсгэх" />
         <Alert variant="default" className="mt-6 border-primary/50">
             <Info className="h-5 w-5 text-primary" />
-            <AlertTitle className="font-semibold text-primary">No Assigned Categories</AlertTitle>
+            <AlertTitle className="font-semibold text-primary">Оноогдсон Ангилал Байхгүй</AlertTitle>
             <AlertDescription>
-                You currently do not have any categories assigned to manage entries. 
-                Please contact a Super Admin to assign categories to your account.
+                Танд одоогоор бичлэг удирдах ангилал оноогоогүй байна. 
+                Супер Админтай холбогдож дансандаа ангилал оноолгоно уу.
             </AlertDescription>
         </Alert>
       </>
@@ -167,17 +167,17 @@ export default function NewEntryPage() {
   return (
     <>
       <PageHeader
-        title="Create New Entry"
-        description={selectedCategory ? `For category: ${selectedCategory.name}` : "Select a category to begin."}
+        title="Шинэ Бичлэг Үүсгэх"
+        description={selectedCategory ? `Ангилал: ${selectedCategory.name}` : "Эхлэхийн тулд ангилал сонгоно уу."}
       />
       
       <div className="mb-6 max-w-md"> 
         <label htmlFor="category-select" className="block text-sm font-medium text-foreground mb-1">
-          Selected Category <span className="text-destructive">*</span>
+          Сонгосон Ангилал <span className="text-destructive">*</span>
         </label>
         <Select value={selectedCategoryId || ""} onValueChange={handleCategoryChange} required>
           <SelectTrigger id="category-select" className="w-full">
-            <SelectValue placeholder="Select a category..." />
+            <SelectValue placeholder="Ангилал сонгоно уу..." />
           </SelectTrigger>
           <SelectContent>
             {selectableCategories.map(cat => (
@@ -190,7 +190,7 @@ export default function NewEntryPage() {
           </SelectContent>
         </Select>
         {!selectedCategoryId && selectableCategories.length > 0 && (
-             <p className="text-sm text-destructive mt-1">Please select a category.</p>
+             <p className="text-sm text-destructive mt-1">Ангилал сонгоно уу.</p>
         )}
       </div>
 
@@ -205,7 +205,7 @@ export default function NewEntryPage() {
         selectableCategories.length > 0 && ( 
             <Card className="mt-6">
             <CardContent className="py-10 text-center">
-                <p className="text-muted-foreground">Please select a valid category above to start creating an entry.</p>
+                <p className="text-muted-foreground">Бичлэг үүсгэж эхлэхийн тулд дээрээс хүчинтэй ангилал сонгоно уу.</p>
             </CardContent>
             </Card>
         )

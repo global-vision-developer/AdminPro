@@ -13,9 +13,9 @@ export default function DashboardPage() {
   const { currentUser } = useAuth();
 
   const summaryCards = [
-    { title: "Total Categories", value: "5", icon: Library, href: "/admin/categories", roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
-    { title: "Total Entries", value: "27", icon: Newspaper, href: "/admin/entries", roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
-    { title: "Registered Users", value: "3", icon: Users, href: "/admin/users", roles: [UserRole.SUPER_ADMIN] },
+    { title: "Нийт Ангилалууд", value: "5", icon: Library, href: "/admin/categories", roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
+    { title: "Нийт Бичлэгүүд", value: "27", icon: Newspaper, href: "/admin/entries", roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
+    { title: "Бүртгэлтэй Хэрэглэгчид", value: "3", icon: Users, href: "/admin/users", roles: [UserRole.SUPER_ADMIN] },
     // { title: "Recent Activity", value: "12", icon: Activity, href: "#" },
   ];
 
@@ -43,7 +43,7 @@ export default function DashboardPage() {
                 <CardContent>
                   <div className="text-3xl font-bold text-foreground">{card.value}</div>
                   <p className="text-xs text-muted-foreground pt-1">
-                    Mock data for demonstration
+                    Үзүүлэнгийн зориулалттай өгөгдөл
                   </p>
                 </CardContent>
               </Card>
@@ -52,22 +52,22 @@ export default function DashboardPage() {
       </div>
       <Card className="mt-8">
         <CardHeader>
-          <CardTitle className="font-headline">Quick Actions</CardTitle>
+          <CardTitle className="font-headline">Хурдан Үйлдлүүд</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-4">
           {currentUser.role === UserRole.SUPER_ADMIN || currentUser.role === UserRole.SUB_ADMIN ? (
             <>
               <Link href="/admin/categories/new">
-                <Button variant="outline"><Library className="mr-2 h-4 w-4" /> Create Category</Button>
+                <Button variant="outline"><Library className="mr-2 h-4 w-4" /> Ангилал Үүсгэх</Button>
               </Link>
               <Link href="/admin/entries/new">
-                <Button variant="outline"><Newspaper className="mr-2 h-4 w-4" /> Create Entry</Button>
+                <Button variant="outline"><Newspaper className="mr-2 h-4 w-4" /> Бичлэг Үүсгэх</Button>
               </Link>
             </>
           ) : null}
           {currentUser.role === UserRole.SUPER_ADMIN && (
             <Link href="/admin/users/new">
-              <Button variant="outline"><Users className="mr-2 h-4 w-4" /> Add User</Button>
+              <Button variant="outline"><Users className="mr-2 h-4 w-4" /> Хэрэглэгч Нэмэх</Button>
             </Link>
           )}
         </CardContent>

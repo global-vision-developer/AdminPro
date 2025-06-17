@@ -23,13 +23,13 @@ export function DeleteCategoryButton({ categoryId, categoryName }: DeleteCategor
     const result = await deleteCategory(categoryId);
     if (result.success) {
       toast({
-        title: "Category Deleted",
-        description: `Category "${categoryName}" and all its associated entries have been successfully deleted.`,
+        title: "Ангилал Устгагдлаа",
+        description: `"${categoryName}" ангилал болон түүнд хамаарах бүх бичлэгүүд амжилттай устгагдлаа.`,
       });
       // No need to call router.refresh() due to revalidatePath in action
     } else if (result.error) {
       toast({
-        title: "Error Deleting Category",
+        title: "Ангилал Устгахад Алдаа Гарлаа",
         description: result.error,
         variant: "destructive",
       });
@@ -41,27 +41,27 @@ export function DeleteCategoryButton({ categoryId, categoryName }: DeleteCategor
       <AlertDialogTrigger asChild>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/90" aria-label="Delete category">
+            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/90" aria-label="Ангилал устгах">
               <Trash2 className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Delete Category</TooltipContent>
+          <TooltipContent>Ангилал устгах</TooltipContent>
         </Tooltip>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+          <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
           <AlertDialogDescription>
-            This action cannot be undone. This will permanently delete the category "{categoryName}" and all its associated entries.
+            Энэ үйлдлийг буцаах боломжгүй. Энэ нь "{categoryName}" ангиллыг болон түүнд хамаарах бүх бичлэгүүдийг бүрмөсөн устгах болно.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>Цуцлах</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleDelete}
             className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
           >
-            Delete
+            Устгах
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

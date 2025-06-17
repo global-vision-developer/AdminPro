@@ -1,3 +1,4 @@
+
 // src/ai/flows/suggest-content-on-schedule.ts
 'use server';
 /**
@@ -15,7 +16,7 @@ const SuggestContentInputSchema = z.object({
   entryContent: z
     .string()
     .describe('The content of the entry being scheduled.'),
-  category: z.string().describe('The category of the entry.'),
+  category: z.string().describe('Бичлэгийн ангилал.'),
 });
 export type SuggestContentInput = z.infer<typeof SuggestContentInputSchema>;
 
@@ -39,7 +40,7 @@ const prompt = ai.definePrompt({
   Based on the entry content and category provided, suggest content snippets that could enhance the entry's quality and engagement.
   Provide a list of suggestions.
 
-  Category: {{{category}}}
+  Ангилал: {{{category}}}
   Entry Content: {{{entryContent}}}
 
   Suggestions:`, // Removed Handlebars {{each}} loop here because the model handles producing a list directly.

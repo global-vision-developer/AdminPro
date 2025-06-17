@@ -28,7 +28,7 @@ export default function EditUserPage() {
 
   useEffect(() => {
     if (superAdminUser && superAdminUser.role !== UserRole.SUPER_ADMIN) {
-      toast({ title: "Access Denied", description: "You do not have permission to edit admin users.", variant: "destructive" });
+      toast({ title: "Хандах Эрхгүй", description: "Танд админ хэрэглэгч засах эрх байхгүй.", variant: "destructive" });
       router.push('/admin/dashboard');
       return;
     }
@@ -49,12 +49,12 @@ export default function EditUserPage() {
           allowedCategoryIds: data.role === UserRole.SUB_ADMIN && Array.isArray(data.allowedCategoryIds) ? data.allowedCategoryIds : [] 
         } as UserProfile);
       } else {
-        toast({ title: "Error", description: `Admin user not found in Firestore collection '${ADMINS_COLLECTION}'.`, variant: "destructive" });
+        toast({ title: "Алдаа", description: `'${ADMINS_COLLECTION}' коллекцод админ хэрэглэгч олдсонгүй.`, variant: "destructive" });
         router.push('/admin/users');
       }
     } catch (error) {
       console.error("Error fetching admin user:", error);
-      toast({ title: "Error", description: "Failed to fetch admin user data.", variant: "destructive" });
+      toast({ title: "Алдаа", description: "Админ хэрэглэгчийн мэдээлэл татахад алдаа гарлаа.", variant: "destructive" });
       router.push('/admin/users');
     } finally {
       setIsLoading(false);
@@ -71,7 +71,7 @@ export default function EditUserPage() {
     if (!userToEdit) return;
 
     if (superAdminUser?.id === userToEdit.id && data.role !== UserRole.SUPER_ADMIN && superAdminUser.role === UserRole.SUPER_ADMIN) {
-        toast({ title: "Action Prohibited", description: "Super Admins cannot change their own role or demote themselves.", variant: "destructive"});
+        toast({ title: "Үйлдэл Хориглосон", description: "Супер Админууд өөрсдийн эрхийг өөрчлөх эсвэл бууруулах боломжгүй.", variant: "destructive"});
         setIsSubmitting(false);
         return;
     }
@@ -98,15 +98,15 @@ export default function EditUserPage() {
       }
 
       toast({
-        title: "Admin User Updated",
-        description: `Admin user "${data.name}" has been successfully updated in Firestore.`,
+        title: "Админ Хэрэглэгч Шинэчлэгдлээ",
+        description: `Админ хэрэглэгч "${data.name}"-ийн мэдээлэл Firestore-т амжилттай шинэчлэгдлээ.`,
       });
       router.push('/admin/users');
     } catch (error) {
       console.error("Failed to update admin user:", error);
       toast({
-        title: "Error",
-        description: "Failed to update admin user. Please try again.",
+        title: "Алдаа",
+        description: "Админ хэрэглэгч шинэчлэхэд алдаа гарлаа. Дахин оролдоно уу.",
         variant: "destructive",
       });
     } finally {
@@ -115,13 +115,13 @@ export default function EditUserPage() {
   };
 
   if (superAdminUser?.role !== UserRole.SUPER_ADMIN && !isLoading) {
-    return <div className="p-4"><p>Access Denied. Redirecting...</p></div>;
+    return <div className="p-4"><p>Хандах эрхгүй. Буцаж байна...</p></div>;
   }
 
   if (isLoading) {
     return (
       <>
-        <PageHeader title="Edit Admin User" />
+        <PageHeader title="Админ Хэрэглэгч Засах" />
         <div className="space-y-4">
           <Skeleton className="h-10 w-1/2" />
           <Skeleton className="h-20 w-full" />
@@ -132,14 +132,14 @@ export default function EditUserPage() {
   }
 
   if (!userToEdit) {
-    return <PageHeader title="Admin User Not Found" description="The admin user data could not be loaded or does not exist." />;
+    return <PageHeader title="Админ Хэрэглэгч Олдсонгүй" description="Админ хэрэглэгчийн мэдээллийг ачаалах боломжгүй эсвэл байхгүй байна." />;
   }
 
   return (
     <>
       <PageHeader
-        title={`Edit Admin User: ${userToEdit.name}`}
-        description="Update the admin user's details, role, and assigned categories (for Sub Admins)."
+        title={`Админ Хэрэглэгч Засах: ${userToEdit.name}`}
+        description="Админ хэрэглэгчийн дэлгэрэнгүй мэдээлэл, эрх, болон Sub Admin-д оноогдсон ангилалуудыг шинэчлэх."
       />
       <UserForm initialData={userToEdit} onSubmit={handleSubmit} isSubmitting={isSubmitting} isEditing={true} />
     </>

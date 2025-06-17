@@ -54,10 +54,10 @@ export function CategorySelector({ allCategories, selectedCategoryIdForUrl }: Ca
     return (
         <div className="mb-6 max-w-xs">
             <Label className="text-sm font-medium mb-1 block text-muted-foreground">
-                Filter by Category
+                Ангиллаар шүүх
             </Label>
             <p className="text-sm text-muted-foreground p-2 border rounded-md bg-muted/50">
-                No categories assigned for entry management.
+                Бичлэг удирдах ангилал оноогоогүй байна.
             </p>
         </div>
     );
@@ -67,17 +67,17 @@ export function CategorySelector({ allCategories, selectedCategoryIdForUrl }: Ca
   return (
     <div className="mb-6 max-w-xs">
       <Label htmlFor="category-select" className="text-sm font-medium mb-1 block">
-        Filter by Category
+        Ангиллаар шүүх
       </Label>
       <Select
         value={selectedCategoryIdForUrl || "all"} 
         onValueChange={handleCategoryChange}
       >
         <SelectTrigger id="category-select" className="w-full">
-          <SelectValue placeholder="Choose a category..." />
+          <SelectValue placeholder="Ангилал сонгоно уу..." />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Categories</SelectItem>
+          <SelectItem value="all">Бүх Ангилалууд</SelectItem>
           {displayCategories.map((category) => (
             <SelectItem key={category.id} value={category.id}>
               {category.name}

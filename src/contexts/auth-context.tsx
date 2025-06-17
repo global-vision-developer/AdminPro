@@ -96,12 +96,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               userRoleFromFirestore = UserRole.SUB_ADMIN; 
               allowedCategoryIdsFromFirestore = [];
               console.log(`AuthContext: Firestore document CREATED in '${ADMINS_COLLECTION}' for ${firebaseUser.uid} with default role: ${userRoleFromFirestore}. Data:`, JSON.stringify(newFirestoreDocData));
-              toast({title: "Admin Profile Initialized", description: `Your admin profile has been initialized in Firestore with role: ${userRoleFromFirestore}.`, duration: 7000});
+              toast({title: "Админы Профайл Эхлүүлэгдлээ", description: `Таны админы профайл Firestore-т ${userRoleFromFirestore} эрхтэйгээр эхлүүлэгдлээ.`, duration: 7000});
             } catch (firestoreSetError: any) {
                 console.error(`AuthContext: FAILED to create Firestore document in '${ADMINS_COLLECTION}' for admin ${firebaseUser.uid}. Error:`, firestoreSetError);
                 toast({ 
-                    title: "Firestore Admin Profile Creation Failed", 
-                    description: `Admin account for ${firebaseUser.email} exists in Auth, but Firestore profile creation in '${ADMINS_COLLECTION}' failed. Error: ${firestoreSetError.message}. An admin may need to assign a role. Defaulting role display.`, 
+                    title: "Firestore Админы Профайл Үүсгэхэд Алдаа Гарлаа", 
+                    description: `Админ данс ${firebaseUser.email}-д Auth-д байгаа ч '${ADMINS_COLLECTION}' коллекцид Firestore профайл үүсгэхэд алдаа гарлаа. Алдаа: ${firestoreSetError.message}. Админ эрх оноох шаардлагатай байж магадгүй. Үндсэн эрхийг харуулж байна.`, 
                     variant: "destructive", 
                     duration: 20000 
                 });
@@ -123,7 +123,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.error(`AuthContext: Critical error processing admin data from Firestore ('${ADMINS_COLLECTION}') for UID ${firebaseUser.uid}. Error:`, error);
           let firestoreErrorMsg = "Админы эрх, мэдээллийг Firestore-оос уншихад/хадгалахад алдаа гарлаа. Таны эрх хүрэхгүй байж магадгүй эсвэл системд доголдол гарсан байх.";
           if (error.code === 'permission-denied' || (error.message && error.message.toLowerCase().includes('permission-denied'))) {
-            firestoreErrorMsg = `Firestore Permission Denied: Админы мэдээллийг '${ADMINS_COLLECTION}' коллекциос унших/хадгалах зөвшөөрөлгүй байна. Firestore Rules болон нэвтэрсэн админы '${ADMINS_COLLECTION}' document дахь 'role' талбарыг шалгана уу. Error: ${error.message}`;
+            firestoreErrorMsg = `Firestore Permission Denied: Админы мэдээллийг '${ADMINS_COLLECTION}' коллекцоос унших/хадгалах зөвшөөрөлгүй байна. Firestore Rules болон нэвтэрсэн админы '${ADMINS_COLLECTION}' document дахь 'role' талбарыг шалгана уу. Error: ${error.message}`;
           } else if (error.name === 'FirebaseError') {
              firestoreErrorMsg = `Firebase Firestore Error (code: ${error.code}): ${error.message}. UID: ${firebaseUser.uid}`;
           }
