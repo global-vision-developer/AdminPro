@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -257,7 +258,7 @@ export default function UsersPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[80px] hidden sm:table-cell">Профайл зураг</TableHead> 
+                    <TableHead className="w-[80px] hidden sm:table-cell">Зураг</TableHead> 
                     <TableHead>Нэр</TableHead> 
                     <TableHead className="hidden md:table-cell">Имейл</TableHead> 
                     <TableHead className="text-center">Хандах эрх</TableHead> 
@@ -360,3 +361,4 @@ export default function UsersPage() {
     </TooltipProvider>
   );
 }
+
