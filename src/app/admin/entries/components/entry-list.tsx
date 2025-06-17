@@ -1,14 +1,15 @@
 
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import type { Entry, Category, FieldDefinition, ImageGalleryItemStored } from "@/types";
-import { FieldType } from "@/types";
+import { FieldType, UserRole } from "@/types"; // Added UserRole
+import { useAuth } from "@/hooks/use-auth"; // Added useAuth
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Edit3, Trash2, Newspaper, CalendarClock, CheckCircle, Eye, ImageIcon } from "lucide-react";
+import { Edit3, Trash2, Newspaper, CalendarClock, CheckCircle, Eye, ImageIcon, Info, AlertTriangle } from "lucide-react"; // Added Info, AlertTriangle
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,15 +27,30 @@ import { format, parseISO } from "date-fns";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+
 
 interface EntryListProps {
   entries: Entry[];
   categoriesMap: Record<string, Category>; 
+  allCategories: Category[]; // Pass all categories for context
 }
 
-export function EntryList({ entries, categoriesMap }: EntryListProps) {
+export function EntryList({ entries, categoriesMap, allCategories }: EntryListProps) {
   const { toast } = useToast();
+  const { currentUser } = useAuth();
   const [entryToDelete, setEntryToDelete] = useState<Entry | null>(null);
+
+  const filteredEntriesForSubAdmin = useMemo(() => {
+    if (currentUser && currentUser.role === UserRole.SUB_ADMIN) {
+      if (currentUser.allowedCategoryIds && currentUser.allowedCategoryIds.length > 0) {
+        return entries.filter(entry => currentUser.allowedCategoryIds!.includes(entry.categoryId));
+      }
+      return []; // SubAdmin has no allowed categories or none are assigned.
+    }
+    return entries; // SuperAdmin sees all entries passed
+  }, [entries, currentUser]);
+
 
   const handleDeleteConfirm = (entry: Entry) => {
     setEntryToDelete(entry);
@@ -141,14 +157,41 @@ export function EntryList({ entries, categoriesMap }: EntryListProps) {
     }
   };
   
-  if (entries.length === 0) {
+  if (allCategories.length === 0) { // No categories in system, this is covered by parent page usually
+    return (
+       <Card className="mt-8 shadow-lg">
+        <CardContent className="py-12 text-center">
+            <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
+            <h3 className="text-xl font-semibold font-headline">No Categories Exist</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+                Please create categories first.
+            </p>
+        </CardContent>
+       </Card>
+    );
+  }
+
+  if (currentUser && currentUser.role === UserRole.SUB_ADMIN && (!currentUser.allowedCategoryIds || currentUser.allowedCategoryIds.length === 0)) {
+    return (
+        <Alert variant="default" className="mt-6 border-primary/50">
+            <Info className="h-5 w-5 text-primary" />
+            <AlertTitle className="font-semibold text-primary">No Assigned Categories</AlertTitle>
+            <AlertDescription>
+                You do not have any categories assigned to manage entries. 
+                Contact a Super Admin to assign categories.
+            </AlertDescription>
+        </Alert>
+    );
+  }
+  
+  if (filteredEntriesForSubAdmin.length === 0) {
     return (
        <Card className="mt-8 shadow-lg">
         <CardContent className="py-12 text-center">
             <Newspaper className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-xl font-semibold font-headline">No Entries Found</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-            There are no entries for the selected category, or no entries have been created yet.
+            There are no entries for the selected (or your allowed) categories, or no entries have been created yet.
             </p>
         </CardContent>
        </Card>
@@ -176,7 +219,7 @@ export function EntryList({ entries, categoriesMap }: EntryListProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {entries.map((entry) => {
+                {filteredEntriesForSubAdmin.map((entry) => {
                   const category = categoriesMap[entry.categoryId];
                   const previewFields = category?.fields?.filter(f => !f.description?.includes("аппликейшний хэрэглэгчид бөглөнө")).slice(0, 2) || []; 
                   return (
@@ -258,4 +301,3 @@ export function EntryList({ entries, categoriesMap }: EntryListProps) {
     </TooltipProvider>
   );
 }
-

@@ -13,16 +13,16 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { db, auth } from '@/lib/firebase'; 
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 
-const ADMINS_COLLECTION = "admins"; // Changed from "users"
+const ADMINS_COLLECTION = "admins"; 
 
 export default function EditUserPage() {
   const router = useRouter();
   const params = useParams();
-  const userId = params.id as string; // This userId is the adminId
+  const userId = params.id as string; 
 
   const { toast } = useToast();
-  const { currentUser: superAdminUser } = useAuth(); // Renamed to avoid conflict, this is the logged-in Super Admin
-  const [userToEdit, setUserToEdit] = useState<UserProfile | null>(null); // This is the admin user being edited
+  const { currentUser: superAdminUser } = useAuth(); 
+  const [userToEdit, setUserToEdit] = useState<UserProfile | null>(null); 
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -34,15 +34,20 @@ export default function EditUserPage() {
     }
   }, [superAdminUser, router, toast]);
 
-  const fetchUserToEdit = useCallback(async () => { // Renamed for clarity
+  const fetchUserToEdit = useCallback(async () => { 
     if (!userId || (superAdminUser && superAdminUser.role !== UserRole.SUPER_ADMIN)) return;
     setIsLoading(true);
     try {
-      const userDocRef = doc(db, ADMINS_COLLECTION, userId); // Use ADMINS_COLLECTION
+      const userDocRef = doc(db, ADMINS_COLLECTION, userId); 
       const userDocSnap = await getDoc(userDocRef);
 
       if (userDocSnap.exists()) {
-        setUserToEdit({ id: userDocSnap.id, ...userDocSnap.data() } as UserProfile);
+        const data = userDocSnap.data();
+        setUserToEdit({ 
+          id: userDocSnap.id, 
+          ...data,
+          allowedCategoryIds: data.role === UserRole.SUB_ADMIN && Array.isArray(data.allowedCategoryIds) ? data.allowedCategoryIds : [] 
+        } as UserProfile);
       } else {
         toast({ title: "Error", description: `Admin user not found in Firestore collection '${ADMINS_COLLECTION}'.`, variant: "destructive" });
         router.push('/admin/users');
@@ -72,12 +77,19 @@ export default function EditUserPage() {
     }
 
     try {
-      const userDocRef = doc(db, ADMINS_COLLECTION, userToEdit.id); // Use ADMINS_COLLECTION
+      const userDocRef = doc(db, ADMINS_COLLECTION, userToEdit.id); 
       const updateData: Partial<UserProfile> & { updatedAt: any } = {
         name: data.name,
         role: data.role,
         updatedAt: serverTimestamp(),
       };
+
+      if (data.role === UserRole.SUB_ADMIN) {
+        updateData.allowedCategoryIds = data.allowedCategoryIds || [];
+      } else {
+        // If role is changed from Sub Admin to Super Admin, remove allowedCategoryIds
+        updateData.allowedCategoryIds = []; // Or delete field: firebase.firestore.FieldValue.delete() if using older sdk
+      }
       
       await updateDoc(userDocRef, updateData);
       
@@ -97,6 +109,7 @@ export default function EditUserPage() {
         description: "Failed to update admin user. Please try again.",
         variant: "destructive",
       });
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -126,10 +139,9 @@ export default function EditUserPage() {
     <>
       <PageHeader
         title={`Edit Admin User: ${userToEdit.name}`}
-        description="Update the admin user's details and role."
+        description="Update the admin user's details, role, and assigned categories (for Sub Admins)."
       />
       <UserForm initialData={userToEdit} onSubmit={handleSubmit} isSubmitting={isSubmitting} isEditing={true} />
     </>
   );
 }
-

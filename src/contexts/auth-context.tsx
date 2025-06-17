@@ -48,7 +48,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           let userRoleFromFirestore: UserRole = UserRole.SUB_ADMIN; 
           let profileName = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Admin User';
-          let profileAvatar = firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${(profileName).substring(0,2).toUpperCase()}&bg=FF5733&txt=FFFFFF`
+          let profileAvatar = firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${(profileName).substring(0,2).toUpperCase()}&bg=FF5733&txt=FFFFFF`;
+          let allowedCategoryIdsFromFirestore: string[] = [];
           
           if (userDocSnap.exists()) {
             const userData = userDocSnap.data();
@@ -56,7 +57,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             userRoleFromFirestore = userData.role as UserRole || UserRole.SUB_ADMIN; 
             profileName = userData.name || profileName; 
             profileAvatar = userData.avatar || profileAvatar;
-            console.log(`AuthContext: Role from Firestore for ${firebaseUser.uid}: '${userData.role}'. Parsed as: '${userRoleFromFirestore}'`);
+            if (userRoleFromFirestore === UserRole.SUB_ADMIN) {
+              allowedCategoryIdsFromFirestore = Array.isArray(userData.allowedCategoryIds) ? userData.allowedCategoryIds : [];
+            }
+            console.log(`AuthContext: Role from Firestore for ${firebaseUser.uid}: '${userData.role}'. Parsed as: '${userRoleFromFirestore}'. Allowed Categories: ${JSON.stringify(allowedCategoryIdsFromFirestore)}`);
 
             if (firebaseUser.displayName !== profileName || firebaseUser.photoURL !== profileAvatar) {
               try {
@@ -73,7 +77,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const avatarForDoc = firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${nameForDoc.substring(0,2).toUpperCase()}&bg=FF5733&txt=FFFFFF`;
             
             try {
-              const newFirestoreDocData = {
+              const newFirestoreDocData: any = { // Use 'any' for flexibility during creation
                 uid: firebaseUser.uid,
                 email: firebaseUser.email,
                 name: nameForDoc,
@@ -82,10 +86,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 createdAt: serverTimestamp(), 
                 updatedAt: serverTimestamp(),
               };
+              if (newFirestoreDocData.role === UserRole.SUB_ADMIN) {
+                newFirestoreDocData.allowedCategoryIds = []; // Initialize for Sub Admins
+              }
+
               await setDoc(userDocRef, newFirestoreDocData);
               profileName = nameForDoc;
               profileAvatar = avatarForDoc;
               userRoleFromFirestore = UserRole.SUB_ADMIN; 
+              allowedCategoryIdsFromFirestore = [];
               console.log(`AuthContext: Firestore document CREATED in '${ADMINS_COLLECTION}' for ${firebaseUser.uid} with default role: ${userRoleFromFirestore}. Data:`, JSON.stringify(newFirestoreDocData));
               toast({title: "Admin Profile Initialized", description: `Your admin profile has been initialized in Firestore with role: ${userRoleFromFirestore}.`, duration: 7000});
             } catch (firestoreSetError: any) {
@@ -105,6 +114,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             email: firebaseUser.email || '',
             role: userRoleFromFirestore, 
             avatar: profileAvatar,
+            ...(userRoleFromFirestore === UserRole.SUB_ADMIN && { allowedCategoryIds: allowedCategoryIdsFromFirestore }),
           };
           setCurrentUser(userProfile);
           console.log(`AuthContext: currentUser (admin) set in context for ${firebaseUser.uid}:`, JSON.stringify(userProfile));

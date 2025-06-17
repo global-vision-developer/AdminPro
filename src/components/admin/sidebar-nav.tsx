@@ -35,14 +35,15 @@ interface NavItem {
   icon: React.ElementType;
   roles?: UserRole[];
   subItems?: NavItem[];
+  hideIfSubAdmin?: boolean; // New property to hide for SubAdmin
 }
 
 const navItems: NavItem[] = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   {
-    href: "/admin/content", label: "Content", icon: Library, // Parent item href
+    href: "/admin/content", label: "Content", icon: Library, 
     subItems: [
-      { href: "/admin/categories", label: "Categories", icon: Library, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
+      { href: "/admin/categories", label: "Categories", icon: Library, roles: [UserRole.SUPER_ADMIN] }, // Only Super Admin can see Categories
       { href: "/admin/entries", label: "Entries", icon: Newspaper, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
     ]
   },
@@ -64,22 +65,43 @@ export function SidebarNav() {
   if (!currentUser) return null;
 
   const renderNavItem = (item: NavItem, isSubItem = false) => {
+    // Role check
     if (item.roles && !item.roles.includes(currentUser.role)) {
       return null;
     }
+    // Specific check for SubAdmin to hide certain top-level or sub-items
+    if (item.hideIfSubAdmin && currentUser.role === UserRole.SUB_ADMIN) {
+        return null;
+    }
+    if (item.label === "Categories" && currentUser.role === UserRole.SUB_ADMIN) { // Explicitly hide Categories for SubAdmin
+        return null;
+    }
+
 
     // Check if current item or any of its sub-items is active
     let itemIsActive = pathname === item.href || (item.href !== "/admin/dashboard" && pathname.startsWith(item.href));
     if (item.subItems && !itemIsActive) {
-        itemIsActive = item.subItems.some(sub => pathname.startsWith(sub.href));
+        itemIsActive = item.subItems.some(sub => {
+            // Don't consider hidden sub-items for parent active state for SubAdmins
+            if (sub.label === "Categories" && currentUser.role === UserRole.SUB_ADMIN) return false;
+            return pathname.startsWith(sub.href);
+        });
     }
     
     const Icon = item.icon;
     const isMenuOpen = openMenus[item.label] || (item.subItems && item.subItems.some(sub => pathname.startsWith(sub.href)));
 
-    if (item.subItems) { // This item has a sub-menu
+    if (item.subItems) { 
+      const visibleSubItems = item.subItems.filter(subItem => {
+        if (subItem.roles && !subItem.roles.includes(currentUser.role)) return false;
+        if (subItem.hideIfSubAdmin && currentUser.role === UserRole.SUB_ADMIN) return false;
+        if (subItem.label === "Categories" && currentUser.role === UserRole.SUB_ADMIN) return false;
+        return true;
+      });
+
+      if (visibleSubItems.length === 0) return null; // Don't render parent if no visible sub-items
+
       if (sidebarState === 'collapsed') {
-        // Collapsed state: Render top-level item as a non-clickable icon/button
         return (
           <SidebarMenuItem key={item.label}>
             <SidebarMenuButton
@@ -94,7 +116,6 @@ export function SidebarNav() {
           </SidebarMenuItem>
         );
       }
-      // Expanded state: Render Accordion
       return (
         <Accordion type="single" collapsible className="w-full" key={item.label} defaultValue={isMenuOpen || itemIsActive ? item.label : undefined}>
           <AccordionItem value={item.label} className="border-none">
@@ -115,9 +136,9 @@ export function SidebarNav() {
             </AccordionTrigger>
             <AccordionContent className="pt-0 pb-0 pl-4">
               <SidebarMenuSub className="mx-0 border-l-0 px-0 py-1">
-                {item.subItems.map(subItem => (
-                  <SidebarMenuSubItem key={subItem.label}> {/* This is an <li> */}
-                     {renderNavItem(subItem, true)} {/* Recursive call. isSubItem is true. */}
+                {visibleSubItems.map(subItem => (
+                  <SidebarMenuSubItem key={subItem.label}> 
+                     {renderNavItem(subItem, true)} 
                   </SidebarMenuSubItem>
                 ))}
               </SidebarMenuSub>
@@ -125,14 +146,12 @@ export function SidebarNav() {
           </AccordionItem>
         </Accordion>
       );
-    } else { // This item is a leaf node (no sub-menu)
+    } else { 
       if (isSubItem) {
-        // This is a leaf sub-item. It's already inside a <SidebarMenuSubItem> (<li>) from the caller.
-        // So, just render the link/button directly.
         return (
           <SidebarMenuSubButton
             asChild
-            isActive={itemIsActive} // itemIsActive is already calculated correctly for sub-items
+            isActive={itemIsActive} 
           >
             <Link href={item.href} className="flex items-center gap-2">
               <Icon />
@@ -141,8 +160,6 @@ export function SidebarNav() {
           </SidebarMenuSubButton>
         );
       } else {
-        // This is a top-level item that is a direct link (no sub-menu).
-        // It needs to be wrapped in <SidebarMenuItem> (<li>).
         return (
           <SidebarMenuItem key={item.label}>
             <SidebarMenuButton

@@ -13,6 +13,8 @@ import { createUserWithEmailAndPassword, updateProfile, signOut as firebaseSignO
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
+const ADMINS_COLLECTION = "admins";
+
 export default function NewUserPage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -35,47 +37,80 @@ export default function NewUserPage() {
 
   const handleSubmit = async (data: UserFormValues) => {
     setIsSubmitting(true);
-    addDebugMessage(`handleSubmit called with email: ${data.email}. Admin performing this action: ${adminUser?.email} (Role: ${adminUser?.role}, UID: ${adminUser?.id})`);
+    addDebugMessage(`handleSubmit called with email: ${data.email}. Role: ${data.role}. AllowedCategories: ${JSON.stringify(data.allowedCategoryIds)}. Admin performing action: ${adminUser?.email}`);
 
     if (!adminUser || adminUser.role !== UserRole.SUPER_ADMIN) {
-      addDebugMessage("Critical Error: handleSubmit called but adminUser is not Super Admin or is null.");
-      toast({ title: "Authorization Error", description: "Current user is not authorized to create users. Please re-login as Super Admin.", variant: "destructive", duration: 7000 });
+      addDebugMessage("Critical Error: handleSubmit - adminUser is not Super Admin or is null.");
+      toast({ title: "Authorization Error", description: "Not authorized to create users.", variant: "destructive", duration: 7000 });
       setIsSubmitting(false);
       return;
     }
 
     if (!data.password) {
-      addDebugMessage("Password is required error triggered.");
-      toast({ title: "Validation Error", description: "Password is required to create a new user.", variant: "destructive" });
+      addDebugMessage("Password is required error.");
+      toast({ title: "Validation Error", description: "Password is required.", variant: "destructive" });
       setIsSubmitting(false);
       return;
     }
 
     let newUserAuth;
+    const currentSuperAdminAuthUID = auth.currentUser?.uid; // Preserve Super Admin's Auth UID
+
     try {
-      addDebugMessage("Step 1: Attempting to create user in Firebase Authentication...");
+      addDebugMessage("Step 1: Creating user in Firebase Authentication...");
       const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
       newUserAuth = userCredential.user;
       addDebugMessage(`Step 1 Success: Auth user created. UID: ${newUserAuth.uid}, Email: ${newUserAuth.email}.`);
       
-      addDebugMessage("Step 2: Attempting to update Firebase Auth profile (displayName, photoURL) for new user...");
-      const photoURL = `https://placehold.co/100x100.png?text=${data.name.substring(0,2).toUpperCase()}&bg=FF5733&txt=FFFFFF`;
+      const photoURL = `https://placehold.co/100x100.png?text=${data.name.substring(0,2).toUpperCase()}&bg=FF5733&txt=FFFFFF` data-ai-hint="avatar person";
+      addDebugMessage(`Step 2: Updating Firebase Auth profile for new user (displayName: ${data.name}, photoURL: ${photoURL})...`);
       await updateProfile(newUserAuth, { displayName: data.name, photoURL: photoURL });
       addDebugMessage("Step 2 Success: Firebase Auth profile updated for new user.");
 
-      addDebugMessage("Step 3: Firestore document creation for the new user will be handled by AuthContext on their first login, or by an admin manually. Not attempting creation in NewUserPage.tsx.");
+      // Step 3: Create Firestore document for the new admin in 'admins' collection
+      const adminDocRef = doc(db, ADMINS_COLLECTION, newUserAuth.uid);
+      const firestoreAdminData: any = {
+        uid: newUserAuth.uid,
+        email: newUserAuth.email,
+        name: data.name,
+        role: data.role,
+        avatar: photoURL,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+
+      if (data.role === UserRole.SUB_ADMIN) {
+        firestoreAdminData.allowedCategoryIds = data.allowedCategoryIds || [];
+      }
+      
+      addDebugMessage(`Step 3: Creating Firestore document in '${ADMINS_COLLECTION}' for new admin UID: ${newUserAuth.uid}. Data: ${JSON.stringify(firestoreAdminData)}`);
+      await setDoc(adminDocRef, firestoreAdminData);
+      addDebugMessage("Step 3 Success: Firestore document created for new admin.");
       
       toast({
-        title: "User Authentication Created",
-        description: `User "${data.name}" (${data.email}) created in Firebase Auth. You will be redirected. The Auth session is now for the new user.`,
-        duration: 10000,
+        title: "Admin User Created",
+        description: `Admin user "${data.name}" (${data.email}) created in Auth and Firestore. Current session is for the new user. You may need to log out the new user and log back in as Super Admin.`,
+        duration: 15000,
       });
       
-      addDebugMessage("Step 4: Navigating to /admin/users. The AuthContext will now reflect the new user. If they are not an admin, AdminLayout may redirect them to login.");
-      router.push('/admin/users');
+      // The current session is now for the NEWLY CREATED USER.
+      // To avoid issues, it's best practice to sign out the new user and let the Super Admin sign back in if they need to.
+      // Or, re-authenticate the Super Admin if Firebase SDK allows it easily (complex).
+      // For simplicity, we'll inform the Super Admin.
+      addDebugMessage(`Step 4: IMPORTANT - Current Firebase Auth session is now for the new user: ${newUserAuth.email}. The Super Admin who performed this action (${adminUser.email}) is effectively signed out of THIS browser session's Firebase Auth instance.`);
+      
+      // It's better to navigate and let AuthContext handle the state of the new user.
+      // If the Super Admin wants to continue, they must log out and log back in.
+      setCurrentUser(null); // Simulate logout of superadmin in this specific component's state after new user is created and their auth session takes over.
+      // This doesn't actually log out the super admin from Firebase, but auth.currentUser is now the new user.
+      // The AuthProvider's onAuthStateChanged will pick up the new user.
+
+      router.push('/admin/users'); // Navigate to users list
+      addDebugMessage("Step 5: Navigated to /admin/users. AuthContext will now reflect the new user's session.");
+
 
     } catch (error: any) {
-      addDebugMessage(`Error during user creation process: Name: ${error.name}, Code: ${error.code}, Message: ${error.message}`);
+      addDebugMessage(`Error during user creation: Name: ${error.name}, Code: ${error.code}, Message: ${error.message}`);
       console.error("Failed to create user:", error);
 
       let errorTitle = "Error Creating User";
@@ -85,7 +120,7 @@ export default function NewUserPage() {
         switch (error.code) {
           case 'auth/email-already-in-use':
             errorTitle = "Email Already In Use";
-            errorMessage = "This email address is already in use by another account. Please use a different email.";
+            errorMessage = "This email address is already in use. Please use a different email.";
             break;
           case 'auth/weak-password':
             errorTitle = "Weak Password";
@@ -104,6 +139,20 @@ export default function NewUserPage() {
         variant: "destructive",
         duration: 10000,
       });
+
+      // Attempt to sign back in the Super Admin if their UID was preserved
+      if (currentSuperAdminAuthUID && auth.currentUser?.uid !== currentSuperAdminAuthUID) {
+        addDebugMessage(`Error handling: Attempting to sign out current user (${auth.currentUser?.email}) and restore Super Admin session logic might be needed if an error occurred after new user auth creation.`);
+        // This part is complex because you can't easily "re-login" a user without credentials.
+        // The safest is to inform the user and let them re-login manually.
+         toast({
+            title: "Session Management",
+            description: "An error occurred. The current user session might have changed. Please log out and log back in if you are not the Super Admin.",
+            variant: "default",
+            duration: 15000
+        });
+      }
+
     } finally {
       setIsSubmitting(false);
       addDebugMessage("handleSubmit finished.");
@@ -141,7 +190,7 @@ export default function NewUserPage() {
     <>
       <PageHeader
         title="Add New User"
-        description="Create a new Firebase Authentication user. Firestore document will be created upon the new user's first login."
+        description="Create a new Firebase Authentication user and corresponding Firestore admin document."
       />
       <UserForm onSubmit={handleSubmit} isSubmitting={isSubmitting} isEditing={false} />
       <Card className="mt-4">
@@ -153,5 +202,3 @@ export default function NewUserPage() {
     </>
   );
 }
-
-    

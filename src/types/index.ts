@@ -10,6 +10,7 @@ export interface UserProfile {
   email: string;
   role: UserRole;
   avatar?: string; // URL to avatar image
+  allowedCategoryIds?: string[]; // For Sub Admins, IDs of categories they can manage
 }
 
 export enum FieldType {

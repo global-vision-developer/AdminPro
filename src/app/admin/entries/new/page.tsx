@@ -7,21 +7,26 @@ import { PageHeader } from '@/components/admin/page-header';
 import { EntryForm } from '../components/entry-form';
 import { useToast } from '@/hooks/use-toast';
 import type { Category } from '@/types';
+import { UserRole } from '@/types'; // Import UserRole
+import { useAuth } from '@/hooks/use-auth'; // Import useAuth
 import { getCategories } from '@/lib/actions/categoryActions';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Info } from 'lucide-react'; // Import Info
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'; // Import Alert components
 
 
 export default function NewEntryPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
+  const { currentUser } = useAuth(); // Get current user
   
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [allCategories, setAllCategories] = useState<Category[]>([]); // Store all categories
+  const [selectableCategories, setSelectableCategories] = useState<Category[]>([]); // Categories user can select
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -30,13 +35,23 @@ export default function NewEntryPage() {
       setIsLoading(true);
       try {
         const fetchedCategories = await getCategories();
-        setCategories(fetchedCategories);
+        setAllCategories(fetchedCategories);
+
+        let filteredForSubAdmin: Category[] = fetchedCategories;
+        if (currentUser && currentUser.role === UserRole.SUB_ADMIN) {
+          if (currentUser.allowedCategoryIds && currentUser.allowedCategoryIds.length > 0) {
+            filteredForSubAdmin = fetchedCategories.filter(cat => currentUser.allowedCategoryIds!.includes(cat.id));
+          } else {
+            filteredForSubAdmin = []; // SubAdmin has no assigned categories
+          }
+        }
+        setSelectableCategories(filteredForSubAdmin);
 
         const categoryIdFromUrl = searchParams.get('category');
-        if (categoryIdFromUrl && fetchedCategories.some(c => c.id === categoryIdFromUrl)) {
+        if (categoryIdFromUrl && filteredForSubAdmin.some(c => c.id === categoryIdFromUrl)) {
           setSelectedCategoryId(categoryIdFromUrl);
-        } else if (fetchedCategories.length > 0) {
-          const firstValidCategory = fetchedCategories.find(cat => cat.name);
+        } else if (filteredForSubAdmin.length > 0) {
+          const firstValidCategory = filteredForSubAdmin.find(cat => cat.name);
           setSelectedCategoryId(firstValidCategory ? firstValidCategory.id : undefined);
         } else {
           setSelectedCategoryId(undefined); 
@@ -45,20 +60,26 @@ export default function NewEntryPage() {
       } catch (error) {
         console.error("Failed to load categories:", error);
         toast({ title: "Error", description: "Could not load categories.", variant: "destructive" });
-        setCategories([]);
+        setAllCategories([]);
+        setSelectableCategories([]);
         setSelectedCategoryId(undefined);
       } finally {
         setIsLoading(false);
       }
     }
-    loadData();
-  }, [searchParams, toast]);
+    if (currentUser) { // Only load data if currentUser is available
+        loadData();
+    } else {
+        setIsLoading(false); // If no currentUser yet, stop loading, AuthProvider will redirect or update
+    }
+  }, [searchParams, toast, currentUser]);
 
   const selectedCategory = useMemo(() => {
     if (!selectedCategoryId) return undefined;
-    const category = categories.find(cat => cat.id === selectedCategoryId);
+    // Find from allCategories to get full category details, even if it's not selectable for a SubAdmin (for display purposes if pre-selected via URL)
+    const category = allCategories.find(cat => cat.id === selectedCategoryId); 
     return category && category.name ? category : undefined;
-  }, [categories, selectedCategoryId]);
+  }, [allCategories, selectedCategoryId]);
 
   const handleCategoryChange = (newCategoryId: string) => {
     setSelectedCategoryId(newCategoryId);
@@ -95,7 +116,15 @@ export default function NewEntryPage() {
     );
   }
 
-  if (categories.length === 0) {
+  if (!currentUser) { // If currentUser is still null after loading (e.g. redirecting)
+    return (
+        <div className="p-4">
+            <p>Authenticating user...</p>
+        </div>
+    );
+  }
+  
+  if (allCategories.length === 0) { // No categories exist in the system at all
     return (
       <>
         <PageHeader title="Create New Entry" />
@@ -104,16 +133,36 @@ export default function NewEntryPage() {
              <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
             <h3 className="text-xl font-semibold mb-2">No Categories Available</h3>
             <p className="text-muted-foreground mb-4">
-              You must create a category before you can add an entry.
+              You must create a category before you can add an entry. This action is available to Super Admins.
             </p>
-            <Button asChild>
-              <Link href="/admin/categories/new">Create a Category</Link>
-            </Button>
+            {currentUser.role === UserRole.SUPER_ADMIN && (
+                <Button asChild>
+                <Link href="/admin/categories/new">Create a Category</Link>
+                </Button>
+            )}
           </CardContent>
         </Card>
       </>
     );
   }
+
+  // Sub Admin has no assigned categories
+  if (currentUser.role === UserRole.SUB_ADMIN && selectableCategories.length === 0) {
+    return (
+      <>
+        <PageHeader title="Create New Entry" />
+        <Alert variant="default" className="mt-6 border-primary/50">
+            <Info className="h-5 w-5 text-primary" />
+            <AlertTitle className="font-semibold text-primary">No Assigned Categories</AlertTitle>
+            <AlertDescription>
+                You currently do not have any categories assigned to manage entries. 
+                Please contact a Super Admin to assign categories to your account.
+            </AlertDescription>
+        </Alert>
+      </>
+    );
+  }
+
 
   return (
     <>
@@ -131,7 +180,7 @@ export default function NewEntryPage() {
             <SelectValue placeholder="Select a category..." />
           </SelectTrigger>
           <SelectContent>
-            {categories.map(cat => (
+            {selectableCategories.map(cat => (
               cat.name && (
                 <SelectItem key={cat.id} value={cat.id}>
                   {cat.name}
@@ -140,7 +189,7 @@ export default function NewEntryPage() {
             ))}
           </SelectContent>
         </Select>
-        {!selectedCategoryId && categories.length > 0 && (
+        {!selectedCategoryId && selectableCategories.length > 0 && (
              <p className="text-sm text-destructive mt-1">Please select a category.</p>
         )}
       </div>
@@ -148,12 +197,12 @@ export default function NewEntryPage() {
       {selectedCategory && selectedCategory.name ? ( 
         <EntryForm 
           key={selectedCategory.id} 
-          categories={categories} 
+          categories={allCategories} // Pass all for form logic, but selection was based on selectable
           selectedCategory={selectedCategory}
           onSubmitSuccess={handleEntryFormSuccess}
         />
       ) : (
-        categories.length > 0 && ( 
+        selectableCategories.length > 0 && ( 
             <Card className="mt-6">
             <CardContent className="py-10 text-center">
                 <p className="text-muted-foreground">Please select a valid category above to start creating an entry.</p>
