@@ -41,7 +41,7 @@ export default async function CategoriesPage({
 
   return (
     <TooltipProvider>
-      <PageHeader title="Content Categories" description="Manage your content structures and fields.">
+      <PageHeader title="Контентийн ангилал" description="Manage your content structures and fields.">
         <Link href="/admin/categories/new" passHref>
           <Button>
             <PlusCircle className="mr-2 h-4 w-4" /> Create New Category
@@ -157,3 +157,4 @@ export default async function CategoriesPage({
 export const metadata = {
   title: "Categories | Admin Pro",
 };
+
