@@ -54,7 +54,7 @@ export function CategorySelector({ allCategories, selectedCategoryIdForUrl }: Ca
     return (
         <div className="mb-6 max-w-xs">
             <Label className="text-sm font-medium mb-1 block text-muted-foreground">
-                Filter by Category
+                ангиллаар нь шүүх
             </Label>
             <p className="text-sm text-muted-foreground p-2 border rounded-md bg-muted/50">
                 No categories assigned for managing entries.
@@ -67,7 +67,7 @@ export function CategorySelector({ allCategories, selectedCategoryIdForUrl }: Ca
   return (
     <div className="mb-6 max-w-xs">
       <Label htmlFor="category-select" className="text-sm font-medium mb-1 block">
-        Filter by Category
+        ангиллаар нь шүүх
       </Label>
       <Select
         value={selectedCategoryIdForUrl || "all"} 
@@ -88,3 +88,4 @@ export function CategorySelector({ allCategories, selectedCategoryIdForUrl }: Ca
     </div>
   );
 }
+
