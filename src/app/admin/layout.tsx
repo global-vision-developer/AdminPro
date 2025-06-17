@@ -58,7 +58,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <SidebarFooter className="p-2 border-t">
            <Button variant="ghost" onClick={logout} className="w-full justify-start gap-2 text-sm">
             <LogOut className="h-4 w-4" />
-            <span className="group-data-[collapsible=icon]:hidden">Logout</span>
+            <span className="group-data-[collapsible=icon]:hidden">Гарах</span>
           </Button>
         </SidebarFooter>
       </Sidebar>
@@ -74,4 +74,3 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     </SidebarProvider>
   );
 }
-
