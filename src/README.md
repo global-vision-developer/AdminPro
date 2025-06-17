@@ -17,9 +17,9 @@ Stores admin user profile information and roles for the CMS. This collection is 
 *   **Fields:**
     *   `email: string` (Admin's email)
     *   `name: string` (Admin's display name)
-    *   `role: string` (e.g., "Super Admin", "Sub Admin" - matching `UserRole` enum from `src/types/index.ts`)
+    *   `role: string` (e.g., "Супер Админ", "Sub Admin" - matching `UserRole` enum from `src/types/index.ts`)
     *   `avatar: string` (URL to avatar image, optional)
-    *   `allowedCategoryIds: array` (Optional: Array of strings, where each string is a category ID. This field is primarily for users with the "Sub Admin" role, granting them permission to manage entries within these specified categories. For "Super Admin", this field might be empty or not present, as they have access to all categories by default.)
+    *   `allowedCategoryIds: array` (Optional: Array of strings, where each string is a category ID. This field is primarily for users with the "Sub Admin" role, granting them permission to manage entries within these specified categories. For "Супер Админ", this field might be empty or not present, as they have access to all categories by default.)
     *   `createdAt: firebase.firestore.Timestamp` (Server timestamp when the admin document was created)
     *   `updatedAt: firebase.firestore.Timestamp` (Server timestamp when the admin document was last updated, optional)
 
@@ -118,7 +118,7 @@ service cloud.firestore {
     match /admins/{adminId} {
       allow read: if request.auth != null && request.auth.uid == adminId; // Own record
       // Super Admins can list and manage all admin records
-      allow list, write: if request.auth != null && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin';
+      allow list, write: if request.auth != null && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Супер Админ';
     }
 
     // Categories collection
@@ -127,7 +127,7 @@ service cloud.firestore {
       allow read: if request.auth != null; 
       // Only Super Admins can manage categories
       allow list, create, update, delete: if request.auth != null && 
-                                          get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin';
+                                          get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Супер Админ';
     }
 
     // Entries collection
@@ -139,7 +139,7 @@ service cloud.firestore {
       // Sub Admins can manage entries if the entry's categoryId is in their allowedCategoryIds list
       allow list, create, update, delete: if request.auth != null &&
                                           (
-                                            get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' 
+                                            get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Супер Админ' 
                                             ||
                                             (
                                               get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin' &&

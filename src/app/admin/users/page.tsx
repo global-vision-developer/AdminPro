@@ -89,7 +89,7 @@ export default function UsersPage() {
       let errorMessage = `Failed to retrieve admin user data: ${error.message}.`;
       if (error.code === 'permission-denied' || (error.message && error.message.toLowerCase().includes('permission-denied'))) {
         errorTitle = "Firestore Permission Denied";
-        errorMessage = `Failed to list admin users from '${ADMINS_COLLECTION}'. UID: ${localCurrentUser.uid}. Ensure Firestore Rules grant 'list' on '/${ADMINS_COLLECTION}' FOR an admin whose document at '/${ADMINS_COLLECTION}/${localCurrentUser.uid}' has 'role: "Super Admin"'.`;
+        errorMessage = `Failed to list admin users from '${ADMINS_COLLECTION}'. UID: ${localCurrentUser.uid}. Ensure Firestore Rules grant 'list' on '/${ADMINS_COLLECTION}' FOR an admin whose document at '/${ADMINS_COLLECTION}/${localCurrentUser.uid}' has 'role: "${UserRole.SUPER_ADMIN}"'.`;
       }
       toast({ title: errorTitle, description: errorMessage, variant: "destructive", duration: 30000 });
     } finally {
@@ -154,7 +154,7 @@ export default function UsersPage() {
   const getRoleBadge = (role: UserRole) => {
     switch (role) {
       case UserRole.SUPER_ADMIN:
-        return <Badge className="bg-primary hover:bg-primary/90 text-primary-foreground"><ShieldCheck className="mr-1 h-3 w-3" />Super Admin</Badge>;
+        return <Badge className="bg-primary hover:bg-primary/90 text-primary-foreground"><ShieldCheck className="mr-1 h-3 w-3" />Супер Админ</Badge>;
       case UserRole.SUB_ADMIN:
         return <Badge variant="secondary" className="text-foreground"><ShieldAlert className="mr-1 h-3 w-3" />Sub Admin</Badge>;
       default:
@@ -246,7 +246,7 @@ export default function UsersPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Roles</SelectItem> 
-                <SelectItem value={UserRole.SUPER_ADMIN}>Super Admin</SelectItem>
+                <SelectItem value={UserRole.SUPER_ADMIN}>Супер Админ</SelectItem>
                 <SelectItem value={UserRole.SUB_ADMIN}>Sub Admin</SelectItem>
               </SelectContent>
             </Select>
@@ -338,7 +338,7 @@ export default function UsersPage() {
               <UsersIcon className="mx-auto h-12 w-12 text-muted-foreground" />
               <h3 className="mt-4 text-lg font-semibold">No admin users found</h3> 
               <p className="mt-1 text-sm text-muted-foreground">
-                {adminUsers.length === 0 && !isLoading && !authLoading && !searchTerm && roleFilter === 'all' ? `No admin users exist in the '${ADMINS_COLLECTION}' collection, or access was denied. Ensure Firestore rules grant 'list' access to your Super Admin user AND your Super Admin user's document in Firestore has 'role: "Super Admin"'.` :
+                {adminUsers.length === 0 && !isLoading && !authLoading && !searchTerm && roleFilter === 'all' ? `No admin users exist in the '${ADMINS_COLLECTION}' collection, or access was denied. Ensure Firestore rules grant 'list' access to your Super Admin user AND your Super Admin user's document in Firestore has 'role: "${UserRole.SUPER_ADMIN}"'.` :
                 (searchTerm || roleFilter !== 'all' ? "Try adjusting your search or filter." : "Get started by adding a new admin user.")} 
               </p>
               {!(searchTerm || roleFilter !== 'all') && adminUsers.length === 0 && !isLoading && !authLoading && (
