@@ -14,7 +14,7 @@ export default function DashboardPage() {
 
   const summaryCards = [
     { title: "Нийт төрөл", value: "5", icon: Library, href: "/admin/categories", roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
-    { title: "Total Entries", value: "27", icon: Newspaper, href: "/admin/entries", roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
+    { title: "Нийт Оролт", value: "27", icon: Newspaper, href: "/admin/entries", roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
     { title: "Бүртгэгдсэн Хэрэглэгчид", value: "3", icon: Users, href: "/admin/users", roles: [UserRole.SUPER_ADMIN] },
     // { title: "Recent Activity", value: "12", icon: Activity, href: "#" },
   ];
