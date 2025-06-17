@@ -266,7 +266,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                 name="slug"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Товчлол (URL Identifier)</FormLabel>
+                    <FormLabel>Slug (URL тодорхойлогч)</FormLabel>
                     <FormControl>
                       <Input placeholder="e.g., blog-posts, product-info" {...field} />
                     </FormControl>
