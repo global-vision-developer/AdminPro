@@ -154,7 +154,7 @@ export default function UsersPage() {
   const getRoleBadge = (role: UserRole) => {
     switch (role) {
       case UserRole.SUPER_ADMIN:
-        return <Badge className="bg-primary hover:bg-primary/90 text-primary-foreground"><ShieldCheck className="mr-1 h-3 w-3" />Super Admin</Badge>;
+        return <Badge className="bg-primary hover:bg-primary/90 text-primary-foreground"><ShieldCheck className="mr-1 h-3 w-3" />Сүпер Админ</Badge>;
       case UserRole.SUB_ADMIN:
         return <Badge variant="secondary" className="text-foreground"><ShieldAlert className="mr-1 h-3 w-3" />Sub Admin</Badge>;
       default:
@@ -246,7 +246,7 @@ export default function UsersPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Roles</SelectItem> 
-                <SelectItem value={UserRole.SUPER_ADMIN}>Super Admin</SelectItem>
+                <SelectItem value={UserRole.SUPER_ADMIN}>Сүпер Админ</SelectItem>
                 <SelectItem value={UserRole.SUB_ADMIN}>Sub Admin</SelectItem>
               </SelectContent>
             </Select>
@@ -361,3 +361,4 @@ export default function UsersPage() {
     </TooltipProvider>
   );
 }
+
