@@ -341,7 +341,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
           <div className="lg:col-span-2 space-y-8">
             <Card>
               <CardHeader>
-                <CardTitle className="font-headline">Entry Details</CardTitle> 
+                <CardTitle className="font-headline">Бүртгэлийн дэлгэрэнгүй</CardTitle> 
                 <UiCardDescription>
                   Content for category: <span className="font-semibold text-primary">{selectedCategory.name}</span>
                 </UiCardDescription>
@@ -727,3 +727,4 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
     </Form>
   );
 }
+
