@@ -62,7 +62,7 @@ export default async function EntriesPage({
           passHref
         >
           <Button>
-            <PlusCircle className="mr-2 h-4 w-4" /> Create New Entry
+            <PlusCircle className="mr-2 h-4 w-4" /> Шинэ бүртгэл үүсгэх
           </Button>
         </Link>
       </PageHeader>
