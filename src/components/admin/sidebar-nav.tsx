@@ -44,7 +44,7 @@ const navItems: NavItem[] = [
     href: "/admin/content", label: "Контент", icon: Library, 
     subItems: [
       { href: "/admin/categories", label: "ангилал", icon: Library, roles: [UserRole.SUPER_ADMIN] }, 
-      { href: "/admin/entries", label: "оролт", icon: Newspaper, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] }, 
+      { href: "/admin/entries", label: "бүртгэл", icon: Newspaper, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] }, 
     ]
   },
   { href: "/admin/users", label: "Хэрэглэгчид", icon: Users, roles: [UserRole.SUPER_ADMIN] }, 
