@@ -175,7 +175,7 @@ export default function NewUserPage() {
   return (
     <>
       <PageHeader
-        title="Add New User" 
+        title="Шинэ Хэрэглэгч нэмэх" 
         description="Create a new Firebase Authentication user and corresponding Firestore admin document." 
       />
       <UserForm onSubmit={handleSubmit} isSubmitting={isSubmitting} isEditing={false} />
