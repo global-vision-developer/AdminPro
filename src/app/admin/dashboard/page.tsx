@@ -21,10 +21,12 @@ export default function DashboardPage() {
 
   if (!currentUser) return null;
 
+  const displayName = currentUser.name === "Admin" ? "Админ" : currentUser.name;
+
   return (
     <>
       <PageHeader
-        title={`Тавтай морил, ${currentUser.name || currentUser.email}!`}
+        title={`Тавтай морил, ${displayName || currentUser.email}!`}
         description="таны системийн статус болон контентийн тойм."
       />
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -73,4 +75,3 @@ export default function DashboardPage() {
     </>
   );
 }
-
