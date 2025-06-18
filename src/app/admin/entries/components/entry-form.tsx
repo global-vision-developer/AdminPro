@@ -446,7 +446,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                             size="sm"
                             onClick={() => append({ clientId: uuidv4(), imageUrl: null, description: '' })}
                           >
-                            <PlusCircle className="mr-2 h-4 w-4" /> Add Image
+                            <PlusCircle className="mr-2 h-4 w-4" /> Зураг нэмэх
                           </Button>
                         </div>
                         <FormMessage /> 
