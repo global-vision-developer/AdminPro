@@ -141,7 +141,7 @@ export const processNotificationRequest = onDocumentCreated(
     logger.info(
       `Sending ${tokensToSend.length} messages for notification ID: ` +
       `${notificationId}. Payload: ` +
-      `${JSON.stringify(messagePayload.notification)}`
+      JSON.stringify(messagePayload.notification)
     );
 
     try {
@@ -228,7 +228,7 @@ export const processNotificationRequest = onDocumentCreated(
           processedAt: admin.firestore.FieldValue.serverTimestamp(),
         })
         .catch((err) => logger.error(
-          "Error updating to error status:", // Double quotes ensured
+          "Error updating to error status:",
           err
         ));
     }
