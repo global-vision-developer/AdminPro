@@ -87,7 +87,7 @@ export default async function CategoriesPage({
                   <TableRow>
                     <TableHead>Нэр</TableHead>
                     <TableHead className="hidden md:table-cell">Тайлбар</TableHead>
-                    <TableHead className="text-center hidden sm:table-cell">Fields</TableHead>
+                    <TableHead className="text-center hidden sm:table-cell">Талбар</TableHead>
                     <TableHead className="text-center hidden md:table-cell">Сүүлд Шинэчилсэн</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
