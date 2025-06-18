@@ -122,7 +122,7 @@ export default async function CategoriesPage({
                                 </Button>
                               </Link>
                             </TooltipTrigger>
-                            <TooltipContent>Edit category</TooltipContent>
+                            <TooltipContent>Засах</TooltipContent>
                           </Tooltip>
                           <DeleteCategoryButton categoryId={category.id} categoryName={category.name} />
                         </div>
