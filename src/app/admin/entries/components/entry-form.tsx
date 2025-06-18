@@ -713,14 +713,14 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         </div>
 
         <div className="flex justify-end space-x-2 pt-8 border-t mt-8">
-          <Button type="button" variant="outline" disabled={isSubmitting} onClick={handleCancel}>Cancel</Button>
+          <Button type="button" variant="outline" disabled={isSubmitting} onClick={handleCancel}>Цуцлах</Button>
           <Button type="submit" disabled={isSubmitting || !selectedCategory || !selectedCategory.fields?.length}>
             {isSubmitting ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
               <Save className="mr-2 h-4 w-4" />
             )}
-            {initialData ? 'Save Changes' : 'Бүртгэл үүсгэх'}
+            {initialData ? 'Өөрчлөлтийг хадгалах' : 'Бүртгэл үүсгэх'}
           </Button>
         </div>
       </form>
