@@ -8,7 +8,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { deleteCategory } from '@/lib/actions/categoryActions';
-import { useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation'; // Added import
 
 interface DeleteCategoryButtonProps {
   categoryId: string;
@@ -17,19 +17,19 @@ interface DeleteCategoryButtonProps {
 
 export function DeleteCategoryButton({ categoryId, categoryName }: DeleteCategoryButtonProps) {
   const { toast } = useToast();
-  const router = useRouter(); // To refresh data or navigate
+  const router = useRouter(); // Initialized useRouter
 
   const handleDelete = async () => {
     const result = await deleteCategory(categoryId);
     if (result.success) {
       toast({
-        title: "Category Deleted",
-        description: `Category "${categoryName}" and all its associated entries have been successfully deleted.`,
+        title: "Ангилал устгагдлаа",
+        description: `"${categoryName}" ангилал болон түүнд хамаарах бүх бүртгэлүүд амжилттай устгагдлаа.`,
       });
-      // No need to call router.refresh() due to revalidatePath in action
+      router.refresh(); // Explicitly refresh the current route to update the UI
     } else if (result.error) {
       toast({
-        title: "Error Deleting Category",
+        title: "Ангилал устгахад алдаа гарлаа",
         description: result.error,
         variant: "destructive",
       });
@@ -41,7 +41,7 @@ export function DeleteCategoryButton({ categoryId, categoryName }: DeleteCategor
       <AlertDialogTrigger asChild>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/90" aria-label="Delete category">
+            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/90" aria-label="Ангилал устгах">
               <Trash2 className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
@@ -50,22 +50,21 @@ export function DeleteCategoryButton({ categoryId, categoryName }: DeleteCategor
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+          <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
           <AlertDialogDescription>
-            This action cannot be undone. This will permanently delete the "{categoryName}" category and all its associated entries.
+            Энэ үйлдлийг буцаах боломжгүй. Энэ нь "{categoryName}" ангиллыг болон түүнд хамаарах бүх бүртгэлийг бүрмөсөн устгах болно.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>Цуцлах</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleDelete}
             className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
           >
-            Delete
+            Устгах
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
   );
 }
-
