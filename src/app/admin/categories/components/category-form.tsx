@@ -447,7 +447,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                 name="placeholder"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Placeholder (Заавал биш)</FormLabel>
+                    <FormLabel>Плайсхолдер (Заавал биш)</FormLabel>
                     <FormControl>
                       <Input placeholder="e.g., Enter title here" {...field} value={field.value || ''}/>
                     </FormControl>
