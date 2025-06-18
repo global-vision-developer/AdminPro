@@ -463,7 +463,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                             render={({ field: formHookField }) => (
                                 <FormItem>
                                     <FormLabel>{catField.label}{catField.required && <span className="text-destructive">*</span>}</FormLabel>
-                                    {catField.description && <FormDescription>{catField.description}</FormDescription>}
+                                    {catField.description && <FormDescription>{catField.description === "Энэ бичлэгийн гол нүүр зургийн интернет хаяг." ? "үндсэн нүүр зургийн интернет хаяг(address)" : catField.description}</FormDescription>}
                                     <FormControl>
                                         <ImageUploader
                                             initialImageUrl={formHookField.value}
