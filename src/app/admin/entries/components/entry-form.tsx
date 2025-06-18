@@ -584,12 +584,12 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
               <Card>
                 <CardHeader>
                   <CardTitle className="font-headline flex items-center"><Wand2 className="mr-2 h-5 w-5 text-primary"/>Хиймэл оюуны(AI) контентын санал</CardTitle> 
-                  <UiCardDescription>Get AI-powered suggestions to improve your entry content.</UiCardDescription> 
+                  <UiCardDescription>Контентоо сайжруулах AI-ийн санал</UiCardDescription> 
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <Button type="button" variant="outline" onClick={handleGetSuggestions} disabled={isSuggesting || !selectedCategory}>
                     {isSuggesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                    Get Suggestions
+                    Надад санал болго
                   </Button>
                   {aiError && (
                     <Alert variant="destructive">
