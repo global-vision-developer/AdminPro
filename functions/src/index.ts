@@ -25,7 +25,7 @@ export const processNotificationRequest = onDocumentCreated(
 
     if (!snapshot) {
       logger.error(
-        `No data associated with event for notification ID: ${notificationId}`
+        `No data associated with event for notification ID: ${notificationId}`,
       );
       return null;
     }
@@ -39,7 +39,7 @@ export const processNotificationRequest = onDocumentCreated(
 
     logger.info(
       `Processing notification request ID: ${notificationId}`,
-      JSON.stringify(notificationData)
+      JSON.stringify(notificationData),
     );
 
     const {
@@ -49,13 +49,14 @@ export const processNotificationRequest = onDocumentCreated(
       deepLink,
       targets, // Энэ нь { userId, token, status, ... } объектуудын массив байна
       scheduleAt, // Энэ нь Firestore Timestamp байх ёстой
+      // adminCreator, // Ашиглагдаагүй тул хасав
     } = notificationData;
 
     if (scheduleAt && scheduleAt.toMillis() > Date.now() + 5 * 60 * 1000) {
       logger.info(
         `Notification ID: ${notificationId} is scheduled for ${new Date(
-          scheduleAt.toMillis()
-        ).toISOString()}. Skipping immediate send.`
+          scheduleAt.toMillis(),
+        ).toISOString()}. Skipping immediate send.`,
       );
       try {
         await db.doc(`notifications/${notificationId}`).update({
@@ -64,7 +65,7 @@ export const processNotificationRequest = onDocumentCreated(
       } catch (updateError) {
         logger.error(
           `Error updating status to scheduled for ${notificationId}:`,
-          updateError
+          updateError,
         );
       }
       return null;
@@ -78,12 +79,13 @@ export const processNotificationRequest = onDocumentCreated(
     } catch (updateError) {
       logger.error(
         `Error updating status to processing for ${notificationId}:`,
-        updateError
+        updateError,
       );
     }
 
     const tokensToSend: string[] = [];
-    const originalTargetsArray: any[] = Array.isArray(targets) ? targets : [];
+    const originalTargetsArray: any[] =
+      Array.isArray(targets) ? targets : [];
 
     originalTargetsArray.forEach((target) => {
       if (target && target.token && target.status === "pending") {
@@ -93,13 +95,13 @@ export const processNotificationRequest = onDocumentCreated(
 
     if (tokensToSend.length === 0) {
       logger.info(
-        `No valid pending tokens found for notification ID: ${notificationId}`
+        `No valid pending tokens found for notification ID: ${notificationId}`,
       );
       await db
         .doc(`notifications/${notificationId}`)
         .update({processingStatus: "completed_no_targets"})
         .catch((err) =>
-          logger.error("Error updating to completed_no_targets:", err)
+          logger.error("Error updating to completed_no_targets:", err),
         );
       return null;
     }
@@ -120,19 +122,19 @@ export const processNotificationRequest = onDocumentCreated(
     logger.info(
       `Sending ${tokensToSend.length} messages for notification ID: ` +
       `${notificationId}. Payload: ` +
-      `${JSON.stringify(messagePayload.notification)}`
+      `${JSON.stringify(messagePayload.notification)}`,
     );
 
     try {
       const response = await messaging.sendEachForMulticast(messagePayload);
       logger.info(
         `Successfully sent ${response.successCount} messages for ` +
-        `notification ID: ${notificationId}`
+        `notification ID: ${notificationId}`,
       );
       if (response.failureCount > 0) {
         logger.warn(
           `Failed to send ${response.failureCount} messages for ` +
-          `notification ID: ${notificationId}`
+          `notification ID: ${notificationId}`,
         );
       }
 
@@ -142,7 +144,7 @@ export const processNotificationRequest = onDocumentCreated(
       response.responses.forEach((result, index) => {
         const token = tokensToSend[index];
         const originalTargetIndex = originalTargetsArray.findIndex(
-          (t) => t.token === token && t.status === "pending"
+          (t) => t.token === token && t.status === "pending",
         );
 
         if (originalTargetIndex !== -1) {
@@ -160,7 +162,7 @@ export const processNotificationRequest = onDocumentCreated(
             logger.error(
               `Failed to send to token ${token} for ` +
               `notification ${notificationId}:`,
-              result.error
+              result.error,
             );
           }
           targetToUpdateInFirestore.attemptedAt =
@@ -179,13 +181,13 @@ export const processNotificationRequest = onDocumentCreated(
       logger.info(
         `Notification ID: ${notificationId} processing finished. Status: ${
           allSentSuccessfully ? "completed" : "partially_completed"
-        }`
+        }`,
       );
     } catch (error) {
       logger.error(
         `Critical error sending multicast message for notification ID: ` +
         `${notificationId}:`,
-        error
+        error,
       );
       const updatedTargetsOnError = originalTargetsArray.map((t) => {
         if (t.status === "pending") {
@@ -205,8 +207,11 @@ export const processNotificationRequest = onDocumentCreated(
           targets: updatedTargetsOnError,
           processedAt: admin.firestore.FieldValue.serverTimestamp(),
         })
-        .catch((err) => logger.error("Error updating to error status:", err));
+        .catch((err) => logger.error(
+          "Error updating to error status:",
+          err,
+        ));
     }
     return null;
-  }
+  },
 );
