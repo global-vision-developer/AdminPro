@@ -34,7 +34,7 @@ export const processNotificationRequest = onDocumentCreated(
   },
   async (event: FirestoreEvent<FirebaseFirestore.DocumentSnapshot | undefined>) => {
     const notificationId = event.params.notificationId;
-    const snapshot = event.data;
+    const snapshot = event.data; // DocumentSnapshot
 
     if (!snapshot) {
       logger.error(
@@ -62,8 +62,10 @@ export const processNotificationRequest = onDocumentCreated(
       deepLink,
       targets, // Энэ нь { userId, token, status, ... } объектуудын массив байна
       scheduleAt, // Энэ нь Firestore Timestamp байх ёстой
+      // adminCreator, // Ашиглагдаагүй тул хасав
     } = notificationData;
 
+    // scheduleAt нь Firestore Timestamp байх ёстой
     if (scheduleAt && scheduleAt.toMillis() > Date.now() + 5 * 60 * 1000) {
       logger.info(
         `Notification ID: ${notificationId} is scheduled for ${new Date(
@@ -207,7 +209,7 @@ export const processNotificationRequest = onDocumentCreated(
         if (t.status === "pending") {
           return {
             ...t,
-            status: "failed" as "failed", // Explicitly cast
+            status: "failed" as const, // Use "as const" for literal type
             error: `General function error: ${(error as Error).message}`,
             attemptedAt: admin.firestore.FieldValue.serverTimestamp(),
           };
