@@ -356,7 +356,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                         <FormControl>
                             <Input placeholder="Энэ бүртгэлийн гарчгийг оруулна уу" {...field} /> 
                         </FormControl>
-                        <FormDescription>This title will be used in lists and summaries.</FormDescription> 
+                        <FormDescription>гарчиг нь жагсаалт болон товч мэдээлэлд харагдана.</FormDescription> 
                         <FormMessage />
                         </FormItem>
                     )}
