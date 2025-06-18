@@ -5,11 +5,9 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { UploadCloud, XCircle, Loader2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
+// import { Progress } from '@/components/ui/progress'; // Progress bar temporarily removed
 import { useToast } from '@/hooks/use-toast';
-import { storage } from '@/lib/firebase';
-import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
-import { v4 as uuidv4 } from 'uuid';
+import { uploadFileToStorage, deleteFileFromStorage } from '@/lib/actions/storageActions'; // Import server action
 
 interface ImageUploaderProps {
   onUploadComplete: (downloadURL: string | null) => void;
@@ -21,7 +19,7 @@ interface ImageUploaderProps {
   label?: string;
 }
 
-const DIRECT_UPLOAD_THRESHOLD_MB = 3; // 3MB
+const DIRECT_UPLOAD_THRESHOLD_MB = 3;
 
 const ImageUploader: React.FC<ImageUploaderProps> = ({
   onUploadComplete,
@@ -34,7 +32,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
 }) => {
   const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(initialUrlProp || null);
   const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState(0);
+  // const [progress, setProgress] = useState(0); // Progress bar temporarily removed
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(initialUrlProp || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -114,67 +112,61 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
     }
 
     setUploading(true);
-    setProgress(0);
+    // setProgress(0); // Progress bar temporarily removed
     let tempPreviewUrl = "";
     try {
         tempPreviewUrl = URL.createObjectURL(file);
         setPreview(tempPreviewUrl);
     } catch (e) {
         console.error("Error creating object URL for preview:", e);
-        // Not critical, upload can proceed without preview if this fails
     }
 
-
     try {
-      let blobToUpload: Blob;
-      if (file.size < DIRECT_UPLOAD_THRESHOLD_MB * 1024 * 1024 && (file.type === "image/jpeg" || file.type === "image/png" || file.type === "image/webp")) {
-        console.log(`ImageUploader: File size (${(file.size / (1024*1024)).toFixed(2)}MB) is less than ${DIRECT_UPLOAD_THRESHOLD_MB}MB and is JPEG/PNG/WEBP. Uploading directly.`);
-        blobToUpload = file;
-      } else {
-        console.log(`ImageUploader: File size (${(file.size / (1024*1024)).toFixed(2)}MB) or type (${file.type}) requires compression. Compressing image...`);
-        blobToUpload = await handleImageCompression(file);
-        console.log(`ImageUploader: Image compressed. New size: (${(blobToUpload.size / (1024*1024)).toFixed(2)}MB)`);
-      }
+      let blobToUpload: Blob = file;
+      let originalFileName = file.name; // Store original file name for FormData
 
-      const fileName = `${uuidv4()}-${file.name.replace(/\s+/g, '_')}`;
-      const imageRef = ref(storage, `${storagePath}/${fileName}`);
-      const uploadTask = uploadBytesResumable(imageRef, blobToUpload);
-
-      uploadTask.on(
-        'state_changed',
-        (snapshot) => {
-          const prog = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
-          setProgress(prog);
-        },
-        (uploadError) => {
-          console.error("Upload error:", uploadError);
-          const errorMsg = `Зураг байршуулахад алдаа гарлаа: ${uploadError.message}`;
-          setError(errorMsg);
-          toast({ title: "Байршуулах Алдаа", description: errorMsg, variant: "destructive" });
-          setUploading(false);
-          setPreview(initialUrlProp || null);
-          setProgress(0);
-        },
-        async () => {
-          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-          setUploading(false); 
-          setProgress(100); 
-          
-          setCurrentImageUrl(downloadURL);
-          setPreview(downloadURL); // Update preview to final URL
-          
-          try {
-            onUploadComplete(downloadURL);
-          } catch (callbackError) {
-            console.error("Error in onUploadComplete callback:", callbackError);
-            toast({ title: "Аппликэйшний алдаа", description: "Зураг байршсан ч дараагийн үйлдэл алдаатай байна.", variant: "destructive" });
-          }
-          
-          toast({ title: "Амжилттай", description: "Зураг амжилттай байршуулагдлаа." });
-          // No need to revoke tempPreviewUrl here as setPreview(downloadURL) replaces it.
-          // It will be revoked if component unmounts or preview changes again.
+      if (file.size >= DIRECT_UPLOAD_THRESHOLD_MB * 1024 * 1024 || !['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+        console.log(`ImageUploader: Compressing image '${file.name}'...`);
+        try {
+            blobToUpload = await handleImageCompression(file);
+            console.log(`ImageUploader: Image compressed. Original: ${(file.size / (1024*1024)).toFixed(2)}MB, Compressed: ${(blobToUpload.size / (1024*1024)).toFixed(2)}MB`);
+        } catch (compressionError: any) {
+            console.warn(`ImageUploader: Compression failed for '${file.name}'. Uploading original. Error: ${compressionError.message}`);
+            // If compression fails, upload the original file
+            blobToUpload = file;
         }
-      );
+      } else {
+        console.log(`ImageUploader: File '${file.name}' (${(file.size / (1024*1024)).toFixed(2)}MB) is small and suitable type. Uploading directly.`);
+      }
+      
+      const formData = new FormData();
+      // Create a new File object from the blob if it was compressed, preserving the original name and type if possible
+      const fileToUpload = new File([blobToUpload], originalFileName, { type: blobToUpload.type || file.type });
+      formData.append('file', fileToUpload);
+      formData.append('storagePath', storagePath);
+
+      console.log(`ImageUploader: Calling uploadFileToStorage server action for file: '${fileToUpload.name}'.`);
+      const result = await uploadFileToStorage(formData);
+      setUploading(false);
+
+      if (result.downloadURL) {
+        // setProgress(100); // Progress bar temporarily removed
+        setCurrentImageUrl(result.downloadURL);
+        setPreview(result.downloadURL); // Update preview to final URL
+        try {
+          onUploadComplete(result.downloadURL);
+        } catch (callbackError) {
+          console.error("Error in onUploadComplete callback:", callbackError);
+          toast({ title: "Аппликэйшний алдаа", description: "Зураг байршсан ч дараагийн үйлдэл алдаатай байна.", variant: "destructive" });
+        }
+        toast({ title: "Амжилттай", description: "Зураг амжилттай байршуулагдлаа." });
+      } else {
+        const errorMsg = result.error || "Зураг байршуулахад үл мэдэгдэх алдаа гарлаа.";
+        setError(errorMsg);
+        toast({ title: "Байршуулах Алдаа", description: errorMsg, variant: "destructive" });
+        setPreview(initialUrlProp || null); // Revert preview if upload failed
+        // setProgress(0); // Progress bar temporarily removed
+      }
     } catch (processError: any) {
       console.error("Image processing/upload error:", processError);
       const errorMsg = `Зураг боловсруулах/байршуулахад алдаа гарлаа: ${processError.message}`;
@@ -182,9 +174,9 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
       toast({ title: "Боловсруулалтын Алдаа", description: errorMsg, variant: "destructive" });
       setUploading(false);
       setPreview(initialUrlProp || null);
-      setProgress(0);
-    } finally {
-        if (tempPreviewUrl && preview !== tempPreviewUrl) { // Clean up if temp URL was created but not used as final preview
+      // setProgress(0); // Progress bar temporarily removed
+    }  finally {
+        if (tempPreviewUrl && preview !== tempPreviewUrl) {
              URL.revokeObjectURL(tempPreviewUrl);
         }
     }
@@ -195,7 +187,6 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
     if (file) {
       handleFileUpload(file);
     }
-     // Reset file input to allow re-uploading the same file
     if (event.target) {
       event.target.value = "";
     }
@@ -211,7 +202,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
       setError("Зургийн файл сонгоно уу.");
       toast({title: "Буруу Файлын Төрөл", description: "Зөвхөн зургийн файл сонгоно уу.", variant: "destructive"})
     }
-  }, [handleFileUpload]);
+  }, [handleFileUpload, toast]);
 
   const onDragOver = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -220,39 +211,41 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
 
   const handleRemoveImage = async () => {
     if (!currentImageUrl) return;
-    const confirmation = window.confirm("Та энэ зургийг устгахдаа итгэлтэй байна уу? Энэ нь боломжтой бол Firebase Storage-аас мөн устгах болно.");
+    const confirmation = window.confirm("Та энэ зургийг устгахдаа итгэлтэй байна уу? Энэ нь Firebase Storage-оос мөн устгах болно.");
     if (!confirmation) return;
 
-    if (currentImageUrl.includes('firebasestorage.googleapis.com')) {
-        try {
-            const imageRef = ref(storage, currentImageUrl);
-            await deleteObject(imageRef);
-            toast({ title: "Зураг Storage-оос устгагдлаа."});
-        } catch (deleteError: any) {
-            console.warn("Failed to delete image from Firebase Storage:", deleteError);
-            if (deleteError.code === 'storage/object-not-found') {
-                // Object not found, consider it deleted from storage already.
-            } else {
-                toast({ title: "Storage-оос устгах алдаа", description: "Зураг Storage-оос устгагдсангүй, гэхдээ UI-аас цэвэрлэгдэх болно.", variant: "destructive"});
-            }
-        }
-    }
-
-    setCurrentImageUrl(null);
-    if (preview && preview.startsWith('blob:')) { // Revoke object URL if it's a blob
-        URL.revokeObjectURL(preview);
-    }
-    setPreview(null);
-    onUploadComplete(null);
+    setUploading(true); // Indicate activity
     setError(null);
-    setProgress(0);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+
+    try {
+        const result = await deleteFileFromStorage(currentImageUrl);
+        if (result.success) {
+            toast({ title: "Зураг устгагдлаа", description: "Зураг амжилттай устгагдлаа." });
+            setCurrentImageUrl(null);
+            if (preview && preview.startsWith('blob:')) {
+                URL.revokeObjectURL(preview);
+            }
+            setPreview(null);
+            onUploadComplete(null);
+            // setProgress(0); // Progress bar temporarily removed
+            if (fileInputRef.current) {
+              fileInputRef.current.value = "";
+            }
+        } else {
+            const errorMsg = result.error || "Зураг устгахад алдаа гарлаа.";
+            setError(errorMsg);
+            toast({ title: "Устгах Алдаа", description: errorMsg, variant: "destructive" });
+        }
+    } catch (e: any) {
+        const errorMsg = `Зураг устгах явцад алдаа: ${e.message}`;
+        setError(errorMsg);
+        toast({ title: "Устгах Алдаа", description: errorMsg, variant: "destructive" });
+    } finally {
+        setUploading(false);
     }
   };
   
   useEffect(() => {
-    // Cleanup object URLs when component unmounts or preview changes
     let currentPreview = preview;
     return () => {
       if (currentPreview && currentPreview.startsWith('blob:')) {
@@ -284,8 +277,9 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
           <div className="flex flex-col items-center space-y-2">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
             <p className="text-sm text-muted-foreground">Зураг байршуулж байна...</p>
+            {/* Progress component removed for server action simplicity
             <Progress value={progress} className="w-3/4" />
-            <p className="text-xs text-muted-foreground">{progress}%</p>
+            <p className="text-xs text-muted-foreground">{progress}%</p> */}
           </div>
         ) : preview ? (
           <div className="relative group w-full max-w-xs mx-auto">
@@ -293,14 +287,14 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
               src={preview}
               alt="Сонгосон зураг"
               width={maxDimension}
-              height={maxDimension * (9/16)} // Maintain aspect ratio, adjust as needed
-              style={{ maxWidth: '100%', height: 'auto', maxHeight: '192px' }} // 192px = 12rem, for max-h-48
+              height={maxDimension * (9/16)}
+              style={{ maxWidth: '100%', height: 'auto', maxHeight: '192px' }}
               className="rounded-md object-contain"
               data-ai-hint="uploaded image preview"
               onError={(e) => {
                 console.warn("Error loading preview image:", preview);
                 setError("Урьдчилан харах зургийг ачааллахад алдаа гарлаа.");
-                setPreview(null); // Clear broken preview
+                setPreview(null); 
               }}
             />
             <Button
@@ -334,4 +328,3 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
 };
 
 export default ImageUploader;
-
