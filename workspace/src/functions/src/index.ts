@@ -12,7 +12,7 @@ const db = admin.firestore();
 const messaging = admin.messaging();
 
 // Firestore-ийн 'notifications' collection-д шинэ document үүсэхэд ажиллах функц
-export const processNotificationRequest = functions.region("us-central1") // Таны Firebase project-ийн бүс нутаг
+export const processNotificationRequest = functions.region("us-central1") // Өөрийн region-оо сонгоорой
   .firestore.document("notifications/{notificationId}")
   .onCreate(async (snapshot, context) => {
     const notificationId = context.params.notificationId;
@@ -39,12 +39,17 @@ export const processNotificationRequest = functions.region("us-central1") // Т�
     } = notificationData;
 
     // Хуваарьт илгээлт (Энгийн жишээ):
+    // Хэрэв scheduleAt нь ирээдүйн цаг бөгөөд одоогийн цагаас хол байвал (жишээ нь, 5 минутаас илүү)
+    // функцийг дуусгаад, Cloud Scheduler ашиглан дараа нь дахин ажиллуулах эсвэл
+    // энэ функц дотроо setTimeout ашиглаж болно (удаан ажилладаг функцэд тохиромжгүй).
+    // Илүү найдвартай шийдэл нь Cloud Scheduler ашиглах явдал юм.
     if (scheduleAt && scheduleAt.toMillis() > Date.now() + 5 * 60 * 1000) {
       console.log(
         `Notification ID: ${notificationId} is scheduled for ${new Date(
           scheduleAt.toMillis()
         ).toISOString()}. Skipping immediate send.`
       );
+      // Та энд notification document-ийн статусыг 'scheduled' болгож шинэчилж болно.
       try {
         await db.doc(`notifications/${notificationId}`).update({
           processingStatus: "scheduled",
@@ -55,7 +60,7 @@ export const processNotificationRequest = functions.region("us-central1") // Т�
           updateError
         );
       }
-      return null;
+      return null; // Эсвэл дараа нь retry хийх логик нэмнэ.
     }
 
     // Боловсруулж эхэлснийг тэмдэглэх
@@ -69,10 +74,12 @@ export const processNotificationRequest = functions.region("us-central1") // Т�
         `Error updating status to processing for ${notificationId}:`,
         updateError
       );
+      // Алдаа гарсан ч үргэлжлүүлээд илгээхийг оролдож болно, эсвэл эндээс буцааж болно.
     }
 
     const tokensToSend: string[] = [];
     const originalTargetsArray: any[] = Array.isArray(targets) ? targets : [];
+    const targetUpdatesPromises: Promise<void>[] = [];
 
     originalTargetsArray.forEach((target) => {
       if (target && target.token && target.status === "pending") {
@@ -102,8 +109,23 @@ export const processNotificationRequest = functions.region("us-central1") // Т�
       tokens: tokensToSend,
       data: {
         ...(deepLink && { deepLink: deepLink as string }),
-        notificationId: notificationId,
+        notificationId: notificationId, // Апп талд хэрэг болж магадгүй
       },
+      // Android, APNS, Webpush-д зориулсан нэмэлт тохиргоо энд хийж болно.
+      // Жишээ нь:
+      // android: {
+      //   notification: {
+      //     clickAction: deepLink ? 'FLUTTER_NOTIFICATION_CLICK' : undefined, // Android-д click_action
+      //   },
+      // },
+      // apns: {
+      //   payload: {
+      //     aps: {
+      //       category: deepLink ? 'NAVIGATION_CATEGORY' : undefined, // iOS-д category
+      //       sound: 'default',
+      //     },
+      //   },
+      // },
     };
 
     console.log(
@@ -126,10 +148,13 @@ export const processNotificationRequest = functions.region("us-central1") // Т�
       }
 
       let allSentSuccessfully = response.failureCount === 0;
-      const updatedTargetsFirestore = [...originalTargetsArray]; 
+
+      // Илгээлтийн үр дүнг target бүрээр шинэчлэх
+      const updatedTargetsFirestore = [...originalTargetsArray]; // Firestore-д хадгалах хуулбар
 
       response.responses.forEach((result, index) => {
         const token = tokensToSend[index];
+        // Зөвхөн энэ илгээлтэд хамаарах 'pending' статустай, ижил token-той анхны target-г олох
         const originalTargetIndex = originalTargetsArray.findIndex(
           (t) => t.token === token && t.status === "pending"
         );
@@ -140,7 +165,7 @@ export const processNotificationRequest = functions.region("us-central1") // Т�
           if (result.success) {
             targetToUpdateInFirestore.status = "success";
             targetToUpdateInFirestore.messageId = result.messageId;
-            delete targetToUpdateInFirestore.error; 
+            delete targetToUpdateInFirestore.error; // Алдаагүй бол алдааны мэдээллийг цэвэрлэх
           } else {
             allSentSuccessfully = false;
             targetToUpdateInFirestore.status = "failed";
@@ -156,12 +181,13 @@ export const processNotificationRequest = functions.region("us-central1") // Т�
         }
       });
 
+      // Notification document-ийн ерөнхий статус болон targets-г шинэчлэх
       await db.doc(`notifications/${notificationId}`).update({
         targets: updatedTargetsFirestore,
         processingStatus: allSentSuccessfully
           ? "completed"
           : "partially_completed",
-        processedAt: admin.firestore.FieldValue.serverTimestamp(),
+        processedAt: admin.firestore.FieldValue.serverTimestamp(), // Эцсийн боловсруулсан цаг
       });
 
       console.log(
@@ -174,6 +200,7 @@ export const processNotificationRequest = functions.region("us-central1") // Т�
         `Critical error sending multicast message for notification ID: ${notificationId}:`,
         error
       );
+      // Ерөнхий алдаа гарсан тохиолдолд бүх pending target-уудын статусыг 'failed' болгох
       const updatedTargetsOnError = originalTargetsArray.map((t) => {
         if (t.status === "pending") {
           return {
