@@ -1,7 +1,10 @@
 
 // functions/src/index.ts
 
-import {onDocumentCreated, FirestoreEvent} from "firebase-functions/v2/firestore";
+import {
+  onDocumentCreated,
+  FirestoreEvent,
+} from "firebase-functions/v2/firestore";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
 
@@ -30,7 +33,7 @@ interface FunctionNotificationTarget {
 export const processNotificationRequest = onDocumentCreated(
   {
     document: "notifications/{notificationId}",
-    region: "us-central1",
+    region: "us-central1", // Таны Firebase project-ийн бүс нутаг
   },
   async (event: FirestoreEvent<FirebaseFirestore.DocumentSnapshot | undefined>) => {
     const notificationId = event.params.notificationId;
@@ -67,10 +70,10 @@ export const processNotificationRequest = onDocumentCreated(
 
     // scheduleAt нь Firestore Timestamp байх ёстой
     if (scheduleAt && scheduleAt.toMillis() > Date.now() + 5 * 60 * 1000) {
+      const scheduledTime = new Date(scheduleAt.toMillis()).toISOString();
       logger.info(
-        `Notification ID: ${notificationId} is scheduled for ${new Date(
-          scheduleAt.toMillis()
-        ).toISOString()}. Skipping immediate send.`
+        `Notification ID: ${notificationId} is scheduled for ` +
+        `${scheduledTime}. Skipping immediate send.`
       );
       try {
         await db.doc(`notifications/${notificationId}`).update({
@@ -172,7 +175,7 @@ export const processNotificationRequest = onDocumentCreated(
             delete targetToUpdateInFirestore.error;
           } else {
             allSentSuccessfully = false;
-            targetToUpdateInFirestore.status = "failed";
+            targetToUpdateInFirestore.status = "failed" as const;
             targetToUpdateInFirestore.error =
               result.error?.message || "Unknown FCM error";
             logger.error(
@@ -186,18 +189,19 @@ export const processNotificationRequest = onDocumentCreated(
         }
       });
 
+      const finalProcessingStatus = allSentSuccessfully ?
+        "completed" :
+        "partially_completed";
+
       await db.doc(`notifications/${notificationId}`).update({
         targets: updatedTargetsFirestore,
-        processingStatus: allSentSuccessfully ?
-          "completed" :
-          "partially_completed",
+        processingStatus: finalProcessingStatus,
         processedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
       logger.info(
-        `Notification ID: ${notificationId} processing finished. Status: ${
-          allSentSuccessfully ? "completed" : "partially_completed"
-        }`
+        `Notification ID: ${notificationId} processing finished. ` +
+        `Status: ${finalProcessingStatus}`
       );
     } catch (error) {
       logger.error(
