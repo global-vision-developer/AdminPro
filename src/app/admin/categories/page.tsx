@@ -41,7 +41,7 @@ export default async function CategoriesPage({
 
   return (
     <TooltipProvider>
-      <PageHeader title="Контентийн категори" description="контент бүтэц удирдах хэсэг.">
+      <PageHeader title="Контентийн ангилал" description="контент бүтэц удирдах хэсэг.">
         <Link href="/admin/categories/new" passHref>
           <Button>
             <PlusCircle className="mr-2 h-4 w-4" /> Шинэ категори үүсгэх
