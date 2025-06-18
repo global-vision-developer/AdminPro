@@ -45,7 +45,7 @@ export function DeleteCategoryButton({ categoryId, categoryName }: DeleteCategor
               <Trash2 className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Delete category</TooltipContent>
+          <TooltipContent>Устгах</TooltipContent>
         </Tooltip>
       </AlertDialogTrigger>
       <AlertDialogContent>
@@ -68,3 +68,4 @@ export function DeleteCategoryButton({ categoryId, categoryName }: DeleteCategor
     </AlertDialog>
   );
 }
+
