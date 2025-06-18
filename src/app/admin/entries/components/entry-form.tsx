@@ -354,7 +354,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                         <FormItem>
                         <FormLabel>Entry Title</FormLabel> 
                         <FormControl>
-                            <Input placeholder="Enter a title to represent this entry" {...field} /> 
+                            <Input placeholder="Энэ бүртгэлийн гарчгийг оруулна уу" {...field} /> 
                         </FormControl>
                         <FormDescription>This title will be used in lists and summaries.</FormDescription> 
                         <FormMessage />
