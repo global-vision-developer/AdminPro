@@ -31,7 +31,7 @@ export default function EditEntryPage() {
 
   useEffect(() => {
     if (!entryId) {
-      toast({ title: "Error", description: "Entry ID is missing.", variant: "destructive" }); // Changed
+      toast({ title: "Алдаа", description: "Бүртгэлийн ID дутуу байна.", variant: "destructive" });
       router.push('/admin/entries');
       setIsLoading(false); 
       return;
@@ -57,7 +57,7 @@ export default function EditEntryPage() {
               setAccessDenied(true);
               setEntry(null);
               setCategories([]);
-              toast({ title: "Access Denied", description: "You do not have permission to edit this entry.", variant: "destructive" });
+              toast({ title: "Хандалт хориглогдсон", description: "Та энэ бүртгэлийг засах эрхгүй байна.", variant: "destructive" });
               setIsLoading(false); 
               return;
             }
@@ -65,12 +65,12 @@ export default function EditEntryPage() {
           setEntry(fetchedEntry);
           setCategories(fetchedCategories);
         } else {
-          toast({ title: "Error", description: "Entry not found.", variant: "destructive" }); // Changed
+          toast({ title: "Алдаа", description: "Бүртгэл олдсонгүй.", variant: "destructive" });
           router.push('/admin/entries');
         }
       } catch (error) {
         console.error("Failed to load entry or categories:", error);
-        toast({ title: "Error", description: "Failed to load data for editing.", variant: "destructive" }); // Changed
+        toast({ title: "Алдаа", description: "Засварлах мэдээллийг ачааллахад алдаа гарлаа.", variant: "destructive" });
       } finally {
         setIsLoading(false); 
       }
@@ -97,7 +97,7 @@ export default function EditEntryPage() {
   if (isLoading) {
     return (
       <>
-        <PageHeader title="Edit Entry" /> 
+        <PageHeader title="Бүртгэл засварлах" /> 
          <div className="space-y-4 p-4">
           <Skeleton className="h-10 w-full sm:w-1/3 mb-4" />
           <Skeleton className="h-10 w-full" />
@@ -112,8 +112,8 @@ export default function EditEntryPage() {
   if (!currentUser && !isLoading) { 
     return (
         <div className="p-4">
-            <PageHeader title="Edit Entry" /> 
-            <p className="mt-4">Verifying user authentication or permissions...</p>  
+            <PageHeader title="Бүртгэл засварлах" /> 
+            <p className="mt-4">Хэрэглэгчийн нэвтрэлт эсвэл зөвшөөрлийг шалгаж байна...</p>  
         </div>
     );
   }
@@ -121,16 +121,16 @@ export default function EditEntryPage() {
   if (accessDenied) {
     return (
         <>
-         <PageHeader title="Access Denied" /> 
+         <PageHeader title="Хандалт хориглогдсон" /> 
          <Alert variant="destructive" className="mt-4">
             <AlertTriangle className="h-5 w-5" />
-            <AlertTitle>Permission Error</AlertTitle> 
+            <AlertTitle>Зөвшөөрлийн алдаа</AlertTitle> 
             <AlertDescription>
-              You do not have permission to edit entries in this category.
-              If you believe this is an error, please contact a Super Admin.
+              Та энэ категорийн бүртгэлийг засах эрхгүй байна.
+              Хэрэв энэ нь алдаа гэж үзэж байвал Сүпер админтай холбогдоно уу.
             </AlertDescription>
          </Alert>
-         <Button onClick={() => router.push('/admin/entries')} variant="outline" className="mt-4">Back to Entries</Button> 
+         <Button onClick={() => router.push('/admin/entries')} variant="outline" className="mt-4">Бүртгэл рүү буцах</Button> 
         </>
     );
   }
@@ -139,12 +139,12 @@ export default function EditEntryPage() {
   if (!entry || !selectedCategory) {
     return (
         <>
-         <PageHeader title="Error Loading Entry" description="Entry or its category could not be loaded." /> 
+         <PageHeader title="Бүртгэл ачаалахад алдаа гарлаа" description="Бүртгэл эсвэл түүний категори ачаалагдах боломжгүй байна." /> 
          <p className="mt-4 p-4">
-            Please ensure the entry exists and you have access to its category.
-            If the problem persists, try refreshing or check the console for more details.
+            Бүртгэл байгаа эсэх, мөн танд категори руу хандах эрх байгаа эсэхийг шалгана уу.
+            Хэрэв асуудал хэвээр байвал, дахин ачааллах эсвэл дэлгэрэнгүй мэдээллийг консолоос шалгана уу.
          </p>
-         <Button onClick={() => router.push('/admin/entries')} variant="outline" className="ml-4">Back to Entries</Button> 
+         <Button onClick={() => router.push('/admin/entries')} variant="outline" className="ml-4">Бүртгэл рүү буцах</Button> 
         </>
     );
   }
@@ -152,8 +152,8 @@ export default function EditEntryPage() {
   return (
     <>
       <PageHeader
-        title={`Edit Entry: ${entry.title || 'Untitled'}`} 
-        description={`Editing content for category: ${selectedCategory.name}`}
+        title={`Бүртгэл засварлах: ${entry.title || 'Гарчиггүй'}`} 
+        description={`категори контент засварлах: ${selectedCategory.name}`}
       />
       <EntryForm
         key={entry.categoryId}
@@ -165,3 +165,4 @@ export default function EditEntryPage() {
     </>
   );
 }
+
