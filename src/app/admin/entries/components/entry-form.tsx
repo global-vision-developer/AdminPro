@@ -635,9 +635,9 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="draft">Draft</SelectItem>
-                          <SelectItem value="published">Published</SelectItem>
-                          <SelectItem value="scheduled">Scheduled</SelectItem>
+                          <SelectItem value="draft">Ноорог</SelectItem>
+                          <SelectItem value="published">Нийтлэгдсэн</SelectItem>
+                          <SelectItem value="scheduled">Товлогдсон</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
