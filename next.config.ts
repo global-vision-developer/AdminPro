@@ -88,6 +88,12 @@ const nextConfig: NextConfig = {
         hostname: 'firebasestorage.googleapis.com', // Added Firebase Storage
         port: '',
         pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'manuals.plus', // Added new hostname
+        port: '',
+        pathname: '/**',
       }
     ],
   },
