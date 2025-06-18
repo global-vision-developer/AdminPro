@@ -188,7 +188,8 @@ export const processNotificationRequest = onDocumentCreated(
       });
 
       logger.info(
-        `ID: ${notificationId} processing finished. Status: ${finalProcessingStatus}`
+        `ID: ${notificationId} processing finished. ` +
+        `Status: ${finalProcessingStatus}`
       );
     } catch (error) {
       logger.error(
@@ -213,7 +214,7 @@ export const processNotificationRequest = onDocumentCreated(
           targets: updatedTargetsOnError,
           processedAt: admin.firestore.FieldValue.serverTimestamp(),
         })
-        .catch((err) => logger.error( // Line 208 in the new code is here
+        .catch((err) => logger.error(
           "Error updating to error status:",
           err
         ));
