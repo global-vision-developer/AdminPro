@@ -209,7 +209,7 @@ export const processNotificationRequest = onDocumentCreated(
         if (t.status === "pending") {
           return {
             ...t,
-            status: "failed" as const, // Use "as const" for literal type
+            status: "failed" as const,
             error: `General function error: ${(error as Error).message}`,
             attemptedAt: admin.firestore.FieldValue.serverTimestamp(),
           };
