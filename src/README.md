@@ -58,6 +58,48 @@ Stores individual content entries belonging to a specific category.
     *   `createdBy: string` (UID of the admin user who created the entry, optional)
     *   `slug: string` (Optional: URL-friendly identifier for the entry, if needed for public-facing URLs. Could be derived from a title field.)
 
+### `users` Collection (For App Users, not Admins)
+
+Stores profile information for the end-users of your application, primarily for push notification targeting.
+
+*   **Document ID:** `uid` (from Firebase Authentication of the app user)
+*   **Fields:**
+    *   `email: string` (App user's email)
+    *   `displayName: string` (App user's display name, optional)
+    *   `fcmTokens: array<string>` (List of Firebase Cloud Messaging registration tokens for this user's devices. Updated by the client app.)
+    *   `createdAt: firebase.firestore.Timestamp` (Server timestamp when the app user document was created)
+    *   `lastLoginAt: firebase.firestore.Timestamp` (Optional: Server timestamp of the user's last login)
+
+### `notifications` Collection (For Push Notification Logs)
+
+Stores logs of push notifications sent or scheduled to be sent to app users. A Firebase Function will typically process these.
+
+*   **Document ID:** Auto-generated Firestore ID
+*   **Fields:**
+    *   `title: string` (Notification title)
+    *   `body: string` (Notification body/message)
+    *   `imageUrl: string` (Optional URL for an image in the notification)
+    *   `deepLink: string` (Optional deep link URL for the app)
+    *   `scheduleAt: firebase.firestore.Timestamp` (Optional: If set, the Firebase Function should send at this time)
+    *   `adminCreator: map`
+        *   `uid: string` (UID of the admin who created the notification request)
+        *   `email: string` (Email of the admin)
+        *   `name: string` (Name of the admin, optional)
+    *   `createdAt: firebase.firestore.Timestamp` (Timestamp of when the admin created this log)
+    *   `processingStatus: string` (e.g., "pending", "processing", "completed", "partially_completed", "error" - managed by the Firebase Function)
+    *   `processedAt: firebase.firestore.Timestamp` (Optional: Timestamp of when processing by Firebase Function started/completed)
+    *   `targets: array` (Array of target user tokens and their individual statuses)
+        *   Each object in the array:
+            *   `userId: string` (Target app user's UID)
+            *   `userEmail: string` (Target app user's email, denormalized)
+            *   `userName: string` (Target app user's name, denormalized, optional)
+            *   `token: string` (The specific FCM token targeted for this user device)
+            *   `status: string` (e.g., "pending", "success", "failed" - updated by the Firebase Function)
+            *   `error: string` (Optional: Error message if sending to this token failed)
+            *   `messageId: string` (Optional: FCM message ID on successful send)
+            *   `attemptedAt: firebase.firestore.Timestamp` (Optional: When the Firebase Function attempted to send to this token)
+
+
 This structure is designed to be scalable and flexible, allowing for dynamic content types based on category definitions. Firestore security rules should be configured to protect this data appropriately (e.g., only authenticated admins can write to `admins`, `categories`, `entries`).
 
 ## Firestore Indexes
@@ -157,6 +199,37 @@ service cloud.firestore {
                                             )
                                           );
     }
+
+    // App Users collection ('users')
+    match /users/{userId} {
+      // Admins can read app user data for notification targeting
+      allow read, list: if request.auth != null && 
+                           (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
+                            get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
+      // Only the app user themselves can write to their own document (e.g., update fcmTokens)
+      // This rule assumes app users authenticate with Firebase Auth as well.
+      allow write: if request.auth != null && request.auth.uid == userId;
+      // Creation of user documents in 'users' collection typically handled by app client or trusted backend during signup.
+      // Deny direct creation from admin panel unless specifically designed.
+      allow create: if false; 
+    }
+
+    // Notifications collection ('notifications')
+    match /notifications/{notificationId} {
+      // Admins can create notification requests (initial document)
+      allow create: if request.auth != null &&
+                      (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
+                       get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
+      // Admins can read notification logs
+      allow read, list: if request.auth != null &&
+                          (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
+                           get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
+      // Only backend (e.g., Firebase Function with specific service account or identity) should update status.
+      // For simplicity here, allowing Super Admins to update, but ideally this is more restricted.
+      allow update: if request.auth != null && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin'; 
+      // Super Admins can delete notification logs
+      allow delete: if request.auth != null && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin';
+    }
   }
 }
 ```
@@ -177,3 +250,5 @@ NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=YOUR_MEASUREMENT_ID (optional)
 ```
 Replace `YOUR_...` with your actual Firebase project credentials.
 Remember to restart your development server (`npm run dev`) after creating or modifying `.env.local`.
+
+```
