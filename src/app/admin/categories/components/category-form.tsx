@@ -195,7 +195,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
     } else if (result && (("id" in result && result.id) || ("success" in result && result.success))) {
        toast({
         title: "Success",
-        description: `Category ${initialData ? "updated" : "created"}.`,
+        description: `Категори ${initialData ? "updated" : "created"}.`,
       });
       if (onFormSuccess) onFormSuccess();
       form.reset(initialData ? { 
@@ -282,7 +282,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                   <FormItem>
                     <FormLabel>Тайлбар (Сонголтоор)</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="Энэ нь ангиллын зориулалтыг товч тайлбарлана." {...field} />
+                      <Textarea placeholder="энд категорийн зориулалтыг товч тайлбарлана." {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -313,7 +313,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
           <Card>
             <CardHeader>
               <CardTitle className="font-headline">Талбарын тодорхойлолт</CardTitle>
-              <UiCardDescription>Энэ ангилалд хамаарах бүртгэлийн өгөгдлийн бүтцийг тодорхойлно уу.</UiCardDescription>
+              <UiCardDescription>Энэ категорид хамаарах бүртгэлийн өгөгдлийн бүтцийг тодорхойлно уу.</UiCardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {fields.length === 0 && (
@@ -506,5 +506,6 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
     
 
     
+
 
 
