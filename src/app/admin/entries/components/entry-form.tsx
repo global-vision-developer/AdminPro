@@ -583,7 +583,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
              {selectedCategory && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="font-headline flex items-center"><Wand2 className="mr-2 h-5 w-5 text-primary"/>AI Content Suggestions</CardTitle> 
+                  <CardTitle className="font-headline flex items-center"><Wand2 className="mr-2 h-5 w-5 text-primary"/>Хиймэл оюуны(AI) контентын санал</CardTitle> 
                   <UiCardDescription>Get AI-powered suggestions to improve your entry content.</UiCardDescription> 
                 </CardHeader>
                 <CardContent className="space-y-4">
