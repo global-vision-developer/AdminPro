@@ -1,7 +1,8 @@
 // functions/src/index.ts
 
-import * as functions from "firebase-functions";
-import *部落格admin from "firebase-admin";
+import { onDocumentCreated } from "firebase-functions/v2/firestore";
+import * as logger from "firebase-functions/logger";
+import * as admin from "firebase-admin";
 
 // Firebase Admin SDK-г эхлүүлнэ (зөвхөн нэг удаа)
 if (admin.apps.length === 0) {
@@ -12,18 +13,30 @@ const db = admin.firestore();
 const messaging = admin.messaging();
 
 // Firestore-ийн 'notifications' collection-д шинэ document үүсэхэд ажиллах функц
-export const processNotificationRequest = functions.region("us-central1") // Өөрийн region-оо сонгоорой
-  .firestore.document("notifications/{notificationId}")
-  .onCreate(async (snapshot, context) => {
-    const notificationId = context.params.notificationId;
-    const notificationData = snapshot.data();
+export const processNotificationRequest = onDocumentCreated(
+  {
+    document: "notifications/{notificationId}",
+    region: "us-central1", // Таны Firebase project-ийн бүс нутаг
+  },
+  async (event) => {
+    const notificationId = event.params.notificationId;
+    const snapshot = event.data; // DocumentSnapshot
 
-    if (!notificationData) {
-      console.error(`Notification data not found for ID: ${notificationId}`);
+    if (!snapshot) {
+      logger.error(
+        `No data associated with the event for notification ID: ${notificationId}`
+      );
       return null;
     }
 
-    console.log(
+    const notificationData = snapshot.data();
+
+    if (!notificationData) {
+      logger.error(`Notification data is undefined for ID: ${notificationId}`);
+      return null;
+    }
+
+    logger.info(
       `Processing notification request ID: ${notificationId}`,
       JSON.stringify(notificationData)
     );
@@ -35,51 +48,42 @@ export const processNotificationRequest = functions.region("us-central1") // Ө�
       deepLink,
       targets, // Энэ нь { userId, token, status, ... } объектуудын массив байна
       scheduleAt, // Энэ нь Firestore Timestamp байх ёстой
-      adminCreator, // Админы мэдээлэл
+      // adminCreator, // Ашиглагдаагүй тул хасав
     } = notificationData;
 
-    // Хуваарьт илгээлт (Энгийн жишээ):
-    // Хэрэв scheduleAt нь ирээдүйн цаг бөгөөд одоогийн цагаас хол байвал (жишээ нь, 5 минутаас илүү)
-    // функцийг дуусгаад, Cloud Scheduler ашиглан дараа нь дахин ажиллуулах эсвэл
-    // энэ функц дотроо setTimeout ашиглаж болно (удаан ажилладаг функцэд тохиромжгүй).
-    // Илүү найдвартай шийдэл нь Cloud Scheduler ашиглах явдал юм.
     if (scheduleAt && scheduleAt.toMillis() > Date.now() + 5 * 60 * 1000) {
-      console.log(
+      logger.info(
         `Notification ID: ${notificationId} is scheduled for ${new Date(
           scheduleAt.toMillis()
         ).toISOString()}. Skipping immediate send.`
       );
-      // Та энд notification document-ийн статусыг 'scheduled' болгож шинэчилж болно.
       try {
         await db.doc(`notifications/${notificationId}`).update({
           processingStatus: "scheduled",
         });
       } catch (updateError) {
-        console.error(
+        logger.error(
           `Error updating status to scheduled for ${notificationId}:`,
           updateError
         );
       }
-      return null; // Эсвэл дараа нь retry хийх логик нэмнэ.
+      return null;
     }
 
-    // Боловсруулж эхэлснийг тэмдэглэх
     try {
       await db.doc(`notifications/${notificationId}`).update({
         processingStatus: "processing",
         processedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
     } catch (updateError) {
-      console.error(
+      logger.error(
         `Error updating status to processing for ${notificationId}:`,
         updateError
       );
-      // Алдаа гарсан ч үргэлжлүүлээд илгээхийг оролдож болно, эсвэл эндээс буцааж болно.
     }
 
     const tokensToSend: string[] = [];
     const originalTargetsArray: any[] = Array.isArray(targets) ? targets : [];
-    const targetUpdatesPromises: Promise<void>[] = [];
 
     originalTargetsArray.forEach((target) => {
       if (target && target.token && target.status === "pending") {
@@ -88,14 +92,14 @@ export const processNotificationRequest = functions.region("us-central1") // Ө�
     });
 
     if (tokensToSend.length === 0) {
-      console.log(
+      logger.info(
         `No valid pending tokens found for notification ID: ${notificationId}`
       );
       await db
         .doc(`notifications/${notificationId}`)
         .update({ processingStatus: "completed_no_targets" })
         .catch((err) =>
-          console.error("Error updating to completed_no_targets:", err)
+          logger.error("Error updating to completed_no_targets:", err)
         );
       return null;
     }
@@ -109,26 +113,11 @@ export const processNotificationRequest = functions.region("us-central1") // Ө�
       tokens: tokensToSend,
       data: {
         ...(deepLink && { deepLink: deepLink as string }),
-        notificationId: notificationId, // Апп талд хэрэг болж магадгүй
+        notificationId: notificationId,
       },
-      // Android, APNS, Webpush-д зориулсан нэмэлт тохиргоо энд хийж болно.
-      // Жишээ нь:
-      // android: {
-      //   notification: {
-      //     clickAction: deepLink ? 'FLUTTER_NOTIFICATION_CLICK' : undefined, // Android-д click_action
-      //   },
-      // },
-      // apns: {
-      //   payload: {
-      //     aps: {
-      //       category: deepLink ? 'NAVIGATION_CATEGORY' : undefined, // iOS-д category
-      //       sound: 'default',
-      //     },
-      //   },
-      // },
     };
 
-    console.log(
+    logger.info(
       `Sending ${
         tokensToSend.length
       } messages for notification ID: ${notificationId}. Payload: ${JSON.stringify(
@@ -138,23 +127,20 @@ export const processNotificationRequest = functions.region("us-central1") // Ө�
 
     try {
       const response = await messaging.sendEachForMulticast(messagePayload);
-      console.log(
+      logger.info(
         `Successfully sent ${response.successCount} messages for notification ID: ${notificationId}`
       );
       if (response.failureCount > 0) {
-        console.warn(
+        logger.warn(
           `Failed to send ${response.failureCount} messages for notification ID: ${notificationId}`
         );
       }
 
       let allSentSuccessfully = response.failureCount === 0;
-
-      // Илгээлтийн үр дүнг target бүрээр шинэчлэх
-      const updatedTargetsFirestore = [...originalTargetsArray]; // Firestore-д хадгалах хуулбар
+      const updatedTargetsFirestore = [...originalTargetsArray];
 
       response.responses.forEach((result, index) => {
         const token = tokensToSend[index];
-        // Зөвхөн энэ илгээлтэд хамаарах 'pending' статустай, ижил token-той анхны target-г олох
         const originalTargetIndex = originalTargetsArray.findIndex(
           (t) => t.token === token && t.status === "pending"
         );
@@ -165,13 +151,13 @@ export const processNotificationRequest = functions.region("us-central1") // Ө�
           if (result.success) {
             targetToUpdateInFirestore.status = "success";
             targetToUpdateInFirestore.messageId = result.messageId;
-            delete targetToUpdateInFirestore.error; // Алдаагүй бол алдааны мэдээллийг цэвэрлэх
+            delete targetToUpdateInFirestore.error;
           } else {
             allSentSuccessfully = false;
             targetToUpdateInFirestore.status = "failed";
             targetToUpdateInFirestore.error =
               result.error?.message || "Unknown FCM error";
-            console.error(
+            logger.error(
               `Failed to send to token ${token} for notification ${notificationId}:`,
               result.error
             );
@@ -181,26 +167,24 @@ export const processNotificationRequest = functions.region("us-central1") // Ө�
         }
       });
 
-      // Notification document-ийн ерөнхий статус болон targets-г шинэчлэх
       await db.doc(`notifications/${notificationId}`).update({
         targets: updatedTargetsFirestore,
         processingStatus: allSentSuccessfully
           ? "completed"
           : "partially_completed",
-        processedAt: admin.firestore.FieldValue.serverTimestamp(), // Эцсийн боловсруулсан цаг
+        processedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
-      console.log(
+      logger.info(
         `Notification ID: ${notificationId} processing finished. Status: ${
           allSentSuccessfully ? "completed" : "partially_completed"
         }`
       );
     } catch (error) {
-      console.error(
+      logger.error(
         `Critical error sending multicast message for notification ID: ${notificationId}:`,
         error
       );
-      // Ерөнхий алдаа гарсан тохиолдолд бүх pending target-уудын статусыг 'failed' болгох
       const updatedTargetsOnError = originalTargetsArray.map((t) => {
         if (t.status === "pending") {
           return {
@@ -219,9 +203,8 @@ export const processNotificationRequest = functions.region("us-central1") // Ө�
           targets: updatedTargetsOnError,
           processedAt: admin.firestore.FieldValue.serverTimestamp(),
         })
-        .catch((err) => console.error("Error updating to error status:", err));
+        .catch((err) => logger.error("Error updating to error status:", err));
     }
     return null;
-  });
-
-    
+  }
+);
