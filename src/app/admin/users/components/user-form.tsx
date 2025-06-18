@@ -182,13 +182,13 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
                   <FormItem>
                     <FormLabel className="flex items-center">
                       <ListChecks className="mr-2 h-5 w-5 text-primary" />
-                      Дэд админд зөвшөөрсөн ангиллууд
+                      Дэд админд зөвшөөрсөн категориуд
                     </FormLabel>
-                    <FormDescription>Энэ Дэд админы удирдаж болох бүртгэлийн ангиллыг сонгоно уу.</FormDescription>
+                    <FormDescription>Энэ Дэд админы удирдаж болох бүртгэлийн категориудыг сонгоно уу.</FormDescription>
                     {loadingCategories ? (
-                      <p>Ангиллуудыг ачаалж байна...</p>
+                      <p>Категориудыг ачаалж байна...</p>
                     ) : allCategories.length === 0 ? (
-                      <p className="text-muted-foreground">Оноох боломжтой ангилал алга. Эхлээд ангилал үүсгэнэ үү.</p>
+                      <p className="text-muted-foreground">Оноох боломжтой категори алга. Эхлээд категори үүсгэнэ үү.</p>
                     ) : (
                       <ScrollArea className="h-48 rounded-md border p-3">
                         <div className="space-y-2">

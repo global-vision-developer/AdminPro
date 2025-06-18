@@ -166,16 +166,16 @@ export default function NewEntryPage() {
     <>
       <PageHeader
         title="Шинэ Бүртгэл Үүсгэх" 
-        description={selectedCategory ? `Ангилал: ${selectedCategory.name}` : "Эхлэхийн тулд ангилал сонгоно уу."}
+        description={selectedCategory ? `Категори: ${selectedCategory.name}` : "Эхлэхийн тулд категори сонгоно уу."}
       />
       
       <div className="mb-6 max-w-md"> 
         <label htmlFor="category-select" className="block text-sm font-medium text-foreground mb-1">
-          Сонгогдсон ангилал <span className="text-destructive">*</span>
+          Сонгогдсон категори <span className="text-destructive">*</span>
         </label>
         <Select value={selectedCategoryId || ""} onValueChange={handleCategoryChange} required>
           <SelectTrigger id="category-select" className="w-full">
-            <SelectValue placeholder="Ангилал сонгоно уу..." />
+            <SelectValue placeholder="Категори сонгоно уу..." />
           </SelectTrigger>
           <SelectContent>
             {selectableCategories.map(cat => (
@@ -188,7 +188,7 @@ export default function NewEntryPage() {
           </SelectContent>
         </Select>
         {!selectedCategoryId && selectableCategories.length > 0 && (
-             <p className="text-sm text-destructive mt-1">Ангилал сонгоно уу.</p> 
+             <p className="text-sm text-destructive mt-1">Категори сонгоно уу.</p> 
         )}
       </div>
 
@@ -203,7 +203,7 @@ export default function NewEntryPage() {
         selectableCategories.length > 0 && ( 
             <Card className="mt-6">
             <CardContent className="py-10 text-center">
-                <p className="text-muted-foreground">Бүртгэл үүсгэж эхлэхийн тулд дээрээс хүчинтэй ангилал сонгоно уу.</p> 
+                <p className="text-muted-foreground">Бүртгэл үүсгэж эхлэхийн тулд дээрээс хүчинтэй категори сонгоно уу.</p> 
             </CardContent>
             </Card>
         )

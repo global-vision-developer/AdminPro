@@ -211,7 +211,7 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
               <TableHeader>
                 <TableRow>
                   <TableHead className="min-w-[200px]">Гарчиг</TableHead> 
-                  <TableHead className="hidden md:table-cell min-w-[150px]">Ангилал</TableHead>
+                  <TableHead className="hidden md:table-cell min-w-[150px]">Категори</TableHead>
                   <TableHead className="min-w-[150px]">Үндсэн дата тойм</TableHead> 
                   <TableHead className="text-center hidden sm:table-cell">Төлөв</TableHead> 
                   <TableHead className="text-center hidden md:table-cell">Нийтлэгдсэн</TableHead> 
@@ -301,6 +301,5 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
     </TooltipProvider>
   );
 }
-
 
     

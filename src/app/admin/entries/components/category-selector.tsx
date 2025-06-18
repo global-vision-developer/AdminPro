@@ -54,7 +54,7 @@ export function CategorySelector({ allCategories, selectedCategoryIdForUrl }: Ca
     return (
         <div className="mb-6 max-w-xs">
             <Label className="text-sm font-medium mb-1 block text-muted-foreground">
-                ангиллаар нь шүүх
+                категориор нь шүүх
             </Label>
             <p className="text-sm text-muted-foreground p-2 border rounded-md bg-muted/50">
                 No categories assigned for managing entries.
@@ -67,7 +67,7 @@ export function CategorySelector({ allCategories, selectedCategoryIdForUrl }: Ca
   return (
     <div className="mb-6 max-w-xs">
       <Label htmlFor="category-select" className="text-sm font-medium mb-1 block">
-        ангиллаар нь шүүх
+        категориор нь шүүх
       </Label>
       <Select
         value={selectedCategoryIdForUrl || "all"} 
@@ -77,7 +77,7 @@ export function CategorySelector({ allCategories, selectedCategoryIdForUrl }: Ca
           <SelectValue placeholder="Select a category..." />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">Ангилал</SelectItem>
+          <SelectItem value="all">Бүх Категори</SelectItem>
           {displayCategories.map((category) => (
             <SelectItem key={category.id} value={category.id}>
               {category.name}

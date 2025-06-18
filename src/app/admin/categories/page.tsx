@@ -41,10 +41,10 @@ export default async function CategoriesPage({
 
   return (
     <TooltipProvider>
-      <PageHeader title="Контентийн ангилал" description="контент бүтэц удирдах хэсэг.">
+      <PageHeader title="Контентийн категори" description="контент бүтэц удирдах хэсэг.">
         <Link href="/admin/categories/new" passHref>
           <Button>
-            <PlusCircle className="mr-2 h-4 w-4" /> Шинэ ангилал үүсгэх
+            <PlusCircle className="mr-2 h-4 w-4" /> Шинэ категори үүсгэх
           </Button>
         </Link>
       </PageHeader>
@@ -57,7 +57,7 @@ export default async function CategoriesPage({
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 name="search"
-                placeholder="Ангилал хайх"
+                placeholder="Категори хайх"
                 defaultValue={searchTerm}
                 className="pl-10"
               />

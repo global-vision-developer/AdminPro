@@ -244,8 +244,8 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
         <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-8">
           <Card>
             <CardHeader>
-              <CardTitle className="font-headline">Ангиллын дэлгэрэнгүй</CardTitle>
-              <UiCardDescription>Энэ ангиллын нэр, slug, тайлбарыг үүсгэнэ үү.</UiCardDescription>
+              <CardTitle className="font-headline">Категорийн дэлгэрэнгүй</CardTitle>
+              <UiCardDescription>Энэ категорийн нэр, slug, тайлбарыг үүсгэнэ үү.</UiCardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <FormField
@@ -299,10 +299,10 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                         initialImageUrl={field.value}
                         onUploadComplete={(url) => field.onChange(url)}
                         storagePath="category-covers"
-                        label="Ангиллын нүүр зураг"
+                        label="Категорийн нүүр зураг"
                       />
                     </FormControl>
-                    <FormDescription>Энэ ангиллын нүүр зургийг байршуулна уу.</FormDescription>
+                    <FormDescription>Энэ категорийн нүүр зургийг байршуулна уу.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -362,7 +362,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
               ) : (
                 <Save className="mr-2 h-4 w-4" />
               )}
-              {initialData ? 'Өөрчлөлтийг хадгалах' : 'Ангилал үүсгэх'}
+              {initialData ? 'Өөрчлөлтийг хадгалах' : 'Категори үүсгэх'}
             </Button>
           </div>
         </form>
@@ -380,7 +380,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
           <DialogHeader>
             <DialogTitle className="font-headline">{editingFieldIndex !== null ? "Талбар засах" : "Шинэ талбар нэмэх"}</DialogTitle>
             <DialogDescription>
-              Энэ талбарын шинж чанарыг тодорхойлно уу. 'Талбарын түлхүүр' нь шошгоноос автоматаар үүсгэгдэнэ. Ангиллын доторх талбарын шошго давтагдахгүй байх ёстой.
+              Энэ талбарын шинж чанарыг тодорхойлно уу. 'Талбарын түлхүүр' нь шошгоноос автоматаар үүсгэгдэнэ. Категорийн доторх талбарын шошго давтагдахгүй байх ёстой.
             </DialogDescription>
           </DialogHeader>
           <Form {...fieldFormMethods}>
@@ -490,7 +490,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                   <Button type="button" variant="outline">Цуцлах</Button>
                 </DialogClose>
                 <Button type="submit">
-                  {editingFieldIndex !== null ? "Талбарын өөрчлөлтийг хадгалах" : "Ангилалд талбар нэмэх"}
+                  {editingFieldIndex !== null ? "Талбарын өөрчлөлтийг хадгалах" : "Категорид талбар нэмэх"}
                 </Button>
               </DialogFooter>
             </form>
@@ -506,4 +506,5 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
     
 
     
+
 

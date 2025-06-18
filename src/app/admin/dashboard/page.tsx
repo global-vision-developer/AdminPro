@@ -13,7 +13,7 @@ export default function DashboardPage() {
   const { currentUser } = useAuth();
 
   const summaryCards = [
-    { title: "Нийт ангилал", value: "5", icon: Library, href: "/admin/categories", roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
+    { title: "Нийт категори", value: "5", icon: Library, href: "/admin/categories", roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
     { title: "Нийт бүртгэл", value: "27", icon: Newspaper, href: "/admin/entries", roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
     { title: "Админ Хэрэглэгчид", value: "3", icon: Users, href: "/admin/users", roles: [UserRole.SUPER_ADMIN] },
     // { title: "Recent Activity", value: "12", icon: Activity, href: "#" },
@@ -58,7 +58,7 @@ export default function DashboardPage() {
           {currentUser.role === UserRole.SUPER_ADMIN || currentUser.role === UserRole.SUB_ADMIN ? (
             <>
               <Link href="/admin/categories/new">
-                <Button variant="outline"><Library className="mr-2 h-4 w-4" /> Ангилал үүсгэх</Button>
+                <Button variant="outline"><Library className="mr-2 h-4 w-4" /> Категори үүсгэх</Button>
               </Link>
               <Link href="/admin/entries/new">
                 <Button variant="outline"><Newspaper className="mr-2 h-4 w-4" /> Оролт үүсгэх</Button>

@@ -138,7 +138,7 @@ export default function EditUserPage() {
     <>
       <PageHeader
         title={`Админ эрх өөрчлөх: ${userToEdit.name}`} 
-        description="Админ хэрэглэгчийн дэлгэрэнгүй, хандах эрх, дэд админд оноосон ангиллыг шинэчлэх" 
+        description="Админ хэрэглэгчийн дэлгэрэнгүй, хандах эрх, дэд админд оноосон категориудыг шинэчлэх" 
       />
       <UserForm initialData={userToEdit} onSubmit={handleSubmit} isSubmitting={isSubmitting} isEditing={true} />
     </>

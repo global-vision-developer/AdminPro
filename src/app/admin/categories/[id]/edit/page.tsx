@@ -31,14 +31,14 @@ export default function EditCategoryPage() {
             setCategory(fetchedCategory);
           } else {
             // toast({ title: "Error", description: "Category not found.", variant: "destructive" });
-            alert("Category not found. Returning to list..."); // Simple alert for now
+            alert("Категори олдсонгүй. Жагсаалт руу буцаж байна..."); // Simple alert for now
             router.push('/admin/categories');
           }
         })
         .catch(err => {
           console.error("Failed to fetch category:", err);
           // toast({ title: "Error", description: "Failed to load category data.", variant: "destructive" });
-          alert("Failed to load category data. Returning to list...");
+          alert("Категорийн мэдээллийг ачааллахад алдаа гарлаа. Жагсаалт руу буцаж байна...");
           router.push('/admin/categories');
         })
         .finally(() => setIsLoading(false));
@@ -87,7 +87,7 @@ export default function EditCategoryPage() {
   }
 
   if (!category) {
-    return <PageHeader title="Category Not Found" description="This category could not be loaded or does not exist." />;
+    return <PageHeader title="Категори олдсонгүй" description="Энэ категори ачаалагдах боломжгүй эсвэл байхгүй байна." />;
   }
 
   return (

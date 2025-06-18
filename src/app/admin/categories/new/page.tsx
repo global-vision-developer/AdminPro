@@ -34,7 +34,7 @@ export default function NewCategoryPage() {
   return (
     <>
       <PageHeader
-        title="Шинэ Ангилал Үүсгэх"
+        title="Шинэ Категори Үүсгэх"
         description="Шинэ контентын бүтэц зохиож, бүртгэлд ашиглах"
       />
       <CategoryForm 
