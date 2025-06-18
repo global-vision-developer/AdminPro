@@ -25,13 +25,13 @@ interface FunctionNotificationTarget {
   userName?: string;
   error?: string;
   messageId?: string;
-  attemptedAt?: FirebaseFirestore.FieldValue;
+  attemptedAt?: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
 }
 
 export const processNotificationRequest = onDocumentCreated(
   {
     document: "notifications/{notificationId}",
-    region: "us-central1",
+    region: "us-central1", // Таны Firebase project-ийн бүс нутаг
   },
   async (event: FirestoreEvent<FirebaseFirestore.DocumentSnapshot | undefined>) => {
     const notificationId = event.params.notificationId;
@@ -58,14 +58,14 @@ export const processNotificationRequest = onDocumentCreated(
       body,
       imageUrl,
       deepLink,
-      targets,
-      scheduleAt,
+      targets, // Энэ нь { userId, token, status, ... } объектуудын массив байна
+      scheduleAt, // Энэ нь Firestore Timestamp байх ёстой
     } = notificationData;
 
     if (scheduleAt && scheduleAt.toMillis() > Date.now() + 5 * 60 * 1000) {
       const scheduledTime = new Date(scheduleAt.toMillis()).toISOString();
       logger.info(
-        `ID: ${notificationId} scheduled for ${scheduledTime}. Skipping.`
+        `Sched skip: ID ${notificationId} for ${scheduledTime}`
       );
       try {
         await db.doc(`notifications/${notificationId}`).update({
@@ -93,8 +93,13 @@ export const processNotificationRequest = onDocumentCreated(
     }
 
     const tokensToSend: string[] = [];
+    // `targets` нь DocumentData-аас ирж байгаа тул `any[]` байж болзошгүй.
+    // `FunctionNotificationTarget` рүү cast хийж байна.
     const originalTargetsArray: FunctionNotificationTarget[] =
-      Array.isArray(targets) ? targets.map((t: any) => ({...t})) : [];
+      Array.isArray(targets) ?
+      (targets as unknown as FunctionNotificationTarget[]).map(
+        (t: FunctionNotificationTarget) => ({ ...t }) // t-г FunctionNotificationTarget гэж үзнэ
+      ) : [];
 
 
     originalTargetsArray.forEach((target) => {
@@ -147,6 +152,7 @@ export const processNotificationRequest = onDocumentCreated(
 
       let allSentSuccessfully = response.failureCount === 0;
       const updatedTargetsFirestore = [...originalTargetsArray];
+      const currentTimestamp = admin.firestore.FieldValue.serverTimestamp();
 
       response.responses.forEach((result, index) => {
         const token = tokensToSend[index];
@@ -172,8 +178,7 @@ export const processNotificationRequest = onDocumentCreated(
               result.error
             );
           }
-          targetToUpdateInFirestore.attemptedAt =
-            admin.firestore.FieldValue.serverTimestamp();
+          targetToUpdateInFirestore.attemptedAt = currentTimestamp;
         }
       });
 
@@ -184,7 +189,7 @@ export const processNotificationRequest = onDocumentCreated(
       await db.doc(`notifications/${notificationId}`).update({
         targets: updatedTargetsFirestore,
         processingStatus: finalProcessingStatus,
-        processedAt: admin.firestore.FieldValue.serverTimestamp(),
+        processedAt: currentTimestamp,
       });
 
       logger.info(
@@ -196,28 +201,32 @@ export const processNotificationRequest = onDocumentCreated(
         `Critical error sending multicast for ID: ${notificationId}:`,
         error
       );
+      const errorTimestamp = admin.firestore.FieldValue.serverTimestamp();
       const updatedTargetsOnError = originalTargetsArray.map((t) => {
         if (t.status === "pending") {
           return {
             ...t,
             status: "failed" as const,
             error: `General function error: ${(error as Error).message}`,
-            attemptedAt: admin.firestore.FieldValue.serverTimestamp(),
+            attemptedAt: errorTimestamp,
           };
         }
         return t;
       });
-      await db
-        .doc(`notifications/${notificationId}`)
-        .update({
-          processingStatus: "error",
-          targets: updatedTargetsOnError,
-          processedAt: admin.firestore.FieldValue.serverTimestamp(),
-        })
-        .catch((err) => logger.error(
-          "Error updating to error status:",
+      try {
+        await db
+          .doc(`notifications/${notificationId}`)
+          .update({
+            processingStatus: "error",
+            targets: updatedTargetsOnError,
+            processedAt: errorTimestamp,
+          });
+      } catch (err) {
+        logger.error(
+          "Error updating to error status:", // Double quotes used here
           err
-        ));
+        );
+      }
     }
     return null;
   }
