@@ -68,7 +68,7 @@ export default function EditCategoryPage() {
   if (isLoading) {
     return (
       <>
-        <PageHeader title="Edit Category" />
+        <PageHeader title="Категори засварлах" />
         <div className="space-y-4 p-4">
           <Skeleton className="h-10 w-1/2" />
           <Skeleton className="h-8 w-1/3" />
@@ -93,8 +93,8 @@ export default function EditCategoryPage() {
   return (
     <>
       <PageHeader
-        title={`Edit Category: ${category.name}`}
-        description="Modify the structure and details of this category."
+        title={`Категори засварлах: ${category.name}`}
+        description="Категорийн бүтэц болон дэлгэрэнгүй мэдээллийг өөрчлөх."
       />
       <CategoryForm 
         initialData={category} 
