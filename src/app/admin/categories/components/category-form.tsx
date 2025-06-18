@@ -268,7 +268,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                   <FormItem>
                     <FormLabel>Slug (URL тодорхойлогч)</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., blog-posts, product-info" {...field} />
+                      <Input placeholder="жишээ: blog-posts, product-info" {...field} />
                     </FormControl>
                     <FormDescription>Давтагдашгүй, жижиг үсгээр, зөвхөн үсэг, тоо, зураас (-) агуулна.</FormDescription>
                     <FormMessage />
@@ -500,5 +500,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
     </>
   );
 }
+
+    
 
     
