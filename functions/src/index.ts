@@ -114,7 +114,7 @@ export const processNotificationRequest = onDocumentCreated(
 
     if (tokensToSend.length === 0) {
       logger.info(
-        `No valid pending tokens found for notification ID: ${notificationId}`
+        `No valid pending tokens for notification ID: ${notificationId}`
       );
       await db
         .doc(`notifications/${notificationId}`)
@@ -205,7 +205,7 @@ export const processNotificationRequest = onDocumentCreated(
       );
     } catch (error) {
       logger.error(
-        `Critical error sending multicast message for notification ID: ` +
+        `Critical error sending multicast message for ID: ` +
         `${notificationId}:`,
         error
       );
