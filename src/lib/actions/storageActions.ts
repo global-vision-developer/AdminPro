@@ -1,3 +1,4 @@
+
 // src/lib/actions/storageActions.ts
 'use server';
 
@@ -59,3 +60,4 @@ export async function deleteFileFromStorage(fileUrl: string): Promise<{ success?
         return { error: error.message || 'Файл устгахад алдаа гарлаа.' };
     }
 }
+
