@@ -1,6 +1,6 @@
 // functions/src/index.ts
 
-import { onDocumentCreated } from "firebase-functions/v2/firestore";
+import {onDocumentCreated} from "firebase-functions/v2/firestore";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
 
@@ -12,7 +12,8 @@ if (admin.apps.length === 0) {
 const db = admin.firestore();
 const messaging = admin.messaging();
 
-// Firestore-ийн 'notifications' collection-д шинэ document үүсэхэд ажиллах функц
+// Firestore-ийн 'notifications' collection-д шинэ document үүсэхэд
+// ажиллах функц
 export const processNotificationRequest = onDocumentCreated(
   {
     document: "notifications/{notificationId}",
@@ -24,7 +25,7 @@ export const processNotificationRequest = onDocumentCreated(
 
     if (!snapshot) {
       logger.error(
-        `No data associated with the event for notification ID: ${notificationId}`
+        `No data associated with event for notification ID: ${notificationId}`
       );
       return null;
     }
@@ -48,7 +49,6 @@ export const processNotificationRequest = onDocumentCreated(
       deepLink,
       targets, // Энэ нь { userId, token, status, ... } объектуудын массив байна
       scheduleAt, // Энэ нь Firestore Timestamp байх ёстой
-      // adminCreator, // Ашиглагдаагүй тул хасав
     } = notificationData;
 
     if (scheduleAt && scheduleAt.toMillis() > Date.now() + 5 * 60 * 1000) {
@@ -97,7 +97,7 @@ export const processNotificationRequest = onDocumentCreated(
       );
       await db
         .doc(`notifications/${notificationId}`)
-        .update({ processingStatus: "completed_no_targets" })
+        .update({processingStatus: "completed_no_targets"})
         .catch((err) =>
           logger.error("Error updating to completed_no_targets:", err)
         );
@@ -108,31 +108,31 @@ export const processNotificationRequest = onDocumentCreated(
       notification: {
         title: title || "New Notification",
         body: body || "You have a new message.",
-        ...(imageUrl && { imageUrl: imageUrl as string }),
+        ...(imageUrl && {imageUrl: imageUrl as string}),
       },
       tokens: tokensToSend,
       data: {
-        ...(deepLink && { deepLink: deepLink as string }),
+        ...(deepLink && {deepLink: deepLink as string}),
         notificationId: notificationId,
       },
     };
 
     logger.info(
-      `Sending ${
-        tokensToSend.length
-      } messages for notification ID: ${notificationId}. Payload: ${JSON.stringify(
-        messagePayload.notification
-      )}`
+      `Sending ${tokensToSend.length} messages for notification ID: ` +
+      `${notificationId}. Payload: ` +
+      `${JSON.stringify(messagePayload.notification)}`
     );
 
     try {
       const response = await messaging.sendEachForMulticast(messagePayload);
       logger.info(
-        `Successfully sent ${response.successCount} messages for notification ID: ${notificationId}`
+        `Successfully sent ${response.successCount} messages for ` +
+        `notification ID: ${notificationId}`
       );
       if (response.failureCount > 0) {
         logger.warn(
-          `Failed to send ${response.failureCount} messages for notification ID: ${notificationId}`
+          `Failed to send ${response.failureCount} messages for ` +
+          `notification ID: ${notificationId}`
         );
       }
 
@@ -158,7 +158,8 @@ export const processNotificationRequest = onDocumentCreated(
             targetToUpdateInFirestore.error =
               result.error?.message || "Unknown FCM error";
             logger.error(
-              `Failed to send to token ${token} for notification ${notificationId}:`,
+              `Failed to send to token ${token} for ` +
+              `notification ${notificationId}:`,
               result.error
             );
           }
@@ -169,9 +170,9 @@ export const processNotificationRequest = onDocumentCreated(
 
       await db.doc(`notifications/${notificationId}`).update({
         targets: updatedTargetsFirestore,
-        processingStatus: allSentSuccessfully
-          ? "completed"
-          : "partially_completed",
+        processingStatus: allSentSuccessfully ?
+          "completed" :
+          "partially_completed",
         processedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
@@ -182,7 +183,8 @@ export const processNotificationRequest = onDocumentCreated(
       );
     } catch (error) {
       logger.error(
-        `Critical error sending multicast message for notification ID: ${notificationId}:`,
+        `Critical error sending multicast message for notification ID: ` +
+        `${notificationId}:`,
         error
       );
       const updatedTargetsOnError = originalTargetsArray.map((t) => {
