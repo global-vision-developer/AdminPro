@@ -393,7 +393,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                     <FormLabel>Талбарын шошго</FormLabel>
                     <FormControl>
                       <Input 
-                        placeholder="жишээ: Author Name, Product Price" 
+                        placeholder="жишээ: Зохиогчийн нэр, Бүтээгдэхүүний үнэ" 
                         {...field} 
                         onChange={(e) => {
                            field.onChange(e); 
@@ -462,7 +462,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                   <FormItem>
                     <FormLabel>Талбарын тайлбар/Туслах текст (Заавал биш)</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="A short explanation of what this field is for." {...field} value={field.value || ''}/>
+                      <Textarea placeholder="Богино тайлбар бичих" {...field} value={field.value || ''}/>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -500,6 +500,8 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
     </>
   );
 }
+
+    
 
     
 
