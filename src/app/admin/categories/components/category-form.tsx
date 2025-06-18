@@ -449,7 +449,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                   <FormItem>
                     <FormLabel>Плайсхолдер (Заавал биш)</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., Enter title here" {...field} value={field.value || ''}/>
+                      <Input placeholder="жишээ нь гарчигаа энд оруулна." {...field} value={field.value || ''}/>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -506,3 +506,4 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
     
 
     
+
