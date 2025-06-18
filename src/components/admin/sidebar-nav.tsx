@@ -10,7 +10,8 @@ import {
   Newspaper,
   Settings,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Bell // Bell icon нэмэгдсэн
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,7 @@ const navItems: NavItem[] = [
       { href: "/admin/entries", label: "бүртгэл", icon: Newspaper, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] }, 
     ]
   },
+  { href: "/admin/notifications", label: "Мэдэгдэл", icon: Bell, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] }, // Мэдэгдэл цэс нэмэгдсэн
   { href: "/admin/users", label: "Хэрэглэгчид", icon: Users, roles: [UserRole.SUPER_ADMIN] }, 
   // { href: "/admin/settings", label: "Settings", icon: Settings }, 
 ];
