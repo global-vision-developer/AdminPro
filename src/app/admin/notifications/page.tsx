@@ -229,6 +229,3 @@ export default function NotificationsPage() {
   );
 }
 
-export const metadata = {
-    title: "Notifications | Admin Pro",
-  };
