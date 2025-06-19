@@ -1,8 +1,7 @@
-
 import React from 'react';
 import Link from 'next/link';
 import { unstable_noStore as noStore } from 'next/cache';
-import { PlusCircle, Edit, Trash2, Image as ImageIcon, ExternalLink, Eye, EyeOff } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Image as ImageIcon, ExternalLink, Eye, EyeOff, Loader2 } from 'lucide-react'; // Added Loader2
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { PageHeader } from '@/components/admin/page-header';
@@ -11,9 +10,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import NextImage from 'next/image'; // Renamed to avoid conflict with lucide-react Image
-import { getBanners, deleteBanner } from '@/lib/actions/bannerActions'; // Placeholder for actions
-import { toast } from '@/hooks/use-toast'; // For delete feedback
+// Removed NextImage import, using BannerImage component instead
+import { getBanners, deleteBanner } from '@/lib/actions/bannerActions';
+import { toast } from '@/hooks/use-toast';
+import { BannerImage } from './components/banner-image'; // Import the new client component
 
 // Client component for delete button to handle dialog and server action call
 function DeleteBannerButton({ bannerId, bannerDescription }: { bannerId: string; bannerDescription: string }) {
@@ -115,19 +115,14 @@ export default async function BannersPage() {
                   {banners.map((banner) => (
                     <TableRow key={banner.id}>
                       <TableCell>
-                        {banner.imageUrl ? (
-                          <NextImage
-                            data-ai-hint="banner image"
-                            src={banner.imageUrl} // Assumed Base64 data URI
-                            alt={banner.description.substring(0, 30)}
-                            width={80}
-                            height={45} // Assuming 16:9 aspect ratio for thumbnail
-                            className="rounded object-cover border"
-                            onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/80x45.png?text=Error'; }}
-                          />
-                        ) : (
-                          <div className="w-[80px] h-[45px] flex items-center justify-center bg-muted rounded border text-xs text-muted-foreground">No Image</div>
-                        )}
+                        <BannerImage
+                          src={banner.imageUrl}
+                          alt={banner.description.substring(0, 30)}
+                          width={80}
+                          height={45}
+                          className="rounded object-cover border"
+                          dataAiHint="banner image"
+                        />
                       </TableCell>
                       <TableCell className="font-medium max-w-xs truncate" title={banner.description}>
                         {banner.description}
