@@ -8,8 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger, DialogClose } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'; // Removed DialogClose, DialogTrigger
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'; // Removed AlertDialogTrigger
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Label } from '@/components/ui/label';
 import { useForm } from 'react-hook-form';
@@ -17,9 +17,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useToast } from '@/hooks/use-toast';
 import type { HelpItem } from '@/types';
-import { HelpTopic } from '@/types';
+import { HelpTopic, UserRole } from '@/types'; // Added UserRole
 import { getHelpItems, addHelpItem, updateHelpItem, deleteHelpItem } from '@/lib/actions/helpActions';
 import { Loader2, PlusCircle, BookOpen, Plane, HelpCircle, Edit3, Trash2 } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth'; // Added useAuth
 
 const helpItemFormSchema = z.object({
   topic: z.nativeEnum(HelpTopic, { required_error: "Сэдэв сонгоно уу." }),
@@ -37,10 +38,11 @@ export default function HelpPage() {
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [editingHelpItem, setEditingHelpItem] = useState<HelpItem | null>(null);
 
-  const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<HelpItem | null>(null); // Store full item for AlertDialog
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
 
   const { toast } = useToast();
+  const { currentUser } = useAuth(); // Get current user
 
   const form = useForm<HelpItemFormValues>({
     resolver: zodResolver(helpItemFormSchema),
@@ -86,7 +88,7 @@ export default function HelpPage() {
       });
     } else {
       setEditingHelpItem(null);
-      form.reset({ // Reset to default for new item
+      form.reset({ 
         topic: HelpTopic.APPLICATION_GUIDE,
         question: '',
         answer: '',
@@ -96,12 +98,16 @@ export default function HelpPage() {
   };
 
   const handleSaveHelpItem = async (values: HelpItemFormValues) => {
+    if (!currentUser || (currentUser.role !== UserRole.SUPER_ADMIN && currentUser.role !== UserRole.SUB_ADMIN) ) {
+        toast({ title: "Алдаа", description: "Эрх хүрэлцэхгүй байна. Та админ эрхтэй эсэхээ шалгана уу.", variant: "destructive" });
+        return;
+    }
     setIsSubmitting(true);
     let result;
     if (editingHelpItem) {
       result = await updateHelpItem(editingHelpItem.id, values);
     } else {
-      result = await addHelpItem(values);
+      result = await addHelpItem({ ...values, adminId: currentUser.id });
     }
     setIsSubmitting(false);
 
@@ -115,24 +121,30 @@ export default function HelpPage() {
     }
   };
 
-  const handleDeleteClick = (id: string) => {
-    setItemToDeleteId(id);
+  const handleDeleteClick = (item: HelpItem) => {
+    setItemToDelete(item);
     setShowDeleteConfirmDialog(true);
   };
 
   const handleConfirmDelete = async () => {
-    if (!itemToDeleteId) return;
-    setIsSubmitting(true); // Use general submitting state or a new one for delete
-    const result = await deleteHelpItem(itemToDeleteId);
+    if (!itemToDelete || !currentUser || (currentUser.role !== UserRole.SUPER_ADMIN && currentUser.role !== UserRole.SUB_ADMIN)) {
+        toast({ title: "Алдаа", description: "Устгах үйлдэл хийхэд алдаа гарлаа. Эрхээ шалгана уу.", variant: "destructive" });
+        setShowDeleteConfirmDialog(false);
+        setItemToDelete(null);
+        return;
+    }
+    setIsSubmitting(true); 
+    const result = await deleteHelpItem(itemToDelete.id);
     setIsSubmitting(false);
     setShowDeleteConfirmDialog(false);
-    setItemToDeleteId(null);
-
+    
     if (result.success) {
-      toast({ title: "Амжилттай", description: "Тусламжийн зүйл устгагдлаа." });
+      toast({ title: "Амжилттай", description: `"${itemToDelete.question.substring(0,30)}..." асуулт устгагдлаа.` });
+      setItemToDelete(null); // Clear after successful deletion feedback
       fetchHelpItemsCallback(selectedTopicFilter);
     } else {
       toast({ title: "Алдаа", description: result.error, variant: "destructive" });
+      setItemToDelete(null); // Clear even on error
     }
   };
 
@@ -158,9 +170,8 @@ export default function HelpPage() {
         </Button>
       </PageHeader>
 
-      {/* Form Dialog (Add/Edit) */}
       <Dialog open={isFormDialogOpen} onOpenChange={(open) => {
-          if(!open) setEditingHelpItem(null); // Clear editing item on dialog close
+          if(!open) setEditingHelpItem(null); 
           setIsFormDialogOpen(open);
       }}>
         <DialogContent className="sm:max-w-lg">
@@ -234,17 +245,16 @@ export default function HelpPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
             <AlertDialogDescription>
-              Энэ үйлдлийг буцаах боломжгүй. Сонгосон асуулт/хариултыг бүрмөсөн устгах болно.
+              Энэ үйлдлийг буцаах боломжгүй. "{itemToDelete?.question.substring(0,50)}..." асуултыг бүрмөсөн устгах болно.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setItemToDeleteId(null)} disabled={isSubmitting}>Цуцлах</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setItemToDelete(null)} disabled={isSubmitting}>Цуцлах</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmDelete} disabled={isSubmitting} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
               {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Устгах
@@ -298,7 +308,7 @@ export default function HelpPage() {
                         <Button variant="ghost" size="icon" onClick={() => handleOpenFormDialog(item)} aria-label="Засах">
                             <Edit3 className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(item.id)} className="text-destructive hover:text-destructive/90" aria-label="Устгах">
+                        <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(item)} className="text-destructive hover:text-destructive/90" aria-label="Устгах">
                             <Trash2 className="h-4 w-4" />
                         </Button>
                     </div>
@@ -311,6 +321,7 @@ export default function HelpPage() {
                         <p className="text-xs text-muted-foreground/70 mt-2">
                             Нэмсэн: {new Date(item.createdAt).toLocaleDateString()}
                             {item.updatedAt && item.updatedAt !== item.createdAt ? ` | Засварласан: ${new Date(item.updatedAt).toLocaleDateString()}` : ''}
+                            {item.createdBy && ` | by: ${item.createdBy.substring(0,5)}...`}
                         </p>
                     )}
                   </AccordionContent>

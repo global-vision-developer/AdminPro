@@ -1,7 +1,7 @@
 
 "use server";
 
-import { db, auth as adminAuth } from "@/lib/firebase";
+import { db } from "@/lib/firebase"; // Removed adminAuth import as it's not reliably usable in server actions
 import type { HelpItem } from "@/types";
 import { HelpTopic } from "@/types";
 import {
@@ -43,8 +43,7 @@ export async function getHelpItems(topic?: HelpTopic): Promise<HelpItem[]> {
          } as HelpItem;
     });
     
-    // If Firestore is empty, return a default set of mock data as an example for admins
-    if (itemsFromDb.length === 0 && !topic) { // Only show mocks if DB is empty and no filter is applied
+    if (itemsFromDb.length === 0 && !topic) { 
         const mockItems: HelpItem[] = [
              {
                 id: "mock_faq1_app",
@@ -78,21 +77,22 @@ export interface AddHelpItemData {
   topic: HelpTopic;
   question: string;
   answer: string;
+  adminId: string; // ID of the admin creating the item
 }
 
 export async function addHelpItem(
   data: AddHelpItemData
 ): Promise<{ id: string } | { error: string }> {
-  const currentAdmin = adminAuth.currentUser;
-  if (!currentAdmin) {
-    return { error: "Админ нэвтрээгүй байна. Тусламжийн зүйл нэмэх боломжгүй." };
-  }
+  // Removed: const currentAdmin = adminAuth.currentUser; check
+  // Authorization will be handled by Firestore Security Rules.
 
   try {
     const dataToSave = {
-      ...data,
-      isPredefined: true,
-      createdBy: currentAdmin.uid,
+      topic: data.topic,
+      question: data.question,
+      answer: data.answer,
+      isPredefined: true, // Admin-added FAQs are considered predefined
+      createdBy: data.adminId, // Use the adminId passed from the client
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };
@@ -112,16 +112,13 @@ export async function updateHelpItem(
   id: string,
   data: UpdateHelpItemData
 ): Promise<{ success: boolean } | { error: string }> {
-  const currentAdmin = adminAuth.currentUser;
-  if (!currentAdmin) {
-    return { error: "Админ нэвтрээгүй байна. Өөрчлөлт хийх боломжгүй." };
-  }
+  // Removed: const currentAdmin = adminAuth.currentUser; check
+  // Authorization will be handled by Firestore Security Rules.
   try {
     const docRef = doc(db, HELP_ITEMS_COLLECTION, id);
     await updateDoc(docRef, {
       ...data,
       updatedAt: serverTimestamp(),
-      // createdBy should not change on update, only when initially created.
     });
     revalidatePath("/admin/help");
     return { success: true };
@@ -132,10 +129,8 @@ export async function updateHelpItem(
 }
 
 export async function deleteHelpItem(id: string): Promise<{ success: boolean } | { error: string }> {
-  const currentAdmin = adminAuth.currentUser;
-  if (!currentAdmin) {
-    return { error: "Админ нэвтрээгүй байна. Устгах боломжгүй." };
-  }
+  // Removed: const currentAdmin = adminAuth.currentUser; check
+  // Authorization will be handled by Firestore Security Rules.
   try {
     const docRef = doc(db, HELP_ITEMS_COLLECTION, id);
     await deleteDoc(docRef);
