@@ -1,7 +1,7 @@
 
 "use server";
 
-import { db } from "@/lib/firebase"; // Removed adminAuth import as it's not reliably usable in server actions
+import { db } from "@/lib/firebase";
 import type { HelpItem } from "@/types";
 import { HelpTopic } from "@/types";
 import {
@@ -29,10 +29,10 @@ export async function getHelpItems(topic?: HelpTopic): Promise<HelpItem[]> {
                 : query(helpItemsRef, orderBy("createdAt", "desc"));
     
     const querySnapshot = await getDocs(q);
-    const itemsFromDb = querySnapshot.docs.map(doc => {
-        const data = doc.data();
+    const itemsFromDb = querySnapshot.docs.map(docSnap => { // Renamed 'doc' to 'docSnap'
+        const data = docSnap.data();
         return { 
-            id: doc.id, 
+            id: docSnap.id, 
             topic: data.topic as HelpTopic,
             question: data.question,
             answer: data.answer,
@@ -43,28 +43,7 @@ export async function getHelpItems(topic?: HelpTopic): Promise<HelpItem[]> {
          } as HelpItem;
     });
     
-    if (itemsFromDb.length === 0 && !topic) { 
-        const mockItems: HelpItem[] = [
-             {
-                id: "mock_faq1_app",
-                topic: HelpTopic.APPLICATION_GUIDE,
-                question: "Аппликэйшн интернетгүй үед ажилладаг уу? (Жишээ)",
-                answer: "Энэ бол админ панелаас оруулсан жишээ хариулт. Та үүнийг засаж эсвэл устгаж болно.",
-                isPredefined: true,
-                createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), 
-              },
-              {
-                id: "mock_faq1_travel",
-                topic: HelpTopic.TRAVEL_TIPS,
-                question: "Аялахад хамгийн тохиромжтой сар хэзээ вэ? (Жишээ)",
-                answer: "Энэ бол \"Хэрхэн хямд аялах вэ?\" сэдвийн жишээ хариулт.",
-                isPredefined: true,
-                createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-              },
-        ];
-        return mockItems;
-    }
-
+    // Removed mock data fallback. If Firestore is empty or filter yields no results, an empty array is returned.
     return itemsFromDb;
 
   } catch (e: any) {
@@ -77,22 +56,19 @@ export interface AddHelpItemData {
   topic: HelpTopic;
   question: string;
   answer: string;
-  adminId: string; // ID of the admin creating the item
+  adminId: string;
 }
 
 export async function addHelpItem(
   data: AddHelpItemData
 ): Promise<{ id: string } | { error: string }> {
-  // Removed: const currentAdmin = adminAuth.currentUser; check
-  // Authorization will be handled by Firestore Security Rules.
-
   try {
     const dataToSave = {
       topic: data.topic,
       question: data.question,
       answer: data.answer,
-      isPredefined: true, // Admin-added FAQs are considered predefined
-      createdBy: data.adminId, // Use the adminId passed from the client
+      isPredefined: true,
+      createdBy: data.adminId,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };
@@ -112,8 +88,6 @@ export async function updateHelpItem(
   id: string,
   data: UpdateHelpItemData
 ): Promise<{ success: boolean } | { error: string }> {
-  // Removed: const currentAdmin = adminAuth.currentUser; check
-  // Authorization will be handled by Firestore Security Rules.
   try {
     const docRef = doc(db, HELP_ITEMS_COLLECTION, id);
     await updateDoc(docRef, {
@@ -129,8 +103,6 @@ export async function updateHelpItem(
 }
 
 export async function deleteHelpItem(id: string): Promise<{ success: boolean } | { error: string }> {
-  // Removed: const currentAdmin = adminAuth.currentUser; check
-  // Authorization will be handled by Firestore Security Rules.
   try {
     const docRef = doc(db, HELP_ITEMS_COLLECTION, id);
     await deleteDoc(docRef);

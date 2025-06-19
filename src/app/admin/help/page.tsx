@@ -8,19 +8,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'; // Removed DialogClose, DialogTrigger
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'; // Removed AlertDialogTrigger
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Label } from '@/components/ui/label';
+import { Label } from '@/components/ui/label'; // Changed from FormLabel for non-form context
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useToast } from '@/hooks/use-toast';
 import type { HelpItem } from '@/types';
-import { HelpTopic, UserRole } from '@/types'; // Added UserRole
+import { HelpTopic, UserRole } from '@/types';
 import { getHelpItems, addHelpItem, updateHelpItem, deleteHelpItem } from '@/lib/actions/helpActions';
 import { Loader2, PlusCircle, BookOpen, Plane, HelpCircle, Edit3, Trash2 } from 'lucide-react';
-import { useAuth } from '@/hooks/use-auth'; // Added useAuth
+import { useAuth } from '@/hooks/use-auth';
 
 const helpItemFormSchema = z.object({
   topic: z.nativeEnum(HelpTopic, { required_error: "Сэдэв сонгоно уу." }),
@@ -38,11 +38,11 @@ export default function HelpPage() {
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [editingHelpItem, setEditingHelpItem] = useState<HelpItem | null>(null);
 
-  const [itemToDelete, setItemToDelete] = useState<HelpItem | null>(null); // Store full item for AlertDialog
+  const [itemToDelete, setItemToDelete] = useState<HelpItem | null>(null);
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
 
   const { toast } = useToast();
-  const { currentUser } = useAuth(); // Get current user
+  const { currentUser } = useAuth();
 
   const form = useForm<HelpItemFormValues>({
     resolver: zodResolver(helpItemFormSchema),
@@ -59,12 +59,13 @@ export default function HelpPage() {
       const items = await getHelpItems(topic);
       setHelpItems(items);
     } catch (error) {
+      console.error("Failed to fetch help items:", error);
       toast({ title: "Алдаа", description: "Тусламжийн мэдээллийг ачааллахад алдаа гарлаа.", variant: "destructive" });
       setHelpItems([]);
     } finally {
       setIsLoadingItems(false);
     }
-  }, [toast]);
+  }, [toast, setIsLoadingItems, setHelpItems]);
 
   useEffect(() => {
     fetchHelpItemsCallback(selectedTopicFilter);
@@ -79,6 +80,10 @@ export default function HelpPage() {
   };
 
   const handleOpenFormDialog = (item?: HelpItem) => {
+    if (!currentUser || (currentUser.role !== UserRole.SUPER_ADMIN && currentUser.role !== UserRole.SUB_ADMIN)) {
+        toast({ title: "Алдаа", description: "Энэ үйлдлийг хийхэд таны эрх хүрэлцэхгүй байна.", variant: "destructive" });
+        return;
+    }
     if (item) {
       setEditingHelpItem(item);
       form.reset({
@@ -89,7 +94,7 @@ export default function HelpPage() {
     } else {
       setEditingHelpItem(null);
       form.reset({ 
-        topic: HelpTopic.APPLICATION_GUIDE,
+        topic: selectedTopicFilter || HelpTopic.APPLICATION_GUIDE, // Default to current filter or first topic
         question: '',
         answer: '',
       });
@@ -122,6 +127,10 @@ export default function HelpPage() {
   };
 
   const handleDeleteClick = (item: HelpItem) => {
+    if (!currentUser || (currentUser.role !== UserRole.SUPER_ADMIN && currentUser.role !== UserRole.SUB_ADMIN)) {
+        toast({ title: "Алдаа", description: "Энэ үйлдлийг хийхэд таны эрх хүрэлцэхгүй байна.", variant: "destructive" });
+        return;
+    }
     setItemToDelete(item);
     setShowDeleteConfirmDialog(true);
   };
@@ -140,14 +149,13 @@ export default function HelpPage() {
     
     if (result.success) {
       toast({ title: "Амжилттай", description: `"${itemToDelete.question.substring(0,30)}..." асуулт устгагдлаа.` });
-      setItemToDelete(null); // Clear after successful deletion feedback
+      setItemToDelete(null);
       fetchHelpItemsCallback(selectedTopicFilter);
     } else {
       toast({ title: "Алдаа", description: result.error, variant: "destructive" });
-      setItemToDelete(null); // Clear even on error
+      setItemToDelete(null);
     }
   };
-
 
   const getTopicIcon = (topic: HelpTopic | undefined) => {
     if (!topic && !selectedTopicFilter) return <HelpCircle className="mr-2 h-5 w-5 text-primary" />;
@@ -165,13 +173,18 @@ export default function HelpPage() {
   return (
     <>
       <PageHeader title="Тусламж Удирдах" description="Түгээмэл асуулт хариулт (FAQ) нэмэх, засварлах, устгах.">
-        <Button onClick={() => handleOpenFormDialog()}>
-            <PlusCircle className="mr-2 h-4 w-4" /> Шинэ Асуулт/Хариулт Нэмэх
-        </Button>
+        {(currentUser?.role === UserRole.SUPER_ADMIN || currentUser?.role === UserRole.SUB_ADMIN) && (
+            <Button onClick={() => handleOpenFormDialog()}>
+                <PlusCircle className="mr-2 h-4 w-4" /> Шинэ Асуулт/Хариулт Нэмэх
+            </Button>
+        )}
       </PageHeader>
 
       <Dialog open={isFormDialogOpen} onOpenChange={(open) => {
-          if(!open) setEditingHelpItem(null); 
+          if(!open) {
+              setEditingHelpItem(null);
+              form.reset({ topic: HelpTopic.APPLICATION_GUIDE, question: '', answer: ''});
+          }
           setIsFormDialogOpen(open);
       }}>
         <DialogContent className="sm:max-w-lg">
@@ -263,7 +276,6 @@ export default function HelpPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-
       <div className="mb-6 max-w-xs">
         <Label htmlFor="topic-filter-select">Сэдвээр шүүх</Label>
         <Select onValueChange={handleTopicFilterChange} defaultValue="all_topics">
@@ -272,9 +284,9 @@ export default function HelpPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all_topics">Бүх сэдэв</SelectItem>
-            {Object.values(HelpTopic).map(topic => (
-              <SelectItem key={topic} value={topic}>
-                {topic}
+            {Object.values(HelpTopic).map(topicValue => (
+              <SelectItem key={topicValue} value={topicValue}>
+                {topicValue}
               </SelectItem>
             ))}
           </SelectContent>
@@ -284,7 +296,7 @@ export default function HelpPage() {
       <Card className="shadow-lg min-h-[400px]">
         <CardHeader>
           <CardTitle className="font-headline flex items-center">
-            {getTopicIcon(undefined)} 
+            {getTopicIcon(selectedTopicFilter)} 
             {getTopicDisplayName(selectedTopicFilter)}
           </CardTitle>
           <CardDescription>
@@ -304,14 +316,16 @@ export default function HelpPage() {
                     <AccordionTrigger className="text-left hover:no-underline focus:no-underline flex-1 py-0 pr-2">
                       <span className="font-medium text-foreground">{item.question}</span>
                     </AccordionTrigger>
-                    <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => handleOpenFormDialog(item)} aria-label="Засах">
-                            <Edit3 className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(item)} className="text-destructive hover:text-destructive/90" aria-label="Устгах">
-                            <Trash2 className="h-4 w-4" />
-                        </Button>
-                    </div>
+                    {(currentUser?.role === UserRole.SUPER_ADMIN || currentUser?.role === UserRole.SUB_ADMIN) && (
+                        <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" onClick={() => handleOpenFormDialog(item)} aria-label="Засах">
+                                <Edit3 className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(item)} className="text-destructive hover:text-destructive/90" aria-label="Устгах">
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    )}
                   </div>
                   <AccordionContent className="p-4 pt-0">
                     <div className="prose prose-sm max-w-none text-muted-foreground whitespace-pre-line">
@@ -338,4 +352,3 @@ export default function HelpPage() {
     </>
   );
 }
-    
