@@ -74,7 +74,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
         type: FieldType.TEXT,
         required: false,
         placeholder: 'e.g., Ulaanbaatar',
-        description: 'The city related to the entry.'
+        description: 'үүнд хамаарах хотоын нэр'
       },
       {
         id: uuidv4(),
