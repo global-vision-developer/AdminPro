@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -9,6 +10,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Label } from '@/components/ui/label'; // Added import for Label
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -177,7 +179,7 @@ export default function HelpPage() {
       </PageHeader>
 
       <div className="mb-6 max-w-xs">
-        <FormLabel htmlFor="topic-filter-select">Сэдвээр шүүх</FormLabel>
+        <Label htmlFor="topic-filter-select">Сэдвээр шүүх</Label> {/* Changed from FormLabel to Label */}
         <Select onValueChange={handleTopicFilterChange} defaultValue="all_topics">
           <SelectTrigger id="topic-filter-select" className="w-full mt-1">
             <SelectValue placeholder="Сэдэв сонгоно уу..." />
@@ -233,4 +235,3 @@ export default function HelpPage() {
     </>
   );
 }
-    
