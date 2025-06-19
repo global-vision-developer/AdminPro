@@ -134,14 +134,14 @@ Stores pre-defined frequently asked questions and their answers, managed by admi
 
 *   **Document ID:** Auto-generated Firestore ID
 *   **Fields:**
-    *   `topic: string` (e.g., "Аппликэйшн ашиглах заавар", "Хэрхэн хямд аялах вэ?" - matching `HelpTopic` enum)
+    *   `topic: string` (Stores "1" for Application Guide, "2" for Travel Tips - maps to `HelpTopic` enum)
     *   `question: string` (The frequently asked question text)
     *   `answer: string` (The answer to the question, can be long text/HTML)
     *   `isPredefined: boolean` (Should be `true` for these items as they are admin-curated FAQs)
     *   `order: number` (Optional: for ordering FAQs within a topic)
     *   `createdAt: firebase.firestore.Timestamp`
     *   `updatedAt: firebase.firestore.Timestamp`
-    *   `createdBy: string` (Optional: UID of the admin who created/updated the item)
+    *   `createdBy: string` (UID of the admin who created/updated the item)
 
 This structure is designed to be scalable and flexible, allowing for dynamic content types based on category definitions. Firestore security rules should be configured to protect this data appropriately (e.g., only authenticated admins can write to `admins`, `categories`, `entries`).
 

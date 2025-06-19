@@ -133,7 +133,7 @@ Stores pre-defined frequently asked questions and their answers, managed by admi
 
 *   **Document ID:** Auto-generated Firestore ID
 *   **Fields:**
-    *   `topic: string` (e.g., "Аппликэйшн ашиглах заавар" - matching `HelpTopic` enum)
+    *   `topic: string` (Stores "1" for Application Guide, "2" for Travel Tips - maps to `HelpTopic` enum)
     *   `question: string` (The frequently asked question text)
     *   `answer: string` (The answer to the question)
     *   `isPredefined: boolean` (`true` for these items)

@@ -8,8 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription as UiDialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle as UiAlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Label } from '@/components/ui/label';
 import { useForm } from 'react-hook-form';
@@ -17,8 +17,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useToast } from '@/hooks/use-toast';
 import type { HelpItem } from '@/types';
-import { HelpTopic, UserRole } from '@/types';
-import { getHelpItems, addHelpItem, updateHelpItem, deleteHelpItem, type AddHelpItemData } from '@/lib/actions/helpActions';
+import { HelpTopic, UserRole, HELP_TOPIC_DISPLAY_NAMES } from '@/types';
+import { getHelpItems, addHelpItem, updateHelpItem, deleteHelpItem, type AddHelpItemData, type UpdateHelpItemData } from '@/lib/actions/helpActions';
 import { Loader2, PlusCircle, BookOpen, Plane, HelpCircle, Edit3, Trash2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 
@@ -47,14 +47,14 @@ export default function HelpPage() {
   const form = useForm<HelpItemFormValues>({
     resolver: zodResolver(helpItemFormSchema),
     defaultValues: {
-      topic: HelpTopic.APPLICATION_GUIDE,
+      topic: HelpTopic.APPLICATION_GUIDE, // Default to "1"
       question: '',
       answer: '',
     },
   });
 
   useEffect(() => {
-    async function loadHelpItems() {
+    async function fetchItems() {
       setIsLoadingItems(true);
       try {
         const effectiveFilter = selectedTopicFilter === "all_topics" ? undefined : selectedTopicFilter;
@@ -68,7 +68,7 @@ export default function HelpPage() {
         setIsLoadingItems(false);
       }
     }
-    loadHelpItems();
+    fetchItems();
   }, [selectedTopicFilter, toast]);
 
   const handleTopicFilterChange = (topicValue: string) => {
@@ -99,18 +99,19 @@ export default function HelpPage() {
   };
 
   const handleSaveHelpItem = async (values: HelpItemFormValues) => {
-    if (!currentUser || (currentUser.role !== UserRole.SUPER_ADMIN && currentUser.role !== UserRole.SUB_ADMIN) ) {
+    if (!currentUser || (currentUser.role !== UserRole.SUPER_ADMIN && currentUser.role !== UserRole.SUB_ADMIN)) {
         toast({ title: "Алдаа", description: "Эрх хүрэлцэхгүй байна. Та админ эрхтэй эсэхээ шалгана уу.", variant: "destructive" });
         return;
     }
     setIsSubmitting(true);
     let result;
-    const dataPayloadWithAdmin: AddHelpItemData = { ...values, adminId: currentUser.id };
-
+    
     if (editingHelpItem) {
-      result = await updateHelpItem(editingHelpItem.id, values); // values already contain topic, question, answer
+      const updateData: UpdateHelpItemData = { topic: values.topic, question: values.question, answer: values.answer };
+      result = await updateHelpItem(editingHelpItem.id, updateData);
     } else {
-      result = await addHelpItem(dataPayloadWithAdmin);
+      const addData: AddHelpItemData = { ...values, adminId: currentUser.id };
+      result = await addHelpItem(addData);
     }
     setIsSubmitting(false);
 
@@ -118,7 +119,6 @@ export default function HelpPage() {
       toast({ title: "Амжилттай", description: `Тусламжийн зүйл ${editingHelpItem ? "шинэчлэгдлээ" : "нэмэгдлээ"}.` });
       setIsFormDialogOpen(false);
       setEditingHelpItem(null);
-      // Re-fetch items to reflect changes
       const effectiveFilter = selectedTopicFilter === "all_topics" ? undefined : selectedTopicFilter;
       const updatedItems = await getHelpItems(effectiveFilter);
       setHelpItems(updatedItems);
@@ -160,21 +160,21 @@ export default function HelpPage() {
     }
   };
 
-  const getTopicIcon = (topic?: HelpTopic | "all_topics") => {
-    if (!topic || topic === "all_topics") return <HelpCircle className="mr-2 h-5 w-5 text-primary" />;
-    if (topic === HelpTopic.APPLICATION_GUIDE) return <BookOpen className="mr-2 h-5 w-5 text-primary" />;
-    if (topic === HelpTopic.TRAVEL_TIPS) return <Plane className="mr-2 h-5 w-5 text-primary" />;
+  const getTopicIcon = (topicId?: HelpTopic | "all_topics") => {
+    if (!topicId || topicId === "all_topics") return <HelpCircle className="mr-2 h-5 w-5 text-primary" />;
+    if (topicId === HelpTopic.APPLICATION_GUIDE) return <BookOpen className="mr-2 h-5 w-5 text-primary" />;
+    if (topicId === HelpTopic.TRAVEL_TIPS) return <Plane className="mr-2 h-5 w-5 text-primary" />;
     return <HelpCircle className="mr-2 h-5 w-5 text-primary" />;
   };
 
-  const getTopicDisplayName = (topicValue?: HelpTopic | "all_topics") => {
-    if (!topicValue || topicValue === "all_topics") return "Бүх Сэдэв";
-    return topicValue;
+  const getTopicDisplayName = (topicId?: HelpTopic | "all_topics") => {
+    if (!topicId) return "Тодорхойгүй сэдэв";
+    return HELP_TOPIC_DISPLAY_NAMES[topicId] || "Тодорхойгүй сэдэв";
   }
 
   return (
     <>
-      <PageHeader title="Тусламж Удирдах" description="Түгээмэл асуулт хариулт (FAQ) нэмэх, засварлах, устгах.">
+      <PageHeader title="Тусламж" description="Түгээмэл асуулт хариулт (FAQ) нэмэх, засварлах, устгах.">
         {(currentUser?.role === UserRole.SUPER_ADMIN || currentUser?.role === UserRole.SUB_ADMIN) && (
             <Button onClick={() => handleOpenFormDialog()}>
                 <PlusCircle className="mr-2 h-4 w-4" /> Шинэ Асуулт/Хариулт Нэмэх
@@ -192,9 +192,9 @@ export default function HelpPage() {
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="font-headline">{editingHelpItem ? "Асуулт/Хариулт Засварлах" : "Шинэ Асуулт/Хариулт Нэмэх"}</DialogTitle>
-            <DialogDescription>
+            <UiDialogDescription>
               {editingHelpItem ? "Одоо байгаа асуулт, хариултыг өөрчилнө үү." : "Хэрэглэгчдэд туслах шинэ асуулт, хариултыг оруулна уу."}
-            </DialogDescription>
+            </UiDialogDescription>
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleSaveHelpItem)} className="space-y-4 py-2">
@@ -211,8 +211,8 @@ export default function HelpPage() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {Object.values(HelpTopic).map(topic => (
-                          <SelectItem key={topic} value={topic}>{topic}</SelectItem>
+                        {Object.values(HelpTopic).map(topicValue => (
+                          <SelectItem key={topicValue} value={topicValue}>{HELP_TOPIC_DISPLAY_NAMES[topicValue]}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -263,7 +263,7 @@ export default function HelpPage() {
       <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
+            <UiAlertDialogTitle>Та итгэлтэй байна уу?</UiAlertDialogTitle>
             <AlertDialogDescription>
               Энэ үйлдлийг буцаах боломжгүй. "{itemToDelete?.question.substring(0,50)}..." асуултыг бүрмөсөн устгах болно.
             </AlertDialogDescription>
@@ -288,10 +288,10 @@ export default function HelpPage() {
             <SelectValue placeholder="Сэдэв сонгоно уу..." />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all_topics">Бүх сэдэв</SelectItem>
+            <SelectItem value="all_topics">{HELP_TOPIC_DISPLAY_NAMES["all_topics"]}</SelectItem>
             {Object.values(HelpTopic).map(topicValue => (
               <SelectItem key={topicValue} value={topicValue}>
-                {topicValue}
+                {HELP_TOPIC_DISPLAY_NAMES[topicValue]}
               </SelectItem>
             ))}
           </SelectContent>
@@ -305,7 +305,7 @@ export default function HelpPage() {
             {getTopicDisplayName(selectedTopicFilter)}
           </CardTitle>
           <CardDescription>
-            {selectedTopicFilter === "all_topics" ? "Бүх нийтлэг асуулт, хариултууд." : `"${selectedTopicFilter}" сэдэвтэй холбоотой нийтлэг асуулт, хариултууд.`}
+            {selectedTopicFilter === "all_topics" ? "Бүх нийтлэг асуулт, хариултууд." : `"${getTopicDisplayName(selectedTopicFilter)}" сэдэвтэй холбоотой нийтлэг асуулт, хариултууд.`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -336,15 +336,20 @@ export default function HelpPage() {
                     <div className="prose prose-sm max-w-none text-muted-foreground whitespace-pre-line">
                       {item.answer}
                     </div>
-                     {item.createdAt && (
+                     {item.topic && (
                         <p className="text-xs text-muted-foreground/70 mt-2">
+                            Сэдэв: {HELP_TOPIC_DISPLAY_NAMES[item.topic] || item.topic}
+                        </p>
+                    )}
+                     {item.createdAt && (
+                        <p className="text-xs text-muted-foreground/70 mt-1">
                             Нэмсэн: {new Date(item.createdAt).toLocaleDateString()}
                             {item.updatedAt && new Date(item.updatedAt).getTime() !== new Date(item.createdAt).getTime() ? ` | Засварласан: ${new Date(item.updatedAt).toLocaleDateString()}` : ''}
                         </p>
                     )}
                      {item.createdBy && (
                         <p className="text-xs text-muted-foreground/70">
-                           Админ: {item.createdBy.substring(0,5)}...
+                           Админ ID: {item.createdBy.substring(0,5)}...
                         </p>
                     )}
                   </AccordionContent>
@@ -353,7 +358,7 @@ export default function HelpPage() {
             </Accordion>
           ) : (
             <p className="text-center text-muted-foreground py-8">
-              {selectedTopicFilter === "all_topics" ? "Харуулах асуулт, хариулт алга." : "Энэ сэдэвтэй холбоотой нийтлэг асуулт олдсонгүй."}
+              {selectedTopicFilter === "all_topics" ? "Харуулах асуулт, хариулт алга." : `"${getTopicDisplayName(selectedTopicFilter)}" сэдэвтэй холбоотой нийтлэг асуулт олдсонгүй.`}
             </p>
           )}
         </CardContent>

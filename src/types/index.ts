@@ -1,3 +1,4 @@
+
 export enum UserRole {
   SUPER_ADMIN = 'Super Admin',
   SUB_ADMIN = 'Sub Admin',
@@ -8,8 +9,8 @@ export interface UserProfile {
   name: string;
   email: string;
   role: UserRole;
-  avatar?: string; // URL to avatar image or Base64 data URI
-  allowedCategoryIds?: string[]; // For Sub Admins, IDs of categories they can manage
+  avatar?: string; 
+  allowedCategoryIds?: string[]; 
 }
 
 export enum FieldType {
@@ -23,12 +24,12 @@ export enum FieldType {
 
 export interface ImageGalleryItemForm {
   clientId: string;
-  imageUrl: string | null; // Can be Base64 data URI or existing URL
+  imageUrl: string | null; 
   description?: string;
 }
 
 export interface ImageGalleryItemStored {
-  imageUrl: string; // Can be Base64 data URI or existing URL
+  imageUrl: string; 
   description?: string;
 }
 
@@ -49,7 +50,7 @@ export interface Category {
   slug: string;
   description?: string;
   fields: FieldDefinition[];
-  coverImageUrl?: string | null; // Can be Base64 data URI or existing URL
+  coverImageUrl?: string | null; 
   createdAt?: string;
   updatedAt?: string;
 }
@@ -59,19 +60,19 @@ export interface Entry {
   categoryId: string;
   title?: string;
   categoryName?: string;
-  data: Record<string, any | ImageGalleryItemStored[]>; // Image URLs here can be Base64
+  data: Record<string, any | ImageGalleryItemStored[]>; 
   status: 'draft' | 'published' | 'scheduled';
   publishAt?: string;
   createdAt: string;
   updatedAt?: string;
 }
 
-// For App Users (distinct from Admin Users/UserProfiles)
+
 export interface AppUser {
-  id: string; // Firebase Auth UID
+  id: string; 
   email: string;
   displayName?: string;
-  fcmTokens?: string[]; // Array of FCM registration tokens
+  fcmTokens?: string[]; 
 }
 
 export interface NotificationTarget {
@@ -82,35 +83,35 @@ export interface NotificationTarget {
   status: 'pending' | 'success' | 'failed';
   error?: string;
   messageId?: string;
-  attemptedAt?: string; // When the Firebase Function attempted to send
+  attemptedAt?: string; 
 }
 
 export interface NotificationLog {
-  id?: string; // Firestore document ID
+  id?: string; 
   title: string;
   body: string;
-  imageUrl?: string | null; // Can be Base64 data URI or existing URL
+  imageUrl?: string | null; 
   deepLink?: string | null;
-  scheduleAt?: string | null; // ISO string, for when it should be sent (optional)
+  scheduleAt?: string | null; 
   adminCreator: {
     uid: string;
-    name?: string; // Admin's name
-    email: string;   // Admin's email
+    name?: string; 
+    email: string;   
   };
-  createdAt: string; // ISO string, when the admin created this notification request (client-generated or serverTimestamp)
+  createdAt: string; 
   processingStatus: 'pending' | 'processing' | 'completed' | 'partially_completed' | 'error' | 'scheduled' | 'completed_no_targets';
-  processedAt?: string | null; // ISO string, when FF started/finished processing
+  processedAt?: string | null; 
   targets: NotificationTarget[];
 }
 
 export interface Banner {
   id: string;
-  imageUrl: string | null; // Base64 data URI
+  imageUrl: string | null; 
   description: string;
-  link?: string | null; // Optional URL the banner links to
-  isActive: boolean; // To control visibility
-  createdAt?: string; // ISO string timestamp
-  updatedAt?: string; // ISO string timestamp
+  link?: string | null; 
+  isActive: boolean; 
+  createdAt?: string; 
+  updatedAt?: string; 
 }
 
 export enum AnketStatus {
@@ -124,23 +125,32 @@ export interface Anket {
   name: string;
   email: string;
   phoneNumber?: string;
-  cvLink?: string; // URL to CV/Resume
-  message?: string; // Cover letter or additional message
-  submittedAt: string; // ISO string timestamp
+  cvLink?: string; 
+  message?: string; 
+  submittedAt: string; 
   status: AnketStatus;
-  processedBy?: string; // Admin UID who processed it
-  processedAt?: string; // ISO string timestamp
+  processedBy?: string; 
+  processedAt?: string; 
 }
 
-// Help Section Types
+
 export enum HelpTopic {
-  APPLICATION_GUIDE = 'Аппликэйшн ашиглах заавар',
-  TRAVEL_TIPS = 'Хэрхэн хямд аялах вэ?',
+  APPLICATION_GUIDE = "1", 
+  TRAVEL_TIPS = "2",       
 }
+
+export const HELP_TOPIC_DISPLAY_NAMES: Record<HelpTopic | string, string> = {
+  [HelpTopic.APPLICATION_GUIDE]: "Аппликэйшн ашиглах заавар",
+  [HelpTopic.TRAVEL_TIPS]: "Хэрхэн хямд аялах вэ?",
+  "all_topics": "Бүх Сэдэв",
+  "1": "Аппликэйшн ашиглах заавар", 
+  "2": "Хэрхэн хямд аялах вэ?",  
+};
+
 
 export interface HelpItem {
   id: string;
-  topic: HelpTopic;
+  topic: HelpTopic; 
   question: string;
   answer: string;
   isPredefined: boolean; 
@@ -149,7 +159,7 @@ export interface HelpItem {
   createdBy?: string; 
 }
 
-// This type might be deprecated if only admins create FAQs
+
 export interface HelpRequest {
   id?: string; 
   topic: HelpTopic;

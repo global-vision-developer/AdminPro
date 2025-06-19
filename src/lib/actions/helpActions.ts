@@ -3,7 +3,7 @@
 
 import { db } from "@/lib/firebase";
 import type { HelpItem } from "@/types";
-import { HelpTopic } from "@/types";
+import { HelpTopic } from "@/types"; 
 import {
   collection,
   addDoc,
@@ -21,19 +21,19 @@ import { revalidatePath } from "next/cache";
 
 const HELP_ITEMS_COLLECTION = "help_items";
 
-export async function getHelpItems(topic?: HelpTopic): Promise<HelpItem[]> {
+export async function getHelpItems(topicId?: HelpTopic): Promise<HelpItem[]> {
   try {
     const helpItemsRef = collection(db, HELP_ITEMS_COLLECTION);
-    const q = topic 
-                ? query(helpItemsRef, where("topic", "==", topic), orderBy("createdAt", "desc"))
+    const q = topicId 
+                ? query(helpItemsRef, where("topic", "==", topicId), orderBy("createdAt", "desc"))
                 : query(helpItemsRef, orderBy("createdAt", "desc"));
     
     const querySnapshot = await getDocs(q);
-    const itemsFromDb = querySnapshot.docs.map(docSnap => { // Renamed 'doc' to 'docSnap'
+    const itemsFromDb = querySnapshot.docs.map(docSnap => {
         const data = docSnap.data();
         return { 
             id: docSnap.id, 
-            topic: data.topic as HelpTopic,
+            topic: data.topic as HelpTopic, // Ensure topic is cast to HelpTopic enum
             question: data.question,
             answer: data.answer,
             isPredefined: data.isPredefined === true,
@@ -43,7 +43,6 @@ export async function getHelpItems(topic?: HelpTopic): Promise<HelpItem[]> {
          } as HelpItem;
     });
     
-    // Removed mock data fallback. If Firestore is empty or filter yields no results, an empty array is returned.
     return itemsFromDb;
 
   } catch (e: any) {
@@ -64,7 +63,7 @@ export async function addHelpItem(
 ): Promise<{ id: string } | { error: string }> {
   try {
     const dataToSave = {
-      topic: data.topic,
+      topic: data.topic, // Will store "1" or "2"
       question: data.question,
       answer: data.answer,
       isPredefined: true,
@@ -86,14 +85,19 @@ export type UpdateHelpItemData = Partial<Pick<HelpItem, "topic" | "question" | "
 
 export async function updateHelpItem(
   id: string,
-  data: UpdateHelpItemData
+  data: UpdateHelpItemData 
 ): Promise<{ success: boolean } | { error: string }> {
   try {
     const docRef = doc(db, HELP_ITEMS_COLLECTION, id);
-    await updateDoc(docRef, {
-      ...data,
-      updatedAt: serverTimestamp(),
-    });
+    
+    const updatePayload: Record<string, any> = { ...data };
+    if (data.topic) updatePayload.topic = data.topic; // Will be "1" or "2"
+    if (data.question) updatePayload.question = data.question;
+    if (data.answer) updatePayload.answer = data.answer;
+    
+    updatePayload.updatedAt = serverTimestamp();
+
+    await updateDoc(docRef, updatePayload);
     revalidatePath("/admin/help");
     return { success: true };
   } catch (e: any) {
