@@ -164,8 +164,3 @@ export default function HelpPage() {
   );
 }
 
-export const metadata = {
-  title: "Тусламж | Админ Про",
-};
-
-    
