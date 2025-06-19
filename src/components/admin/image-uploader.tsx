@@ -5,45 +5,41 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { UploadCloud, XCircle, Loader2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-// import { Progress } from '@/components/ui/progress'; // Progress bar temporarily removed
 import { useToast } from '@/hooks/use-toast';
-import { uploadFileToStorage, deleteFileFromStorage } from '@/lib/actions/storageActions'; // Import server action
 
 interface ImageUploaderProps {
-  onUploadComplete: (downloadURL: string | null) => void;
-  initialImageUrl?: string | null;
-  storagePath?: string;
+  onUploadComplete: (dataUri: string | null) => void;
+  initialImageUrl?: string | null; // Can be a data URI or a regular URL if previously stored
   maxSizeMB?: number;
-  maxDimension?: number;
-  compressionQuality?: number;
+  maxDimension?: number; // Max width/height for client-side compression
+  compressionQuality?: number; // For JPEG compression
   label?: string;
 }
-
-const DIRECT_UPLOAD_THRESHOLD_MB = 3;
 
 const ImageUploader: React.FC<ImageUploaderProps> = ({
   onUploadComplete,
   initialImageUrl: initialUrlProp,
-  storagePath = "general-uploads",
-  maxSizeMB = 5,
-  maxDimension = 1200,
-  compressionQuality = 0.8,
+  maxSizeMB = 1, // Reduced max size for Base64
+  maxDimension = 800,
+  compressionQuality = 0.7,
   label = "Зураг байршуулах",
 }) => {
-  const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(initialUrlProp || null);
-  const [uploading, setUploading] = useState(false);
-  // const [progress, setProgress] = useState(0); // Progress bar temporarily removed
+  const [currentDataUri, setCurrentDataUri] = useState<string | null>(initialUrlProp || null);
+  const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(initialUrlProp || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    setCurrentImageUrl(initialUrlProp || null);
+    // If initialUrlProp is a data URI, use it directly. If it's a regular URL,
+    // it implies it's from a previous version or manual input, so we can't "remove" it
+    // from a non-existent storage here. This component now primarily handles new uploads as Base64.
+    setCurrentDataUri(initialUrlProp || null);
     setPreview(initialUrlProp || null);
   }, [initialUrlProp]);
 
-  const handleImageCompression = (file: File): Promise<Blob> => {
+  const handleImageCompressionAndConversion = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (event) => {
@@ -70,125 +66,86 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
             return reject(new Error('Failed to get canvas context'));
           }
           ctx.drawImage(img, 0, 0, width, height);
-          canvas.toBlob(
-            (blob) => {
-              if (blob) {
-                resolve(blob);
-              } else {
-                reject(new Error('Canvas to Blob conversion failed'));
-              }
-            },
-            'image/jpeg',
-            compressionQuality
-          );
+          
+          // Get data URI (default is PNG, can specify image/jpeg for compression)
+          const dataUrl = canvas.toDataURL(file.type === 'image/jpeg' ? 'image/jpeg' : 'image/png', compressionQuality);
+          
+          // Check size of dataURI (approximate, as it's string length)
+          // 1 character of Base64 is roughly 6 bits. 1 byte = 8 bits.
+          // So, length * (6/8) = bytes.
+          const approxByteSize = dataUrl.length * (3/4); // simplified from 6/8
+          if (approxByteSize > maxSizeMB * 1024 * 1024) {
+            return reject(new Error(`Файлын хэмжээ (${(approxByteSize / (1024*1024)).toFixed(2)}MB) нь Base64 хөрвүүлсний дараа хэтэрхий том байна (хязгаар: ${maxSizeMB}MB). Илүү жижиг зураг сонгоно уу эсвэл шахалтыг нэмэгдүүлнэ үү.`));
+          }
+          resolve(dataUrl);
         };
         img.onerror = (errEvent) => {
-            console.error("Image loading error for compression:", errEvent);
-            reject(new Error('Image loading failed for compression. The file might be corrupt or not a supported image format.'));
+            console.error("Image loading error for conversion:", errEvent);
+            reject(new Error('Зураг ачаалахад алдаа гарлаа. Файл гэмтсэн эсвэл дэмжигддэггүй зургийн формат байж магадгүй.'));
         };
         if (event.target?.result) {
             img.src = event.target.result as string;
         } else {
-            reject(new Error('FileReader did not successfully read the file.'));
+            reject(new Error('FileReader зургийг уншиж чадсангүй.'));
         }
       };
       reader.onerror = (errEvent) => {
           console.error("FileReader error:", errEvent);
-          reject(new Error('File could not be read.'));
+          reject(new Error('Файлыг уншиж чадсангүй.'));
       };
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(file); // Read original file to then draw on canvas
     });
   };
 
-  const handleFileUpload = useCallback(async (file: File) => {
+
+  const handleFileSelected = useCallback(async (file: File) => {
     if (!file) return;
     setError(null);
 
-    if (file.size > maxSizeMB * 1024 * 1024) {
-      const errorMsg = `Файлын хэмжээ ${maxSizeMB}MB-аас хэтэрсэн байна.`;
+    // Check original file size first (rough check before compression)
+    if (file.size > maxSizeMB * 1.5 * 1024 * 1024) { // Allow slightly larger original if it compresses well
+      const errorMsg = `Анхны файлын хэмжээ (${(file.size / (1024*1024)).toFixed(2)}MB) хэтэрхий том байна (зөвшөөрөгдөх хэмжээ ойролцоогоор ${maxSizeMB}MB).`;
       setError(errorMsg);
       toast({ title: "Алдаа", description: errorMsg, variant: "destructive"});
       return;
     }
 
-    setUploading(true);
-    // setProgress(0); // Progress bar temporarily removed
+    setProcessing(true);
     let tempPreviewUrl = "";
     try {
         tempPreviewUrl = URL.createObjectURL(file);
-        setPreview(tempPreviewUrl);
-    } catch (e) {
-        console.error("Error creating object URL for preview:", e);
-    }
+        setPreview(tempPreviewUrl); // Show original image preview while processing
 
-    try {
-      let blobToUpload: Blob = file;
-      let originalFileName = file.name; // Store original file name for FormData
+        const dataUri = await handleImageCompressionAndConversion(file);
+        
+        setCurrentDataUri(dataUri);
+        setPreview(dataUri); // Update preview to compressed/converted Base64
+        onUploadComplete(dataUri);
+        toast({ title: "Амжилттай", description: "Зураг амжилттай боловсруулагдлаа." });
 
-      if (file.size >= DIRECT_UPLOAD_THRESHOLD_MB * 1024 * 1024 || !['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-        console.log(`ImageUploader: Compressing image '${file.name}'...`);
-        try {
-            blobToUpload = await handleImageCompression(file);
-            console.log(`ImageUploader: Image compressed. Original: ${(file.size / (1024*1024)).toFixed(2)}MB, Compressed: ${(blobToUpload.size / (1024*1024)).toFixed(2)}MB`);
-        } catch (compressionError: any) {
-            console.warn(`ImageUploader: Compression failed for '${file.name}'. Uploading original. Error: ${compressionError.message}`);
-            // If compression fails, upload the original file
-            blobToUpload = file;
-        }
-      } else {
-        console.log(`ImageUploader: File '${file.name}' (${(file.size / (1024*1024)).toFixed(2)}MB) is small and suitable type. Uploading directly.`);
-      }
-      
-      const formData = new FormData();
-      // Create a new File object from the blob if it was compressed, preserving the original name and type if possible
-      const fileToUpload = new File([blobToUpload], originalFileName, { type: blobToUpload.type || file.type });
-      formData.append('file', fileToUpload);
-      formData.append('storagePath', storagePath);
-
-      console.log(`ImageUploader: Calling uploadFileToStorage server action for file: '${fileToUpload.name}'.`);
-      const result = await uploadFileToStorage(formData);
-      setUploading(false);
-
-      if (result.downloadURL) {
-        // setProgress(100); // Progress bar temporarily removed
-        setCurrentImageUrl(result.downloadURL);
-        setPreview(result.downloadURL); // Update preview to final URL
-        try {
-          onUploadComplete(result.downloadURL);
-        } catch (callbackError) {
-          console.error("Error in onUploadComplete callback:", callbackError);
-          toast({ title: "Аппликэйшний алдаа", description: "Зураг байршсан ч дараагийн үйлдэл алдаатай байна.", variant: "destructive" });
-        }
-        toast({ title: "Амжилттай", description: "Зураг амжилттай байршуулагдлаа." });
-      } else {
-        const errorMsg = result.error || "Зураг байршуулахад үл мэдэгдэх алдаа гарлаа.";
-        setError(errorMsg);
-        toast({ title: "Байршуулах Алдаа", description: errorMsg, variant: "destructive" });
-        setPreview(initialUrlProp || null); // Revert preview if upload failed
-        // setProgress(0); // Progress bar temporarily removed
-      }
     } catch (processError: any) {
-      console.error("Image processing/upload error:", processError);
-      const errorMsg = `Зураг боловсруулах/байршуулахад алдаа гарлаа: ${processError.message}`;
+      console.error("Image processing/conversion error:", processError);
+      const errorMsg = `Зураг боловсруулахад алдаа гарлаа: ${processError.message}`;
       setError(errorMsg);
-      toast({ title: "Боловсруулалтын Алдаа", description: errorMsg, variant: "destructive" });
-      setUploading(false);
-      setPreview(initialUrlProp || null);
-      // setProgress(0); // Progress bar temporarily removed
-    }  finally {
-        if (tempPreviewUrl && preview !== tempPreviewUrl) {
-             URL.revokeObjectURL(tempPreviewUrl);
-        }
+      toast({ title: "Боловсруулалтын Алдаа", description: errorMsg, variant: "destructive", duration: 7000 });
+      setPreview(initialUrlProp || null); // Revert preview
+      setCurrentDataUri(initialUrlProp || null);
+      onUploadComplete(initialUrlProp || null); // Revert to initial on error
+    } finally {
+      setProcessing(false);
+      if (tempPreviewUrl && preview !== tempPreviewUrl && !tempPreviewUrl.startsWith('data:')) { // Don't revoke if it's already a data URI
+           URL.revokeObjectURL(tempPreviewUrl);
+      }
     }
-  }, [storagePath, maxSizeMB, compressionQuality, maxDimension, onUploadComplete, toast, initialUrlProp, preview]);
+  }, [maxSizeMB, maxDimension, compressionQuality, onUploadComplete, toast, initialUrlProp, preview]);
 
   const onFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      handleFileUpload(file);
+      handleFileSelected(file);
     }
     if (event.target) {
-      event.target.value = "";
+      event.target.value = ""; // Allow re-selecting the same file
     }
   };
 
@@ -197,59 +154,39 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
     event.stopPropagation();
     const file = event.dataTransfer.files?.[0];
     if (file && file.type.startsWith('image/')) {
-      handleFileUpload(file);
+      handleFileSelected(file);
     } else {
       setError("Зургийн файл сонгоно уу.");
       toast({title: "Буруу Файлын Төрөл", description: "Зөвхөн зургийн файл сонгоно уу.", variant: "destructive"})
     }
-  }, [handleFileUpload, toast]);
+  }, [handleFileSelected, toast]);
 
   const onDragOver = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.stopPropagation();
   };
 
-  const handleRemoveImage = async () => {
-    if (!currentImageUrl) return;
-    const confirmation = window.confirm("Та энэ зургийг устгахдаа итгэлтэй байна уу? Энэ нь Firebase Storage-оос мөн устгах болно.");
-    if (!confirmation) return;
-
-    setUploading(true); // Indicate activity
+  const handleRemoveImage = () => {
+    // No need for confirmation if it's just clearing local state / form field
     setError(null);
-
-    try {
-        const result = await deleteFileFromStorage(currentImageUrl);
-        if (result.success) {
-            toast({ title: "Зураг устгагдлаа", description: "Зураг амжилттай устгагдлаа." });
-            setCurrentImageUrl(null);
-            if (preview && preview.startsWith('blob:')) {
-                URL.revokeObjectURL(preview);
-            }
-            setPreview(null);
-            onUploadComplete(null);
-            // setProgress(0); // Progress bar temporarily removed
-            if (fileInputRef.current) {
-              fileInputRef.current.value = "";
-            }
-        } else {
-            const errorMsg = result.error || "Зураг устгахад алдаа гарлаа.";
-            setError(errorMsg);
-            toast({ title: "Устгах Алдаа", description: errorMsg, variant: "destructive" });
-        }
-    } catch (e: any) {
-        const errorMsg = `Зураг устгах явцад алдаа: ${e.message}`;
-        setError(errorMsg);
-        toast({ title: "Устгах Алдаа", description: errorMsg, variant: "destructive" });
-    } finally {
-        setUploading(false);
+    setCurrentDataUri(null);
+    if (preview && preview.startsWith('blob:')) { // Only revoke if it's an object URL
+        URL.revokeObjectURL(preview);
     }
+    setPreview(null);
+    onUploadComplete(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+    toast({ title: "Зураг устгагдлаа", description: "Сонгосон зураг цэвэрлэгдлээ." });
   };
   
   useEffect(() => {
-    let currentPreview = preview;
+    // Cleanup object URLs
+    let currentPreviewForCleanup = preview;
     return () => {
-      if (currentPreview && currentPreview.startsWith('blob:')) {
-        URL.revokeObjectURL(currentPreview);
+      if (currentPreviewForCleanup && currentPreviewForCleanup.startsWith('blob:')) {
+        URL.revokeObjectURL(currentPreviewForCleanup);
       }
     };
   }, [preview]);
@@ -260,40 +197,37 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
       {label && <label className="text-sm font-medium text-foreground block">{label}</label>}
       <div
         className="w-full p-4 border-2 border-dashed border-muted-foreground/50 rounded-md flex flex-col items-center justify-center text-center cursor-pointer hover:border-primary transition-colors min-h-[150px] bg-muted/20"
-        onClick={() => !uploading && fileInputRef.current?.click()}
-        onDrop={!uploading ? onDrop : undefined}
-        onDragOver={!uploading ? onDragOver : undefined}
-        onDragEnter={!uploading ? onDragOver : undefined}
+        onClick={() => !processing && fileInputRef.current?.click()}
+        onDrop={!processing ? onDrop : undefined}
+        onDragOver={!processing ? onDragOver : undefined}
+        onDragEnter={!processing ? onDragOver : undefined}
       >
         <input
           type="file"
-          accept="image/jpeg, image/png, image/webp, image/gif"
+          accept="image/jpeg, image/png, image/webp" 
           ref={fileInputRef}
           onChange={onFileChange}
           className="hidden"
-          disabled={uploading}
+          disabled={processing}
         />
-        {uploading ? (
+        {processing ? (
           <div className="flex flex-col items-center space-y-2">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">Зураг байршуулж байна...</p>
-            {/* Progress component removed for server action simplicity
-            <Progress value={progress} className="w-3/4" />
-            <p className="text-xs text-muted-foreground">{progress}%</p> */}
+            <p className="text-sm text-muted-foreground">Зураг боловсруулж байна...</p>
           </div>
         ) : preview ? (
           <div className="relative group w-full max-w-xs mx-auto">
             <Image
-              src={preview}
+              src={preview} // Can be data URI or external URL
               alt="Сонгосон зураг"
-              width={maxDimension}
-              height={maxDimension * (9/16)}
+              width={maxDimension} 
+              height={maxDimension * (9/16)} 
               style={{ maxWidth: '100%', height: 'auto', maxHeight: '192px' }}
               className="rounded-md object-contain"
               data-ai-hint="uploaded image preview"
               onError={(e) => {
                 console.warn("Error loading preview image:", preview);
-                setError("Урьдчилан харах зургийг ачааллахад алдаа гарлаа.");
+                setError("Урьдчилан харах зургийг ачааллахад алдаа гарлаа. Энэ нь хүчингүй URL эсвэл data URI байж магадгүй.");
                 setPreview(null); 
               }}
             />
@@ -303,7 +237,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
               className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-10"
               onClick={(e) => { e.stopPropagation(); handleRemoveImage(); }}
               aria-label="Зургийг устгах"
-              disabled={uploading}
+              disabled={processing}
             >
               <XCircle className="h-5 w-5" />
             </Button>
@@ -313,7 +247,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
             <UploadCloud className="h-10 w-10 text-muted-foreground/70" />
             <p className="text-sm font-medium text-foreground">Зургаа чирж оруулна уу</p>
             <p className="text-xs text-muted-foreground">эсвэл дарж сонгоно уу</p>
-            <p className="text-xs text-muted-foreground mt-1">(Хамгийн ихдээ {maxSizeMB}MB, JPEG/PNG/WEBP/GIF форматтай)</p>
+            <p className="text-xs text-muted-foreground mt-1">(Хамгийн ихдээ {maxSizeMB}MB Base64, JPEG/PNG/WEBP)</p>
           </div>
         )}
       </div>
@@ -323,9 +257,12 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
           {error}
         </div>
       )}
+       <p className="text-xs text-muted-foreground mt-1">
+        Анхаар: Том зургууд нь Firestore-ийн баримт бичгийн 1MB хязгаарыг давж, зардлыг нэмэгдүүлж болзошгүй.
+        Зургууд нь Base64 хэлбэрээр хадгалагдана.
+      </p>
     </div>
   );
 };
 
 export default ImageUploader;
-

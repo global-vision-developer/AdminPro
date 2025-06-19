@@ -21,7 +21,7 @@ import { slugify } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useRouter } from 'next/navigation';
-import ImageUploader from '@/components/admin/image-uploader'; // Import ImageUploader
+import ImageUploader from '@/components/admin/image-uploader'; 
 
 const fieldDefinitionClientSchema = z.object({
   id: z.string().default(() => uuidv4()),
@@ -37,7 +37,7 @@ const categoryFormSchema = z.object({
   name: z.string(),
   slug: z.string().min(1, "Slug is required.").regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug must contain only lowercase letters, numbers, and hyphens."),
   description: z.string().optional().default(''),
-  coverImageUrl: z.string().url("Invalid cover image URL.").nullable().optional(), // Added for cover image
+  coverImageUrl: z.string().nullable().optional(), // Can be Base64 data URI or URL
   fields: z.array(fieldDefinitionClientSchema).min(0, "You can save a category without fields initially."),
 });
 
@@ -103,13 +103,13 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
       name: initialData.name,
       slug: initialData.slug,
       description: initialData.description || '',
-      coverImageUrl: initialData.coverImageUrl || null, // Initialize coverImageUrl
+      coverImageUrl: initialData.coverImageUrl || null, 
       fields: initialData.fields.map(f => ({ ...f, id: f.id || uuidv4(), key: f.key || slugify(f.label) }))
     } : {
       name: '',
       slug: '',
       description: '',
-      coverImageUrl: null, // Default coverImageUrl
+      coverImageUrl: null, 
       fields: defaultFieldsForNewCategory,
     },
   });
@@ -296,13 +296,13 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                     <FormLabel>Нүүр Зураг</FormLabel>
                     <FormControl>
                        <ImageUploader
-                        initialImageUrl={field.value}
-                        onUploadComplete={(url) => field.onChange(url)}
-                        storagePath="category-covers"
+                        initialImageUrl={field.value} // Can be data URI or URL
+                        onUploadComplete={(dataUri) => field.onChange(dataUri)} // Receives data URI
+                        // storagePath is not used when storing as Base64
                         label="Категорийн нүүр зураг"
                       />
                     </FormControl>
-                    <FormDescription>Энэ категорийн нүүр зургийг байршуулна уу.</FormDescription>
+                    <FormDescription>Энэ категорийн нүүр зургийг байршуулна уу. Энэ нь Base64 хэлбэрээр хадгалагдана.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -500,12 +500,3 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
     </>
   );
 }
-
-    
-
-    
-
-    
-
-
-

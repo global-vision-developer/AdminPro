@@ -26,7 +26,7 @@ import { addEntry, updateEntry } from '@/lib/actions/entryActions';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { v4 as uuidv4 } from 'uuid';
-import ImageUploader from '@/components/admin/image-uploader'; // Import ImageUploader
+import ImageUploader from '@/components/admin/image-uploader';
 
 interface EntryFormProps {
   initialData?: Entry | null;
@@ -35,11 +35,11 @@ interface EntryFormProps {
   onSubmitSuccess?: () => void;
 }
 
-const USER_ONLY_FIELD_MARKER = "This field is for app users, not admins."; // Changed to English
+const USER_ONLY_FIELD_MARKER = "This field is for app users, not admins.";
 
 const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, any> => {
   const shape: Record<string, z.ZodTypeAny> = {
-    title: z.string().trim().min(1, { message: "Entry title is required." }), // Changed
+    title: z.string().trim().min(1, { message: "Entry title is required." }),
     status: z.enum(['draft', 'published', 'scheduled']).default('draft'),
     publishAt: z.date().optional().nullable(),
     data: z.object({}).passthrough(),
@@ -55,17 +55,18 @@ const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, a
     let fieldSchema: z.ZodTypeAny;
     switch (field.type) {
       case FieldType.TEXT:
+        // For ImageUploader fields (which now return Base64 or keep URL), ensure it's a string or null
         if (field.key === 'nuur-zurag-url' || field.label.toLowerCase().includes('image url') || field.label.toLowerCase().includes('cover image')) {
-            fieldSchema = z.string().url("Invalid image URL.").nullable().optional(); // Changed
+            fieldSchema = z.string().nullable().optional(); // Can be data URI or URL
         } else if (field.required) {
-          fieldSchema = z.string().trim().min(1, { message: `${field.label} field is required.` }); // Changed
+          fieldSchema = z.string().trim().min(1, { message: `${field.label} field is required.` });
         } else {
           fieldSchema = z.string().optional().nullable().transform(val => val ?? '');
         }
         break;
       case FieldType.TEXTAREA:
         if (field.required) {
-          fieldSchema = z.string().trim().min(1, { message: `${field.label} field is required.` }); // Changed
+          fieldSchema = z.string().trim().min(1, { message: `${field.label} field is required.` });
         } else {
           fieldSchema = z.string().optional().nullable().transform(val => val ?? '');
         }
@@ -73,11 +74,11 @@ const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, a
       case FieldType.NUMBER:
         const baseNumberPreprocessor = (val: unknown) => (val === "" || val === undefined || val === null) ? undefined : String(val);
         const numberValidation = z.string()
-          .refine((val) => val === undefined || val === null || val === '' || !isNaN(parseFloat(val)), { message: `${field.label} must be a number.` }) // Changed
+          .refine((val) => val === undefined || val === null || val === '' || !isNaN(parseFloat(val)), { message: `${field.label} must be a number.` })
           .transform(val => (val === undefined || val === null || val === '') ? null : Number(val));
 
         if (field.required) {
-          fieldSchema = z.preprocess(baseNumberPreprocessor, z.string().nonempty({ message: `${field.label} field is required.` }).pipe(numberValidation)); // Changed
+          fieldSchema = z.preprocess(baseNumberPreprocessor, z.string().nonempty({ message: `${field.label} field is required.` }).pipe(numberValidation));
         } else {
           fieldSchema = z.preprocess(baseNumberPreprocessor, z.string().optional().nullable().pipe(numberValidation.optional().nullable()));
         }
@@ -85,12 +86,12 @@ const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, a
       case FieldType.DATE:
         if (field.required) {
           fieldSchema = z.date({
-            required_error: `${field.label} field is required.`, // Changed
-            invalid_type_error: `${field.label} must be a valid date.`, // Changed
+            required_error: `${field.label} field is required.`,
+            invalid_type_error: `${field.label} must be a valid date.`,
           });
         } else {
           fieldSchema = z.date({
-            invalid_type_error: `${field.label} must be a valid date.`, // Changed
+            invalid_type_error: `${field.label} must be a valid date.`,
           }).optional().nullable();
         }
         break;
@@ -100,15 +101,15 @@ const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, a
       case FieldType.IMAGE_GALLERY:
         const imageGalleryItemSchema = z.object({
             clientId: z.string(),
-            imageUrl: z.string().url({ message: `${field.label}: Invalid image URL.` }).nullable(), // Allow null // Changed
+            imageUrl: z.string().nullable().optional(), // Can be Base64 data URI or URL string
             description: z.string().optional().transform(val => val === '' ? undefined : val),
         });
 
         fieldSchema = z.array(imageGalleryItemSchema).optional().default([]);
         if (field.required) {
-            fieldSchema = fieldSchema.min(1, { message: `${field.label}: At least one image is required.` }) // Changed
-                                     .refine(items => items.some(item => item.imageUrl !== null), {
-                                        message: `${field.label}: At least one image URL is required.`, // Changed
+            fieldSchema = fieldSchema.min(1, { message: `${field.label}: At least one image is required.` })
+                                     .refine(items => items.some(item => item.imageUrl !== null && item.imageUrl !== ''), {
+                                        message: `${field.label}: At least one image URL/Data is required.`,
                                       });
         }
         break;
@@ -126,7 +127,7 @@ const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, a
     }
     return true;
   }, {
-    message: "Please select a publish date and time for scheduled entries.", // Changed
+    message: "Please select a publish date and time for scheduled entries.",
     path: ["publishAt"],
   });
 };
@@ -233,7 +234,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
     }
 
     if (!entryContent.trim()) {
-      setAiError("Please provide some content (title or other fields)."); // Changed
+      setAiError("Please provide some content (title or other fields).");
       return;
     }
 
@@ -245,7 +246,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
       setAiSuggestions(result.suggestions);
     } catch (error) {
       console.error("AI suggestion error:", error);
-      setAiError("Failed to get suggestions. Please try again."); // Changed
+      setAiError("Failed to get suggestions. Please try again.");
     }
     setIsSuggesting(false);
   };
@@ -282,12 +283,18 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
           break;
         case FieldType.TEXT:
         case FieldType.TEXTAREA:
-          valueToSave = (typeof valueFromForm === 'string') ? valueFromForm : (valueFromForm === null ? null : '');
+          // For text fields, if it's an image field (handled by ImageUploader), it could be a Base64 string or null.
+          // Otherwise, it's regular text.
+          if (field.key === 'nuur-zurag-url' || field.label.toLowerCase().includes('image url') || field.label.toLowerCase().includes('cover image')) {
+            valueToSave = typeof valueFromForm === 'string' ? valueFromForm : null; // Allow null for empty images
+          } else {
+            valueToSave = (typeof valueFromForm === 'string') ? valueFromForm : (valueFromForm === null ? null : '');
+          }
           break;
         case FieldType.IMAGE_GALLERY:
           valueToSave = Array.isArray(valueFromForm)
-            ? valueFromForm.filter(item => item.imageUrl !== null).map((item: ImageGalleryItemForm) => ({ // Filter out items with null imageUrl
-                imageUrl: item.imageUrl as string, // Cast as string since nulls are filtered
+            ? valueFromForm.filter(item => item.imageUrl !== null && item.imageUrl !== '').map((item: ImageGalleryItemForm) => ({ 
+                imageUrl: item.imageUrl as string, 
                 description: item.description,
               }))
             : [];
@@ -316,7 +323,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
     setIsSubmitting(false);
 
     if (result && "id" in result && result.id) {
-        toast({ title: "Success", description: `Entry ${initialData ? 'updated' : 'created'}.`}); // Changed
+        toast({ title: "Success", description: `Entry ${initialData ? 'updated' : 'created'}.`});
         if (onSubmitSuccess) onSubmitSuccess();
         else router.push(`/admin/entries?category=${selectedCategory.id}`);
 
@@ -325,7 +332,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
         }
 
     } else if (result && "error" in result && result.error) {
-        toast({ title: "Error", description: result.error, variant: "destructive" }); // Changed
+        toast({ title: "Error", description: result.error, variant: "destructive" });
     }
   };
 
@@ -364,7 +371,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
 
                 {selectedCategory?.fields.map(catField => {
                   const isUserOnlyField = catField.description?.includes(USER_ONLY_FIELD_MARKER);
-                  const Icon = catField.key === 'rating' ? Star : catField.key === 'comment' ? MessageSquareText : null; // Changed keys
+                  const Icon = catField.key === 'rating' ? Star : catField.key === 'comment' ? MessageSquareText : null;
                   const isCoverImageField = catField.type === FieldType.TEXT && (catField.key === 'nuur-zurag-url' || catField.label.toLowerCase().includes('image url') || catField.label.toLowerCase().includes('cover image'));
 
                   if (isUserOnlyField) {
@@ -389,7 +396,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                     const { fields: galleryFields, append, remove, update: updateGalleryItem } = useFieldArray({
                       control: form.control,
                       name: `data.${catField.key}` as any,
-                      keyName: "clientId",
+                      keyName: "clientId", // Ensure this matches the id field in your ImageGalleryItemForm
                     });
 
                     return (
@@ -405,13 +412,12 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                                   name={`data.${catField.key}.${index}.imageUrl` as const}
                                   render={({ field: galleryItemField }) => (
                                     <ImageUploader
-                                      initialImageUrl={galleryItemField.value}
-                                      onUploadComplete={(url) => {
+                                      initialImageUrl={galleryItemField.value} // Can be data URI or URL
+                                      onUploadComplete={(dataUri) => { // Receives data URI
                                         const currentItem = form.getValues(`data.${catField.key}`)[index];
-                                        updateGalleryItem(index, { ...currentItem, imageUrl: url });
+                                        updateGalleryItem(index, { ...currentItem, imageUrl: dataUri });
                                       }}
-                                      storagePath={`entries/${selectedCategory.slug || selectedCategory.id}/${catField.key}`}
-                                      label="Image" // Changed
+                                      label="Image"
                                     />
                                   )}
                                 />
@@ -466,9 +472,8 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                                     {catField.description && <FormDescription>{catField.description === "Энэ бичлэгийн гол нүүр зургийн интернет хаяг." ? "үндсэн нүүр зургийн интернет хаяг(address)" : catField.description}</FormDescription>}
                                     <FormControl>
                                         <ImageUploader
-                                            initialImageUrl={formHookField.value}
-                                            onUploadComplete={(url) => formHookField.onChange(url)}
-                                            storagePath={`entries/${selectedCategory.slug || selectedCategory.id}/cover-images`}
+                                            initialImageUrl={formHookField.value} // Can be data URI or URL
+                                            onUploadComplete={(dataUri) => formHookField.onChange(dataUri)} // Receives data URI
                                             label={catField.label}
                                         />
                                     </FormControl>
@@ -727,4 +732,3 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
     </Form>
   );
 }
-

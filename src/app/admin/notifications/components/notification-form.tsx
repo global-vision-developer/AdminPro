@@ -19,7 +19,7 @@ import ImageUploader from '@/components/admin/image-uploader';
 const notificationFormSchema = z.object({
   title: z.string().min(1, "Гарчиг заавал бөглөнө үү."),
   body: z.string().min(1, "Агуулга заавал бөглөнө үү."),
-  imageUrl: z.string().url("Зургийн линк буруу байна.").nullable().optional(),
+  imageUrl: z.string().nullable().optional(), // Can be Base64 data URI or URL string
   deepLink: z.string().url("Deep link буруу байна (жишээ: app://screen/id).").nullable().optional()
             .or(z.literal('').transform(() => null)), // Allow empty string to be treated as null
   scheduleAt: z.date().nullable().optional(),
@@ -79,16 +79,16 @@ export function NotificationForm({ onSubmit, isSubmitting, onCancel }: Notificat
           name="imageUrl"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Зургийн URL (Сонголтоор)</FormLabel>
+              <FormLabel>Зураг (Сонголтоор)</FormLabel>
               <FormControl>
                 <ImageUploader
-                    initialImageUrl={field.value}
-                    onUploadComplete={(url) => field.onChange(url)}
-                    storagePath="notification-images"
+                    initialImageUrl={field.value} // Can be data URI or URL
+                    onUploadComplete={(dataUri) => field.onChange(dataUri)} // Receives data URI
+                    // storagePath is not used by ImageUploader if storing as Base64
                     label="Мэдэгдлийн зураг"
                 />
               </FormControl>
-               <FormDescription>Мэдэгдэлд харуулах зургийн линкийг оруулна уу эсвэл байршуулна уу.</FormDescription>
+               <FormDescription>Мэдэгдэлд харуулах зургийг байршуулна уу. Энэ нь Base64 хэлбэрээр хадгалагдана.</FormDescription>
               <FormMessage />
             </FormItem>
           )}

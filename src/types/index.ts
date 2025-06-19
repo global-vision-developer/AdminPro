@@ -9,7 +9,7 @@ export interface UserProfile {
   name: string;
   email: string;
   role: UserRole;
-  avatar?: string; // URL to avatar image
+  avatar?: string; // URL to avatar image or Base64 data URI
   allowedCategoryIds?: string[]; // For Sub Admins, IDs of categories they can manage
 }
 
@@ -24,12 +24,12 @@ export enum FieldType {
 
 export interface ImageGalleryItemForm {
   clientId: string; 
-  imageUrl: string | null; 
+  imageUrl: string | null; // Can be Base64 data URI or existing URL
   description?: string;
 }
 
 export interface ImageGalleryItemStored {
-  imageUrl: string; 
+  imageUrl: string; // Can be Base64 data URI or existing URL
   description?: string;
 }
 
@@ -50,7 +50,7 @@ export interface Category {
   slug: string; 
   description?: string; 
   fields: FieldDefinition[];
-  coverImageUrl?: string | null; 
+  coverImageUrl?: string | null; // Can be Base64 data URI or existing URL
   createdAt?: string; 
   updatedAt?: string; 
 }
@@ -60,7 +60,7 @@ export interface Entry {
   categoryId: string; 
   title?: string; 
   categoryName?: string; 
-  data: Record<string, any | ImageGalleryItemStored[]>; 
+  data: Record<string, any | ImageGalleryItemStored[]>; // Image URLs here can be Base64
   status: 'draft' | 'published' | 'scheduled';
   publishAt?: string; 
   createdAt: string; 
@@ -92,7 +92,7 @@ export interface NotificationLog {
   id?: string; // Firestore document ID
   title: string;
   body: string;
-  imageUrl?: string | null;
+  imageUrl?: string | null; // Can be Base64 data URI or existing URL
   deepLink?: string | null;
   scheduleAt?: string | null; // ISO string, for when it should be sent (optional)
   
