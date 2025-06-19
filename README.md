@@ -133,7 +133,7 @@ Stores pre-defined frequently asked questions and their answers, managed by admi
 
 *   **Document ID:** Auto-generated Firestore ID
 *   **Fields:**
-    *   `topic: string` (Stores "1" for Application Guide, "2" for Travel Tips - maps to `HelpTopic` enum)
+    *   `topic: string` (Stores "Аппликэйшн ашиглах заавар" or "Хэрхэн хямд аялах вэ?" - maps to `HelpTopic` enum)
     *   `question: string` (The frequently asked question text)
     *   `answer: string` (The answer to the question)
     *   `isPredefined: boolean` (`true` for these items)
@@ -141,6 +141,19 @@ Stores pre-defined frequently asked questions and their answers, managed by admi
     *   `createdAt: firebase.firestore.Timestamp`
     *   `updatedAt: firebase.firestore.Timestamp`
     *   `createdBy: string` (Optional: UID of the admin who created/updated the item)
+
+### `cities` Collection
+
+Stores city information for the application.
+
+*   **Document ID:** Auto-generated Firestore ID
+*   **Fields:**
+    *   `name: string` (Mongolian name of the city, e.g., "Улаанбаатар")
+    *   `nameCN: string` (Chinese name of the city, e.g., "乌兰巴托")
+    *   `order: number` (A number for sorting purposes, lower numbers appear first)
+    *   `createdAt: firebase.firestore.Timestamp` (Server timestamp of when the city was created)
+    *   `updatedAt: firebase.firestore.Timestamp` (Server timestamp of when the city was last updated)
+
 
 This structure is designed to be scalable and flexible, allowing for dynamic content types based on category definitions. Firestore security rules should be configured to protect this data appropriately (e.g., only authenticated admins can write to `admins`, `categories`, `entries`).
 
@@ -186,7 +199,7 @@ This **SPECIFICALLY MEANS** the query on the \`entries\` collection (likely in \
 
 ## Firestore Security Rules
 
-**Example Firestore Security Rules Snippet (Conceptual - Needs to be updated for \`banners\`, \`ankets\`, \`help_items\`):**
+**Example Firestore Security Rules Snippet (Conceptual - Needs to be updated for \`banners\`, \`ankets\`, \`help_items\`, \`cities\`):**
 \`\`\`firestore
 rules_version = '2';
 service cloud.firestore {
@@ -267,6 +280,14 @@ service cloud.firestore {
       allow read: if true; // Publicly readable
       // Super Admins and Sub Admins can manage FAQs
       allow list, create, update, delete: if request.auth != null && 
+                                          (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
+                                           get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
+    }
+
+    // Cities collection
+    match /cities/{cityId} {
+      allow read: if true; // Publicly readable
+      allow list, create, update, delete: if request.auth != null &&
                                           (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
                                            get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
     }

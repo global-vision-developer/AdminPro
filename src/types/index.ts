@@ -160,7 +160,7 @@ export interface HelpItem {
 
 export interface HelpRequest {
   id?: string;
-  topic: HelpTopic; // Should remain HelpTopic for consistency if this type is used
+  topic: HelpTopic; 
   question: string;
   userId?: string;
   userEmail?: string;
@@ -168,5 +168,14 @@ export interface HelpRequest {
   createdAt: string;
   answeredAt?: string;
   adminNotes?: string;
+}
+
+export interface City {
+  id: string;
+  name: string; // Mongolian name
+  nameCN: string; // Chinese name
+  order: number; // For sorting
+  createdAt?: string;
+  updatedAt?: string;
 }
     
