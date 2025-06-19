@@ -2,20 +2,33 @@
 import React from 'react';
 import Link from 'next/link';
 import { unstable_noStore as noStore } from 'next/cache';
-import { PlusCircle, Edit, MapPin } from 'lucide-react';
+import { PlusCircle, Edit, MapPin, Building, Plane } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { PageHeader } from '@/components/admin/page-header';
 import type { City } from '@/types';
+import { CITY_TYPE_DISPLAY_NAMES, CityType } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { getCities } from '@/lib/actions/cityActions';
 import { DeleteCityButton } from './components/delete-city-button';
+import { Badge } from '@/components/ui/badge';
 
 
 export default async function CitiesPage() {
   noStore();
   const cities = await getCities();
+
+  const getCityTypeBadge = (cityType: CityType) => {
+    switch (cityType) {
+      case CityType.MAJOR:
+        return <Badge variant="default" className="bg-sky-500 hover:bg-sky-600"><Building className="mr-1 h-3 w-3" />Том хот</Badge>;
+      case CityType.OTHER:
+        return <Badge variant="secondary"><MapPin className="mr-1 h-3 w-3" />Бусад</Badge>;
+      default:
+        return <Badge variant="outline">{CITY_TYPE_DISPLAY_NAMES[cityType] || cityType}</Badge>;
+    }
+  };
 
   return (
     <TooltipProvider>
@@ -40,9 +53,11 @@ export default async function CitiesPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[50px]">Эрэмбэ</TableHead>
+                    <TableHead className="w-[50px] text-center">Эрэмбэ</TableHead>
                     <TableHead>Монгол нэр</TableHead>
-                    <TableHead>Хятад нэр</TableHead>
+                    <TableHead className="hidden md:table-cell">Хятад нэр</TableHead>
+                    <TableHead className="text-center">Төрөл</TableHead>
+                    <TableHead className="text-center hidden sm:table-cell">IATA</TableHead>
                     <TableHead className="text-right">Үйлдлүүд</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -50,8 +65,19 @@ export default async function CitiesPage() {
                   {cities.map((city) => (
                     <TableRow key={city.id}>
                       <TableCell className="text-center">{city.order}</TableCell>
-                      <TableCell className="font-medium">{city.name}</TableCell>
-                      <TableCell>{city.nameCN}</TableCell>
+                      <TableCell className="font-medium">
+                        {city.name}
+                        <p className="text-xs text-muted-foreground md:hidden">{city.nameCN}</p>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">{city.nameCN}</TableCell>
+                      <TableCell className="text-center">{getCityTypeBadge(city.cityType)}</TableCell>
+                      <TableCell className="text-center hidden sm:table-cell">
+                        {city.iataCode ? (
+                            <Badge variant="outline" className="font-mono"><Plane className="mr-1 h-3 w-3" />{city.iataCode}</Badge>
+                        ) : (
+                            <span className="text-muted-foreground text-xs italic">N/A</span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           <Tooltip>

@@ -160,7 +160,7 @@ export interface HelpItem {
 
 export interface HelpRequest {
   id?: string;
-  topic: HelpTopic; 
+  topic: HelpTopic;
   question: string;
   userId?: string;
   userEmail?: string;
@@ -170,12 +170,23 @@ export interface HelpRequest {
   adminNotes?: string;
 }
 
+export enum CityType {
+  MAJOR = 'major',
+  OTHER = 'other',
+}
+
+export const CITY_TYPE_DISPLAY_NAMES: Record<CityType, string> = {
+  [CityType.MAJOR]: 'Том хотууд',
+  [CityType.OTHER]: 'Бусад',
+};
+
 export interface City {
   id: string;
   name: string; // Mongolian name
   nameCN: string; // Chinese name
   order: number; // For sorting
+  cityType: CityType; // New field for city type
+  iataCode?: string; // New field for IATA code
   createdAt?: string;
   updatedAt?: string;
 }
-    

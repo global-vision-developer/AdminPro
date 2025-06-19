@@ -152,6 +152,8 @@ Stores city information for the application.
     *   `name: string` (Mongolian name of the city, e.g., "Улаанбаатар")
     *   `nameCN: string` (Chinese name of the city, e.g., "乌兰巴托")
     *   `order: number` (A number for sorting purposes, lower numbers appear first)
+    *   `cityType: string` (e.g., "major", "other" - maps to `CityType` enum)
+    *   `iataCode: string` (Optional: 3-letter IATA airport code, e.g., "ULN")
     *   `createdAt: firebase.firestore.Timestamp` (Server timestamp of when the city was created)
     *   `updatedAt: firebase.firestore.Timestamp` (Server timestamp of when the city was last updated)
 
@@ -318,4 +320,3 @@ NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=YOUR_MEASUREMENT_ID (optional)
 Replace \`YOUR_...\` with your actual Firebase project credentials.
 Remember to restart your development server (\`npm run dev\`) after creating or modifying \`.env.local\`.
 
-    

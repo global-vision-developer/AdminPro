@@ -3,6 +3,7 @@
 
 import { db } from "@/lib/firebase";
 import type { City } from "@/types";
+import { CityType } from "@/types"; // Import CityType
 import {
   collection,
   addDoc,
@@ -24,6 +25,8 @@ interface CityFirestoreData {
   name: string;
   nameCN: string;
   order: number;
+  cityType: CityType;
+  iataCode?: string;
   createdAt: Timestamp | ReturnType<typeof serverTimestamp>;
   updatedAt: Timestamp | ReturnType<typeof serverTimestamp>;
 }
@@ -36,6 +39,8 @@ export async function addCity(
       name: cityData.name,
       nameCN: cityData.nameCN,
       order: cityData.order,
+      cityType: cityData.cityType || CityType.OTHER, // Default to OTHER if not provided
+      iataCode: cityData.iataCode || "",
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };
@@ -60,6 +65,8 @@ export async function getCities(): Promise<City[]> {
         name: data.name || "",
         nameCN: data.nameCN || "",
         order: data.order || 0,
+        cityType: data.cityType || CityType.OTHER,
+        iataCode: data.iataCode || "",
         createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : undefined,
         updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().toISOString() : undefined,
       } as City;
@@ -81,6 +88,8 @@ export async function getCity(id: string): Promise<City | null> {
         name: data.name || "",
         nameCN: data.nameCN || "",
         order: data.order || 0,
+        cityType: data.cityType || CityType.OTHER,
+        iataCode: data.iataCode || "",
         createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : undefined,
         updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().toISOString() : undefined,
       } as City;
@@ -98,8 +107,17 @@ export async function updateCity(
 ): Promise<{ success: boolean } | { error: string }> {
   try {
     const docRef = doc(db, CITIES_COLLECTION, id);
+    
+    const dataToUpdate: Record<string, any> = { ...cityData };
+    if (cityData.iataCode === undefined) { // Ensure empty string if not provided or null
+        dataToUpdate.iataCode = "";
+    }
+    if (cityData.cityType === undefined) {
+        dataToUpdate.cityType = CityType.OTHER;
+    }
+
     await updateDoc(docRef, {
-      ...cityData,
+      ...dataToUpdate,
       updatedAt: serverTimestamp(),
     });
     revalidatePath("/admin/cities");
