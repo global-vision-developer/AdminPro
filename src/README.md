@@ -36,6 +36,7 @@ Stores definitions for content categories (e.g., Blog Posts, Products).
     *   `description: string` (Optional, a brief description of the category)
     *   `fields: array` (An array of field definition objects, mirroring `FieldDefinition` from `src/types/index.ts`)
         *   Each object in the array: `{ id: string, label: string, type: string (matching FieldType enum), required: boolean, placeholder: string (optional) }`
+    *   `coverImageUrl: string` (Optional, Base64 data URI or URL for category cover image)
     *   `createdAt: firebase.firestore.Timestamp`
     *   `updatedAt: firebase.firestore.Timestamp`
     *   `entryCount: number` (Optional: for quickly displaying how many entries belong to this category. Can be updated with Cloud Functions or batched writes for consistency.)
@@ -48,9 +49,9 @@ Stores individual content entries belonging to a specific category.
 *   **Document ID:** Auto-generated Firestore ID
 *   **Fields:**
     *   `categoryId: string` (ID of the document in the `categories` collection this entry belongs to)
+    *   `categoryName: string` (Denormalized name of the category for easier display)
     *   `title: string` (A general title for the entry, useful for display in lists and admin UI. This might be derived from a specific field in `data` if a standard 'title' field exists in the category definition, or can be a separate field.)
-    *   `data: map` (An object where keys are `fieldDefinition.id` from the parent category's `fields` array, and values are the actual content for those fields.)
-        *   Example: `data: { title: "My First Blog Post", content: "...", authorName: "John Doe" }`
+    *   `data: map` (An object where keys are `fieldDefinition.id` from the parent category's `fields` array, and values are the actual content for those fields. Image data stored as Base64 data URIs.)
     *   `status: string` (e.g., "draft", "published", "scheduled" - matching `Entry['status']` type)
     *   `publishAt: firebase.firestore.Timestamp` (Optional, used if `status` is "scheduled")
     *   `createdAt: firebase.firestore.Timestamp`
@@ -78,7 +79,7 @@ Stores logs of push notifications sent or scheduled to be sent to app users. A F
 *   **Fields:**
     *   `title: string` (Notification title)
     *   `body: string` (Notification body/message)
-    *   `imageUrl: string` (Optional URL for an image in the notification)
+    *   `imageUrl: string` (Optional, Base64 data URI or URL for an image in the notification)
     *   `deepLink: string` (Optional deep link URL for the app)
     *   `scheduleAt: firebase.firestore.Timestamp` (Optional: If set, the Firebase Function should send at this time)
     *   `adminCreator: map`
@@ -98,6 +99,19 @@ Stores logs of push notifications sent or scheduled to be sent to app users. A F
             *   `error: string` (Optional: Error message if sending to this token failed)
             *   `messageId: string` (Optional: FCM message ID on successful send)
             *   `attemptedAt: firebase.firestore.Timestamp` (Optional: When the Firebase Function attempted to send to this token)
+
+### `banners` Collection
+
+Stores banner information for display on the website/app.
+
+*   **Document ID:** Auto-generated Firestore ID
+*   **Fields:**
+    *   `imageUrl: string` (Base64 data URI of the banner image)
+    *   `description: string` (A short description or title for the banner)
+    *   `link: string` (Optional URL the banner should link to when clicked)
+    *   `isActive: boolean` (Controls whether the banner is currently active and should be displayed)
+    *   `createdAt: firebase.firestore.Timestamp` (Server timestamp of when the banner was created)
+    *   `updatedAt: firebase.firestore.Timestamp` (Server timestamp of when the banner was last updated)
 
 
 This structure is designed to be scalable and flexible, allowing for dynamic content types based on category definitions. Firestore security rules should be configured to protect this data appropriately (e.g., only authenticated admins can write to `admins`, `categories`, `entries`).
@@ -151,7 +165,7 @@ This **SPECIFICALLY MEANS** the query on the `entries` collection (likely in `sr
 
 ## Firestore Security Rules
 
-**Example Firestore Security Rules Snippet (Conceptual - Needs to be updated for `allowedCategoryIds` for Sub Admins):**
+**Example Firestore Security Rules Snippet (Conceptual - Needs to be updated for `allowedCategoryIds` for Sub Admins and `banners`):**
 ```firestore
 rules_version = '2';
 service cloud.firestore {
@@ -185,15 +199,6 @@ service cloud.firestore {
                                             ||
                                             (
                                               get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin' &&
-                                              // For create: check if the incoming resource's categoryId is allowed
-                                              // For update/delete: check if the existing resource's categoryId is allowed
-                                              // This rule needs to be more specific for create vs update/delete
-                                              // Example for create:
-                                              // request.resource.data.categoryId in get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.allowedCategoryIds
-                                              // Example for update/delete:
-                                              // resource.data.categoryId in get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.allowedCategoryIds
-                                              // A robust rule might need helper functions or separate match conditions.
-                                              // Placeholder for now:
                                               (request.resource.data.categoryId in get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.allowedCategoryIds ||
                                                resource.data.categoryId in get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.allowedCategoryIds)
                                             )
@@ -207,28 +212,30 @@ service cloud.firestore {
                            (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
                             get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
       // Only the app user themselves can write to their own document (e.g., update fcmTokens)
-      // This rule assumes app users authenticate with Firebase Auth as well.
       allow write: if request.auth != null && request.auth.uid == userId;
-      // Creation of user documents in 'users' collection typically handled by app client or trusted backend during signup.
-      // Deny direct creation from admin panel unless specifically designed.
       allow create: if false; 
     }
 
     // Notifications collection ('notifications')
     match /notifications/{notificationId} {
-      // Admins can create notification requests (initial document)
       allow create: if request.auth != null &&
                       (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
                        get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
-      // Admins can read notification logs
       allow read, list: if request.auth != null &&
                           (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
                            get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
-      // Only backend (e.g., Firebase Function with specific service account or identity) should update status.
-      // For simplicity here, allowing Super Admins to update, but ideally this is more restricted.
       allow update: if request.auth != null && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin'; 
-      // Super Admins can delete notification logs
       allow delete: if request.auth != null && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin';
+    }
+
+    // Banners collection
+    match /banners/{bannerId} {
+      // Any authenticated admin can read banners
+      allow read: if request.auth != null;
+      // Super Admins and Sub Admins can manage banners
+      allow list, create, update, delete: if request.auth != null &&
+                                          (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
+                                           get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
     }
   }
 }
@@ -250,5 +257,3 @@ NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=YOUR_MEASUREMENT_ID (optional)
 ```
 Replace `YOUR_...` with your actual Firebase project credentials.
 Remember to restart your development server (`npm run dev`) after creating or modifying `.env.local`.
-
-```

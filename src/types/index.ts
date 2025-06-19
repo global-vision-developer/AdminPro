@@ -112,3 +112,13 @@ export interface NotificationLog {
   // This will be populated by the admin action with initial status 'pending'
   // The Firebase Function will update the status for each target.
 }
+
+export interface Banner {
+  id: string;
+  imageUrl: string | null; // Base64 data URI
+  description: string;
+  link?: string | null; // Optional URL the banner links to
+  isActive: boolean; // To control visibility
+  createdAt?: string; // ISO string timestamp
+  updatedAt?: string; // ISO string timestamp
+}

@@ -11,7 +11,8 @@ import {
   Settings,
   ChevronDown,
   ChevronRight,
-  Bell // Bell icon нэмэгдсэн
+  Bell,
+  Image as ImageIcon // Added ImageIcon for Banners
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -44,11 +45,12 @@ const navItems: NavItem[] = [
   {
     href: "/admin/content", label: "Контент", icon: Library,
     subItems: [
-      { href: "/admin/categories", label: "категори", icon: Library, roles: [UserRole.SUPER_ADMIN] },
+      { href: "/admin/categories", label: "ангилал", icon: Library, roles: [UserRole.SUPER_ADMIN] },
       { href: "/admin/entries", label: "бүртгэл", icon: Newspaper, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
     ]
   },
-  { href: "/admin/notifications", label: "Мэдэгдэл", icon: Bell, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] }, // Мэдэгдэл цэс нэмэгдсэн
+  { href: "/admin/banners", label: "Баннер", icon: ImageIcon, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] }, // Баннер цэс нэмэгдсэн
+  { href: "/admin/notifications", label: "Мэдэгдэл", icon: Bell, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
   { href: "/admin/users", label: "Хэрэглэгчид", icon: Users, roles: [UserRole.SUPER_ADMIN] },
   // { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
@@ -73,14 +75,14 @@ export function SidebarNav() {
     if (item.hideIfSubAdmin && currentUser.role === UserRole.SUB_ADMIN) {
         return null;
     }
-    if (item.label === "категори" && currentUser.role === UserRole.SUB_ADMIN) {
+    if (item.label === "ангилал" && currentUser.role === UserRole.SUB_ADMIN) {
         return null;
     }
 
     let itemIsActive = pathname === item.href || (item.href !== "/admin/dashboard" && pathname.startsWith(item.href));
     if (item.subItems && !itemIsActive) {
         itemIsActive = item.subItems.some(sub => {
-            if (sub.label === "категори" && currentUser.role === UserRole.SUB_ADMIN) return false;
+            if (sub.label === "ангилал" && currentUser.role === UserRole.SUB_ADMIN) return false;
             return pathname.startsWith(sub.href);
         });
     }
@@ -92,7 +94,7 @@ export function SidebarNav() {
       const visibleSubItems = item.subItems.filter(subItem => {
         if (subItem.roles && !subItem.roles.includes(currentUser.role)) return false;
         if (subItem.hideIfSubAdmin && currentUser.role === UserRole.SUB_ADMIN) return false;
-        if (subItem.label === "категори" && currentUser.role === UserRole.SUB_ADMIN) return false;
+        if (subItem.label === "ангилал" && currentUser.role === UserRole.SUB_ADMIN) return false;
         return true;
       });
 
@@ -129,7 +131,6 @@ export function SidebarNav() {
                 <Icon className="h-4 w-4" />
                 <span className="truncate">{item.label}</span>
               </div>
-              {/* The AccordionTrigger from shadcn/ui automatically adds its own ChevronDown icon */}
             </AccordionTrigger>
             <AccordionContent className="pt-0 pb-0 pl-4">
               <SidebarMenuSub className="mx-0 border-l-0 px-0 py-1">
@@ -185,4 +186,3 @@ export function SidebarNav() {
     </nav>
   );
 }
-
