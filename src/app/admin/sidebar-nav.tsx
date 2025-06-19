@@ -12,7 +12,7 @@ import {
   ChevronDown,
   ChevronRight,
   Bell,
-  Image as ImageIcon // Added ImageIcon for Banners
+  Image as ImageIcon 
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -43,13 +43,13 @@ interface NavItem {
 const navItems: NavItem[] = [
   { href: "/admin/dashboard", label: "Хяналтын самбар", icon: LayoutDashboard },
   {
-    href: "/admin/content", label: "Контент", icon: Library,
+    href: "/admin/content", label: "Мэдээлэл нэмэх", icon: Library, // Updated label
     subItems: [
-      { href: "/admin/categories", label: "ангилал", icon: Library, roles: [UserRole.SUPER_ADMIN] },
-      { href: "/admin/entries", label: "бүртгэл", icon: Newspaper, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
+      { href: "/admin/categories", label: "ангилал нэмэх", icon: Library, roles: [UserRole.SUPER_ADMIN] }, // Updated label
+      { href: "/admin/entries", label: "Өгөгдөл нэмэх", icon: Newspaper, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] }, // Updated label
     ]
   },
-  { href: "/admin/banners", label: "Баннер", icon: ImageIcon, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] }, // Баннер цэс нэмэгдсэн
+  { href: "/admin/banners", label: "Баннер", icon: ImageIcon, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
   { href: "/admin/notifications", label: "Мэдэгдэл", icon: Bell, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
   { href: "/admin/users", label: "Хэрэглэгчид", icon: Users, roles: [UserRole.SUPER_ADMIN] },
   // { href: "/admin/settings", label: "Settings", icon: Settings },
@@ -75,14 +75,16 @@ export function SidebarNav() {
     if (item.hideIfSubAdmin && currentUser.role === UserRole.SUB_ADMIN) {
         return null;
     }
-    if (item.label === "ангилал" && currentUser.role === UserRole.SUB_ADMIN) {
+    // Keep original logic for "ангилал" if sub-item label changes, might need adjustment if structure changes
+    if (item.label === "ангилал нэмэх" && currentUser.role === UserRole.SUB_ADMIN) {
         return null;
     }
 
     let itemIsActive = pathname === item.href || (item.href !== "/admin/dashboard" && pathname.startsWith(item.href));
     if (item.subItems && !itemIsActive) {
         itemIsActive = item.subItems.some(sub => {
-            if (sub.label === "ангилал" && currentUser.role === UserRole.SUB_ADMIN) return false;
+            // Same check for sub-item label
+            if (sub.label === "ангилал нэмэх" && currentUser.role === UserRole.SUB_ADMIN) return false;
             return pathname.startsWith(sub.href);
         });
     }
@@ -94,7 +96,8 @@ export function SidebarNav() {
       const visibleSubItems = item.subItems.filter(subItem => {
         if (subItem.roles && !subItem.roles.includes(currentUser.role)) return false;
         if (subItem.hideIfSubAdmin && currentUser.role === UserRole.SUB_ADMIN) return false;
-        if (subItem.label === "ангилал" && currentUser.role === UserRole.SUB_ADMIN) return false;
+        // Same check for sub-item label
+        if (subItem.label === "ангилал нэмэх" && currentUser.role === UserRole.SUB_ADMIN) return false;
         return true;
       });
 
@@ -123,8 +126,7 @@ export function SidebarNav() {
               className={cn(
                 "flex items-center justify-between w-full p-2 rounded-md hover:bg-sidebar-accent hover:text-sidebar-accent-foreground text-sm font-medium",
                 itemIsActive && "bg-sidebar-accent text-sidebar-accent-foreground",
-                "justify-start",
-                " [&[data-state=open]>svg:last-child]:rotate-180"
+                "justify-start" 
               )}
             >
               <div className="flex items-center gap-2">
