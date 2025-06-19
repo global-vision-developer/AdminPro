@@ -24,7 +24,7 @@ import { slugify } from "@/lib/utils";
 
 const ANKETS_COLLECTION = "ankets";
 const CATEGORIES_COLLECTION = "categories";
-const TARGET_TRANSLATOR_CATEGORY_SLUG = "orchluulagchid"; // Placeholder for the translator category slug
+const TARGET_TRANSLATOR_CATEGORY_SLUG = "orchluulagchid";
 
 export async function getAnkets(statusFilter?: AnketStatus): Promise<Anket[]> {
   try {
@@ -120,7 +120,7 @@ async function getTranslatorCategory(): Promise<Category | null> {
             name: data.name,
             slug: data.slug,
             fields: data.fields || [],
-        } as Category; // Simplified, add other fields if needed by addEntry
+        } as Category;
     } catch (error) {
         console.error(`Error fetching translator category (slug: "${TARGET_TRANSLATOR_CATEGORY_SLUG}"): `, error);
         return null;
@@ -141,53 +141,77 @@ export async function approveAnketAndCreateTranslatorEntry(
     if (!anketSnap.exists()) {
       return { error: "Анкет олдсонгүй." };
     }
-    const anketData = anketSnap.data() as Anket;
+    const anketDataFromDb = anketSnap.data();
+     const anketData: Anket = { // Ensure proper typing
+        id: anketSnap.id,
+        name: anketDataFromDb.name || "",
+        email: anketDataFromDb.email || "",
+        phoneNumber: anketDataFromDb.phoneNumber,
+        cvLink: anketDataFromDb.cvLink,
+        message: anketDataFromDb.message,
+        submittedAt: anketDataFromDb.submittedAt instanceof Timestamp ? anketDataFromDb.submittedAt.toDate().toISOString() : new Date().toISOString(),
+        status: anketDataFromDb.status || AnketStatus.PENDING,
+    };
+
 
     const translatorCategory = await getTranslatorCategory();
     if (!translatorCategory) {
       return { error: `"Орчуулагчид" категори (slug: "${TARGET_TRANSLATOR_CATEGORY_SLUG}") системд тохируулагдаагүй байна. Админтай холбогдоно уу.` };
     }
 
-    // Map anket data to translator entry data
-    // This mapping depends on the fields defined in your "translators" category
     const entryDataPayload: Record<string, any> = {};
-    // Example mapping - adjust keys ('name', 'email', etc.) to match your "translators" category field keys
-    if (translatorCategory.fields.find(f => f.key === 'name')) entryDataPayload['name'] = anketData.name;
-    if (translatorCategory.fields.find(f => f.key === 'email')) entryDataPayload['email'] = anketData.email;
-    if (anketData.phoneNumber && translatorCategory.fields.find(f => f.key === 'phone_number')) entryDataPayload['phone_number'] = anketData.phoneNumber;
-    if (anketData.cvLink && translatorCategory.fields.find(f => f.key === 'cv_link')) entryDataPayload['cv_link'] = anketData.cvLink;
-    if (anketData.message && translatorCategory.fields.find(f => f.key === 'notes')) entryDataPayload['notes'] = anketData.message;
     
-    // Ensure all required fields for the translator category are present
-     for (const field of translatorCategory.fields) {
-        if (field.required && !entryDataPayload.hasOwnProperty(field.key)) {
-            // Try to get from anket if a simple mapping exists, or set a default, or error out
-            if (field.key === 'name' && !entryDataPayload['name']) entryDataPayload['name'] = anketData.name; // Default from anket name
-            // Add more sophisticated default logic or error if required field is missing
-            else if (!entryDataPayload.hasOwnProperty(field.key)) {
-                 console.warn(`Required field "${field.label}" (key: ${field.key}) is missing for translator entry from anket ${anketId}. Setting to default/empty based on type.`);
-                 if (field.type === "Text" || field.type === "Textarea") entryDataPayload[field.key] = "";
-                 else if (field.type === "Number") entryDataPayload[field.key] = 0;
-                 else if (field.type === "Boolean") entryDataPayload[field.key] = false;
-                 else entryDataPayload[field.key] = null; // Or throw error
+    // Map known anket fields to translator category fields
+    // These keys ('name', 'email', etc.) must match the 'key' in your "Орчуулагчид" category's field definitions
+    const fieldMappings: Record<string, keyof Anket> = {
+        'name': 'name', // Assuming 'name' is the key for "Нэр" field in "Орчуулагчид" category
+        'email': 'email', // Assuming 'email' is the key for "Имэйл" field
+        'phone_number': 'phoneNumber', // Assuming 'phone_number' is the key for "Утасны дугаар"
+        'cv_link': 'cvLink', // Assuming 'cv_link' is the key for "CV Холбоос"
+        'notes': 'message' // Assuming 'notes' is the key for "Нэмэлт Мэдээлэл" or a general notes field
+    };
+
+    translatorCategory.fields.forEach(field => {
+        if (fieldMappings[field.key]) {
+            const anketFieldKey = fieldMappings[field.key];
+            // @ts-ignore
+            if (anketData[anketFieldKey] !== undefined && anketData[anketFieldKey] !== null && anketData[anketFieldKey] !== '') {
+                 // @ts-ignore
+                entryDataPayload[field.key] = anketData[anketFieldKey];
             }
         }
-    }
+        // Handle required fields that weren't mapped or were empty in anket
+        if (field.required && !entryDataPayload.hasOwnProperty(field.key)) {
+            console.warn(`Required field "${field.label}" (key: ${field.key}) for "Орчуулагчид" category is missing from anket ${anketId}. Setting to default/empty.`);
+            switch (field.type) {
+                case "Text":
+                case "Textarea":
+                    entryDataPayload[field.key] = ""; break;
+                case "Number":
+                    entryDataPayload[field.key] = 0; break;
+                case "Boolean":
+                    entryDataPayload[field.key] = false; break;
+                default:
+                    entryDataPayload[field.key] = null;
+            }
+        }
+    });
 
 
     const newEntryResult = await addEntry({
       categoryId: translatorCategory.id,
-      categoryName: translatorCategory.name, // Add categoryName
-      title: anketData.name, // Use anket name as entry title
+      categoryName: translatorCategory.name,
+      title: anketData.name,
       data: entryDataPayload,
-      status: 'published', // Or 'draft' if you prefer
+      status: 'published', // Or 'draft'
     });
 
     if ("error" in newEntryResult) {
+      // Rollback or compensation logic might be needed if batching wasn't fully successful here
+      // However, addEntry is called before batch.commit, so this path means addEntry itself failed.
       return { error: `Орчуулагчийн бүртгэл үүсгэхэд алдаа гарлаа: ${newEntryResult.error}` };
     }
 
-    // Update anket status in the same batch
     batch.update(anketDocRef, {
       status: AnketStatus.APPROVED,
       processedBy: adminId,
@@ -198,10 +222,8 @@ export async function approveAnketAndCreateTranslatorEntry(
 
     revalidatePath("/admin/anket");
     revalidatePath(`/admin/anket/${anketId}`);
-    revalidatePath("/admin/entries"); // Revalidate entries list
-    if (translatorCategory.id) {
-        revalidatePath(`/admin/entries?category=${translatorCategory.id}`);
-    }
+    revalidatePath("/admin/entries");
+    revalidatePath(`/admin/entries?category=${translatorCategory.id}`);
 
     return { success: true, entryId: newEntryResult.id };
   } catch (e: any) {
@@ -210,20 +232,4 @@ export async function approveAnketAndCreateTranslatorEntry(
   }
 }
 
-// Helper function to submit a dummy anket for testing - NOT FOR PRODUCTION
-export async function submitTestAnket(anketData: Omit<Anket, "id" | "submittedAt" | "status" | "processedBy" | "processedAt">): Promise<string | {error: string}> {
-    try {
-        const dataToSave = {
-            ...anketData,
-            submittedAt: serverTimestamp(),
-            status: AnketStatus.PENDING,
-        };
-        const docRef = await addDoc(collection(db, ANKETS_COLLECTION), dataToSave);
-        console.log("Test anket submitted with ID: ", docRef.id);
-        revalidatePath("/admin/anket");
-        return docRef.id;
-    } catch (error: any) {
-        console.error("Error submitting test anket: ", error);
-        return { error: error.message || "Error submitting test anket." };
-    }
-}
+// Test anket submission function removed

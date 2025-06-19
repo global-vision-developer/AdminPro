@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useRouter, useParams } from 'next/navigation'; // Fixed import
+import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -194,3 +194,4 @@ export default function AnketDetailPage() {
     </>
   );
 }
+

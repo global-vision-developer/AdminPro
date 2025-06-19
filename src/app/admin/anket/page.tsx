@@ -13,8 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { getAnkets } from '@/lib/actions/anketActions'; 
 import { format } from 'date-fns';
-// import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'; // Removed Alert import
-import { CreateTestAnketButton } from './components/create-test-anket-button';
+// Removed CreateTestAnketButton import
 
 
 export default async function AnketsPage({
@@ -42,11 +41,9 @@ export default async function AnketsPage({
   return (
     <TooltipProvider>
       <PageHeader title="Анкет Удирдах" description="Ирүүлсэн анкетуудыг хянах, боловсруулах.">
-         <CreateTestAnketButton />
+         {/* CreateTestAnketButton removed */}
       </PageHeader>
       
-      {/* Removed the Alert component that was here */}
-
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle>Анкетын Жагсаалт</CardTitle>
@@ -120,3 +117,4 @@ export default async function AnketsPage({
     </TooltipProvider>
   );
 }
+
