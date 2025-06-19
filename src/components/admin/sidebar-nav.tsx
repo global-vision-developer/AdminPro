@@ -13,7 +13,8 @@ import {
   ChevronRight,
   Bell,
   Image as ImageIcon,
-  FileText // Icon for Ankets
+  FileText, // Icon for Ankets
+  LifeBuoy // Icon for Help
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -54,6 +55,7 @@ const navItems: NavItem[] = [
   { href: "/admin/anket", label: "Анкет", icon: FileText, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
   { href: "/admin/notifications", label: "Мэдэгдэл", icon: Bell, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
   { href: "/admin/users", label: "Хэрэглэгчид", icon: Users, roles: [UserRole.SUPER_ADMIN] },
+  { href: "/admin/help", label: "Тусламж", icon: LifeBuoy }, // Added Help item
   // { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
@@ -188,3 +190,4 @@ export function SidebarNav() {
     </nav>
   );
 }
+
