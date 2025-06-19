@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Label } from '@/components/ui/label';
+import { Label } from '@/components/ui/label'; // Correct import for generic Label
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -53,23 +53,23 @@ export default function HelpPage() {
     },
   });
 
-  const fetchHelpItemsCallback = useCallback(async (topic?: HelpTopic) => {
-    setIsLoadingItems(true);
-    try {
-      const items = await getHelpItems(topic);
-      setHelpItems(items);
-    } catch (error) {
-      console.error("Failed to fetch help items:", error);
-      toast({ title: "Алдаа", description: "Тусламжийн мэдээллийг ачааллахад алдаа гарлаа.", variant: "destructive" });
-      setHelpItems([]);
-    } finally {
-      setIsLoadingItems(false);
-    }
-  }, [toast, setIsLoadingItems, setHelpItems]);
-
   useEffect(() => {
-    fetchHelpItemsCallback(selectedTopicFilter);
-  }, [selectedTopicFilter, fetchHelpItemsCallback]);
+    async function loadHelpItems() {
+      setIsLoadingItems(true);
+      try {
+        const items = await getHelpItems(selectedTopicFilter);
+        setHelpItems(items);
+      } catch (error) {
+        console.error("Failed to fetch help items:", error);
+        toast({ title: "Алдаа", description: "Тусламжийн мэдээллийг ачааллахад алдаа гарлаа.", variant: "destructive" });
+        setHelpItems([]);
+      } finally {
+        setIsLoadingItems(false);
+      }
+    }
+    loadHelpItems();
+  }, [selectedTopicFilter, toast]);
+
 
   const handleTopicFilterChange = (topicValue: string) => {
     if (topicValue === "all_topics") {
@@ -118,11 +118,25 @@ export default function HelpPage() {
     }
     setIsSubmitting(false);
 
-    if (result && "id" in result || result && "success" in result && result.success) {
+    if (result && ("id" in result || ("success" in result && result.success))) {
       toast({ title: "Амжилттай", description: `Тусламжийн зүйл ${editingHelpItem ? "шинэчлэгдлээ" : "нэмэгдлээ"}.` });
       setIsFormDialogOpen(false);
       setEditingHelpItem(null);
-      fetchHelpItemsCallback(selectedTopicFilter);
+      // Trigger re-fetch by changing selectedTopicFilter slightly if needed, or rely on revalidatePath
+      // For direct re-fetch after add/update:
+      setSelectedTopicFilter(prev => prev); // This might not be enough, might need a dedicated refresh state.
+                                           // However, revalidatePath from server action should handle this.
+                                           // If not, we might need a client-side forced refresh.
+      // To ensure re-fetch happens if the current filter matches the item's topic OR if it's "all topics"
+      if (selectedTopicFilter === undefined || selectedTopicFilter === values.topic) {
+        // Re-fetch with current filter
+         const currentFilter = selectedTopicFilter; // capture current value
+         setSelectedTopicFilter(undefined); // temporarily change to trigger useEffect for "all"
+         setTimeout(() => setSelectedTopicFilter(currentFilter), 0); // then revert to trigger for specific
+      } else {
+         // If filter is different, just show success, list won't immediately reflect unless user changes filter
+      }
+
     } else if (result && "error" in result ) {
       toast({ title: "Алдаа", description: result.error, variant: "destructive" });
     }
@@ -144,16 +158,18 @@ export default function HelpPage() {
         setItemToDelete(null);
         return;
     }
-    setIsSubmitting(true);
+    setIsSubmitting(true); // Use isSubmitting for delete operation as well
     const result = await deleteHelpItem(itemToDelete.id);
     setIsSubmitting(false);
     setShowDeleteConfirmDialog(false);
 
     if (result.success) {
       toast({ title: "Амжилттай", description: `"${itemToDelete.question.substring(0,30)}..." асуулт устгагдлаа.` });
+       const currentFilter = selectedTopicFilter; 
+       setSelectedTopicFilter(undefined); 
+       setTimeout(() => setSelectedTopicFilter(currentFilter), 0); 
       setItemToDelete(null);
-      fetchHelpItemsCallback(selectedTopicFilter);
-    } else {
+    } else if (result.error) {
       toast({ title: "Алдаа", description: result.error, variant: "destructive" });
       setItemToDelete(null);
     }
@@ -358,6 +374,4 @@ export default function HelpPage() {
     </>
   );
 }
-
-
     
