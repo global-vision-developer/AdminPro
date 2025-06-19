@@ -8,6 +8,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Loader2, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { deleteBanner } from '@/lib/actions/bannerActions';
+import { useRouter } from 'next/navigation'; // useRouter-г нэмсэн
 
 interface DeleteBannerButtonProps {
   bannerId: string;
@@ -15,22 +16,23 @@ interface DeleteBannerButtonProps {
 }
 
 export function DeleteBannerButton({ bannerId, bannerDescription }: DeleteBannerButtonProps) {
+  const router = useRouter(); // useRouter-г эхлүүлсэн
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [isOpen, setIsOpen] = React.useState(false);
-  const { toast } = useToast(); // useToast must be called in a client component
+  const { toast } = useToast();
 
   const handleDelete = async () => {
     setIsDeleting(true);
     const result = await deleteBanner(bannerId);
     setIsDeleting(false);
-    setIsOpen(false); // Close dialog after action
+    setIsOpen(false); // Dialog-г хаах
 
     if (result.success) {
       toast({
         title: "Баннер устгагдлаа",
         description: `"${bannerDescription}" тайлбартай баннер амжилттай устгагдлаа.`,
       });
-      // Revalidation handled by server action, so no need to call router.refresh() here generally
+      router.refresh(); // Хуудсыг дахин ачааллах (UI шинэчлэх)
     } else if (result.error) {
       toast({
         title: "Баннер устгахад алдаа гарлаа",
