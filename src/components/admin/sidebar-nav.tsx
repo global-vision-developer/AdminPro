@@ -11,8 +11,9 @@ import {
   Settings,
   ChevronDown,
   ChevronRight,
-  Bell, // Bell icon нэмэгдсэн
-  Image as ImageIcon // ImageIcon нэмэгдсэн
+  Bell,
+  Image as ImageIcon,
+  FileText // Icon for Ankets
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -43,13 +44,14 @@ interface NavItem {
 const navItems: NavItem[] = [
   { href: "/admin/dashboard", label: "Хяналтын самбар", icon: LayoutDashboard },
   {
-    href: "/admin/content", label: "Мэдээлэл нэмэх", icon: Library, // Өөрчилсөн
+    href: "/admin/content", label: "Мэдээлэл нэмэх", icon: Library,
     subItems: [
-      { href: "/admin/categories", label: "ангилал нэмэх", icon: Library, roles: [UserRole.SUPER_ADMIN] }, // Өөрчилсөн
-      { href: "/admin/entries", label: "Өгөгдөл нэмэх", icon: Newspaper, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] }, // Өөрчилсөн
+      { href: "/admin/categories", label: "ангилал нэмэх", icon: Library, roles: [UserRole.SUPER_ADMIN] },
+      { href: "/admin/entries", label: "Өгөгдөл нэмэх", icon: Newspaper, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
     ]
   },
   { href: "/admin/banners", label: "Баннер", icon: ImageIcon, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
+  { href: "/admin/anket", label: "Анкет", icon: FileText, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
   { href: "/admin/notifications", label: "Мэдэгдэл", icon: Bell, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
   { href: "/admin/users", label: "Хэрэглэгчид", icon: Users, roles: [UserRole.SUPER_ADMIN] },
   // { href: "/admin/settings", label: "Settings", icon: Settings },
@@ -75,7 +77,7 @@ export function SidebarNav() {
     if (item.hideIfSubAdmin && currentUser.role === UserRole.SUB_ADMIN) {
         return null;
     }
-    // Keep original logic for "ангилал" if sub-item label changes, might need adjustment if structure changes
+
     if (item.label === "ангилал нэмэх" && currentUser.role === UserRole.SUB_ADMIN) {
         return null;
     }
@@ -83,7 +85,6 @@ export function SidebarNav() {
     let itemIsActive = pathname === item.href || (item.href !== "/admin/dashboard" && pathname.startsWith(item.href));
     if (item.subItems && !itemIsActive) {
         itemIsActive = item.subItems.some(sub => {
-            // Same check for sub-item label
             if (sub.label === "ангилал нэмэх" && currentUser.role === UserRole.SUB_ADMIN) return false;
             return pathname.startsWith(sub.href);
         });
@@ -96,7 +97,6 @@ export function SidebarNav() {
       const visibleSubItems = item.subItems.filter(subItem => {
         if (subItem.roles && !subItem.roles.includes(currentUser.role)) return false;
         if (subItem.hideIfSubAdmin && currentUser.role === UserRole.SUB_ADMIN) return false;
-        // Same check for sub-item label
         if (subItem.label === "ангилал нэмэх" && currentUser.role === UserRole.SUB_ADMIN) return false;
         return true;
       });
@@ -126,7 +126,7 @@ export function SidebarNav() {
               className={cn(
                 "flex items-center justify-between w-full p-2 rounded-md hover:bg-sidebar-accent hover:text-sidebar-accent-foreground text-sm font-medium",
                 itemIsActive && "bg-sidebar-accent text-sidebar-accent-foreground",
-                "justify-start" 
+                "justify-start"
               )}
             >
               <div className="flex items-center gap-2">
