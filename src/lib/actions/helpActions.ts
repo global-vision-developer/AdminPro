@@ -21,43 +21,23 @@ import { revalidatePath } from "next/cache";
 
 const HELP_ITEMS_COLLECTION = "help_items";
 
-// Mock data (fallback if Firestore is empty or for testing)
-// const mockHelpItems: HelpItem[] = [
-//   {
-//     id: "faq1_app",
-//     topic: HelpTopic.APPLICATION_GUIDE,
-//     question: "Аппликэйшн интернетгүй үед ажилладаг уу?",
-//     answer: "Бидний аппликэйшн нь үндсэн функцуудаа ажиллуулахын тулд интернет холболт шаарддаг. Гэсэн хэдий ч, та аяллын төлөвлөгөө, тасалбар зэрэг зарим мэдээллийг офлайн байдлаар хадгалах боломжтой. Офлайн функцүүдийг ашиглахын тулд урьдчилан дата татаж авах шаардлагатайг анхаарна уу. Дэлгэрэнгүй мэдээллийг тохиргоо хэсгээс харна уу.",
-//     isPredefined: true,
-//     createdAt: new Date().toISOString(),
-//   },
-//   {
-//     id: "faq2_app",
-//     topic: HelpTopic.APPLICATION_GUIDE,
-//     question: "Мэдээллээ яаж устгах вэ?",
-//     answer: "Та өөрийн мэдээллийг устгахыг хүсвэл профайлын тохиргоо хэсэгт байрлах 'Бүртгэл устгах' товчийг дарна уу. Энэ үйлдэл нь таны бүх мэдээллийг манай системээс бүрмөсөн устгах болно.",
-//     isPredefined: true,
-//     createdAt: new Date().toISOString(),
-//   },
-//   {
-//     id: "faq1_travel",
-//     topic: HelpTopic.TRAVEL_TIPS,
-//     question: "Аялахад хамгийн тохиромжтой сар хэзээ вэ?",
-//     answer: "Энэ нь таны очих газраас ихээхэн хамаарна. Ерөнхийдөө, жуулчны улирлын бус үеүд (off-season) нь хямд зардалтай, хүн багатай байдаг тул илүү таатай байж болно. Жишээлбэл, Европ руу хавар (4-5 сар) эсвэл намар (9-10 сар) аялахад цаг агаар сайхан, үнэ харьцангуй боломжийн байдаг.",
-//     isPredefined: true,
-//     createdAt: new Date().toISOString(),
-//   },
-// ];
-
-
 export async function getHelpItems(topicFilter?: HelpTopic): Promise<HelpItem[]> {
+  console.log(`getHelpItems: Received topicFilter: '${topicFilter}'`);
   try {
     const helpItemsRef = collection(db, HELP_ITEMS_COLLECTION);
-    const q = topicFilter
-                ? query(helpItemsRef, where("topic", "==", topicFilter), orderBy("createdAt", "desc"))
-                : query(helpItemsRef, orderBy("createdAt", "desc"));
+    let q;
+
+    if (topicFilter && topicFilter !== "all_topics") {
+      console.log(`getHelpItems: Applying filter for topic: '${topicFilter}', ordering by createdAt ASC`);
+      q = query(helpItemsRef, where("topic", "==", topicFilter), orderBy("createdAt", "asc")); // Changed to asc
+    } else {
+      console.log("getHelpItems: No topic filter or 'all_topics', ordering by createdAt ASC");
+      q = query(helpItemsRef, orderBy("createdAt", "asc")); // Changed to asc
+    }
 
     const querySnapshot = await getDocs(q);
+    console.log(`getHelpItems: Firestore query returned ${querySnapshot.docs.length} documents.`);
+
     const itemsFromDb = querySnapshot.docs.map(docSnap => {
         const data = docSnap.data();
         return {
@@ -72,40 +52,39 @@ export async function getHelpItems(topicFilter?: HelpTopic): Promise<HelpItem[]>
          } as HelpItem;
     });
 
-    // if (itemsFromDb.length === 0 && !topicFilter) {
-    //   console.log("No items in Firestore, returning mock data for all topics.");
-    //   return mockHelpItems;
-    // }
-    // if (itemsFromDb.length === 0 && topicFilter) {
-    //    console.log(`No items in Firestore for topic ${topicFilter}, returning filtered mock data.`);
-    //    return mockHelpItems.filter(item => item.topic === topicFilter);
-    // }
+    if (querySnapshot.docs.length === 0) {
+        console.log(`getHelpItems: No items found in Firestore for topicFilter '${topicFilter}'. Returning empty array.`);
+    }
     return itemsFromDb;
 
   } catch (e: any) {
-    console.error("Error getting help items: ", e);
-    // console.log("Returning mock data due to error.");
-    // return topicFilter ? mockHelpItems.filter(item => item.topic === topicFilter) : mockHelpItems;
-    return []; // Return empty on error instead of mock
+    console.error("Error getting help items from Firestore: ", e);
+    if (e.code === 'failed-precondition' && e.message && e.message.toLowerCase().includes('index')) {
+        console.error("Firestore query requires an index. Please ensure the composite index on 'help_items' for 'topic' (ASC) and 'createdAt' (ASC or DESC as needed) exists and is enabled.");
+    }
+    return [];
   }
 }
 
 export interface AddHelpItemData {
-  topic: HelpTopic; // Topic is the full string name
+  topic: HelpTopic;
   question: string;
   answer: string;
-  adminId: string; // ID of the admin creating the item
+  adminId: string;
 }
 
 export async function addHelpItem(
   data: AddHelpItemData
 ): Promise<{ id: string } | { error: string }> {
+  if (!data.adminId) {
+    return { error: "Админы ID алга байна. Нэвтэрсэн эсэхээ шалгана уу." };
+  }
   try {
     const dataToSave = {
-      topic: data.topic, // Store the full string name
+      topic: data.topic,
       question: data.question,
       answer: data.answer,
-      isPredefined: true, // Admin-added FAQs are predefined
+      isPredefined: true,
       createdBy: data.adminId,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -126,11 +105,14 @@ export async function updateHelpItem(
   id: string,
   data: UpdateHelpItemData
 ): Promise<{ success: boolean } | { error: string }> {
+  if (!data.adminId) {
+    return { error: "Админы ID алга байна. Нэвтэрсэн эсэхээ шалгана уу." };
+  }
   try {
     const docRef = doc(db, HELP_ITEMS_COLLECTION, id);
 
     const updatePayload: Record<string, any> = {};
-    if (data.topic) updatePayload.topic = data.topic; // Store the full string name
+    if (data.topic) updatePayload.topic = data.topic;
     if (data.question) updatePayload.question = data.question;
     if (data.answer) updatePayload.answer = data.answer;
 
@@ -139,7 +121,7 @@ export async function updateHelpItem(
     }
     
     updatePayload.updatedAt = serverTimestamp();
-    // Optionally, update 'updatedBy' if you add such a field, using data.adminId
+    // updatePayload.updatedBy = data.adminId; // Consider adding this field to HelpItem type
 
     await updateDoc(docRef, updatePayload);
     revalidatePath("/admin/help");
@@ -151,7 +133,9 @@ export async function updateHelpItem(
 }
 
 export async function deleteHelpItem(id: string, adminId: string): Promise<{ success: boolean } | { error: string }> {
-  // adminId could be used for logging or further permission checks if needed
+ if (!adminId) {
+    return { error: "Админы ID алга байна. Нэвтэрсэн эсэхээ шалгана уу." };
+  }
   try {
     const docRef = doc(db, HELP_ITEMS_COLLECTION, id);
     await deleteDoc(docRef);
