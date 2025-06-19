@@ -27,7 +27,6 @@ export async function uploadFileToStorage(formData: FormData): Promise<{ downloa
     const imageRef = ref(storage, fullStoragePath);
 
     console.log(`uploadFileToStorage: Attempting to upload to Firebase Storage at '${fullStoragePath}'.`);
-    // Файлын төрлийг uploadBytes-д metadata хэлбэрээр дамжуулж болно
     const metadata = {
         contentType: file.type,
     };
@@ -38,7 +37,24 @@ export async function uploadFileToStorage(formData: FormData): Promise<{ downloa
     return { downloadURL };
   } catch (error: any) {
     console.error('Error uploading file to Firebase Storage via Server Action:', error);
-    return { error: error.message || 'Файл байршуулахад алдаа гарлаа.' };
+    let errorMessage = error.message || 'Файл байршуулахад үл мэдэгдэх алдаа гарлаа.';
+    let errorCode = error.code || 'N/A';
+    if (error.code) {
+      console.error('Firebase Storage Error Code:', error.code);
+    }
+    if (error.serverResponse) {
+      console.error('Firebase Storage Server Response:', error.serverResponse);
+      // Attempt to parse serverResponse if it's a stringified JSON
+      try {
+        const serverResponseObj = JSON.parse(error.serverResponse);
+        if (serverResponseObj && serverResponseObj.error && serverResponseObj.error.message) {
+          errorMessage = serverResponseObj.error.message;
+        }
+      } catch (e) {
+        // Ignore parsing error, serverResponse might not be JSON
+      }
+    }
+    return { error: `Байршуулалт амжилтгүй боллоо: ${errorMessage} (Код: ${errorCode})` };
   }
 }
 
@@ -48,16 +64,26 @@ export async function deleteFileFromStorage(fileUrl: string): Promise<{ success?
     }
     try {
         const fileRef = ref(storage, fileUrl);
+        console.log(`deleteFileFromStorage: Attempting to delete file from Firebase Storage at '${fileUrl}'.`);
         await deleteObject(fileRef);
+        console.log(`deleteFileFromStorage: File deleted successfully from '${fileUrl}'.`);
         return { success: true };
     } catch (error: any) {
         console.error('Error deleting file from Firebase Storage via Server Action:', error);
-        // Handle specific errors like 'object-not-found' if necessary
+        let errorMessage = error.message || 'Файл устгахад үл мэдэгдэх алдаа гарлаа.';
+        let errorCode = error.code || 'N/A';
+        if (error.code) {
+          console.error('Firebase Storage Error Code:', error.code);
+        }
+        if (error.serverResponse) {
+          console.error('Firebase Storage Server Response:', error.serverResponse);
+        }
+
         if (error.code === 'storage/object-not-found') {
             console.warn(`File not found for deletion (may have already been deleted): ${fileUrl}`);
-            return { success: true }; // Or return an error specific to "not found"
+            // Consider it a success if the object is already gone, or handle as specific error
+            return { success: true, error: 'File not found, it may have already been deleted.' };
         }
-        return { error: error.message || 'Файл устгахад алдаа гарлаа.' };
+        return { error: `Устгалт амжилтгүй боллоо: ${errorMessage} (Код: ${errorCode})` };
     }
 }
-
