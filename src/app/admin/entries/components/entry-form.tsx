@@ -359,7 +359,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                     name="title"
                     render={({ field }) => (
                         <FormItem>
-                        <FormLabel>Entry Title</FormLabel>
+                        <FormLabel>Гарчиг</FormLabel>
                         <FormControl>
                             <Input placeholder="Энэ бүртгэлийн гарчгийг оруулна уу" {...field} />
                         </FormControl>
@@ -732,3 +732,4 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
     </Form>
   );
 }
+
