@@ -122,3 +122,24 @@ export interface Banner {
   createdAt?: string; // ISO string timestamp
   updatedAt?: string; // ISO string timestamp
 }
+
+export enum AnketStatus {
+  PENDING = 'pending',
+  APPROVED = 'approved',
+  REJECTED = 'rejected',
+}
+
+export interface Anket {
+  id: string;
+  name: string;
+  email: string;
+  phoneNumber?: string;
+  cvLink?: string; // URL to CV/Resume
+  message?: string; // Cover letter or additional message
+  submittedAt: string; // ISO string timestamp
+  status: AnketStatus;
+  processedBy?: string; // Admin UID who processed it
+  processedAt?: string; // ISO string timestamp
+  // Add any other fields that come from the app's anket submission
+  // Example: yearsOfExperience?: number; languagesSpoken?: string[];
+}

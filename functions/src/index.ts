@@ -34,7 +34,9 @@ export const processNotificationRequest = onDocumentCreated(
     document: "notifications/{notificationId}",
     region: "us-central1", // Таны Firebase project-ийн бүс нутаг
   },
-  async (event: FirestoreEvent<FirebaseFirestore.DocumentSnapshot | undefined>) => {
+  async (
+    event: FirestoreEvent<FirebaseFirestore.DocumentSnapshot | undefined>
+  ) => {
     const notificationId = event.params.notificationId;
     const snapshot = event.data; // DocumentSnapshot
 
@@ -66,16 +68,15 @@ export const processNotificationRequest = onDocumentCreated(
     // Хуваарьт илгээлт
     if (scheduleAt && scheduleAt.toMillis() > Date.now() + 5 * 60 * 1000) {
       const scheduledTime = new Date(scheduleAt.toMillis()).toISOString();
-      logger.info(
-        `Sched skip: ID ${notificationId} for ${scheduledTime}.`
-      );
+      logger.info(`ID ${notificationId} sched for later. Skipping.`);
+      logger.debug(`Full scheduled time for ${notificationId}: ${scheduledTime}`);
       try {
         await db.doc(`notifications/${notificationId}`).update({
           processingStatus: "scheduled",
         });
       } catch (updateError) {
         logger.error(
-          `Err updating status to scheduled. ID: ${notificationId}:`,
+          `Err upd status to scheduled. ID: ${notificationId}:`,
           updateError
         );
       }
@@ -90,7 +91,7 @@ export const processNotificationRequest = onDocumentCreated(
       });
     } catch (updateError) {
       logger.error(
-        `Err updating status to processing. ID: ${notificationId}:`,
+        `Err upd status to processing. ID: ${notificationId}:`,
         updateError
       );
     }
@@ -98,9 +99,11 @@ export const processNotificationRequest = onDocumentCreated(
     const tokensToSend: string[] = [];
     // `targets` нь DocumentData-аас ирж байгаа тул `any[]` байж болзошгүй.
     // `FunctionNotificationTarget` рүү cast хийж байна.
+    const typedTargets = targets as unknown as (FunctionNotificationTarget[] | undefined);
+
     const originalTargetsArray: FunctionNotificationTarget[] =
-      Array.isArray(targets) ?
-        (targets as unknown as FunctionNotificationTarget[]).map(
+      Array.isArray(typedTargets) ?
+        typedTargets.map(
           (t: FunctionNotificationTarget) => ({...t}) // t-г FunctionNotificationTarget гэж үзнэ
         ) : [];
 
