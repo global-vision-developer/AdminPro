@@ -98,7 +98,7 @@ export interface NotificationLog {
     email: string;   // Admin's email
   };
   createdAt: string; // ISO string, when the admin created this notification request (client-generated or serverTimestamp)
-  processingStatus: 'pending' | 'processing' | 'completed' | 'partially_completed' | 'error' | 'scheduled' | 'completed_no_targets'; // Added scheduled & completed_no_targets
+  processingStatus: 'pending' | 'processing' | 'completed' | 'partially_completed' | 'error' | 'scheduled' | 'completed_no_targets';
   processedAt?: string | null; // ISO string, when FF started/finished processing
   targets: NotificationTarget[];
 }
@@ -143,21 +143,21 @@ export interface HelpItem {
   topic: HelpTopic;
   question: string;
   answer: string;
-  isPredefined: boolean; // True for FAQs, false for user-submitted (once answered)
-  createdAt?: string; // ISO string timestamp
-  updatedAt?: string; // ISO string timestamp
-  createdBy?: string; // Optional: UID of admin who created/updated
+  isPredefined: boolean; 
+  createdAt?: string; 
+  updatedAt?: string; 
+  createdBy?: string; 
 }
 
 // This type might be deprecated if only admins create FAQs
 export interface HelpRequest {
-  id?: string; // Firestore document ID
+  id?: string; 
   topic: HelpTopic;
   question: string;
-  userId?: string; // UID of the admin/user who submitted
-  userEmail?: string; // Email of the submitter
-  status: 'pending' | 'answered' | 'archived'; // Status of the request
-  createdAt: string; // ISO string timestamp
+  userId?: string; 
+  userEmail?: string; 
+  status: 'pending' | 'answered' | 'archived'; 
+  createdAt: string; 
   answeredAt?: string;
   adminNotes?: string;
 }

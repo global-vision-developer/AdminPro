@@ -1,3 +1,4 @@
+
 # Firebase Studio
 
 This is a NextJS starter in Firebase Studio.
@@ -154,35 +155,35 @@ As you build queries for Firestore, you might encounter errors like **"FirebaseE
 
 If you are seeing an error message in your Next.js console similar to this (especially when navigating to the "Entries" page or filtering entries):
 
-```
+\`\`\`
 Console Error: FirebaseError: The query requires an index. You can create it here: https://console.firebase.google.com/v1/r/project/YOUR_PROJECT_ID/firestore/indexes?create_composite=...
-```
-Or this, coming from the application's own error handling in `src/lib/actions/entryActions.ts`:
-```
+\`\`\`
+Or this, coming from the application's own error handling in \`src/lib/actions/entryActions.ts\`:
+\`\`\`
 Console Error: Firestore query requires an index. Please check Firebase console for index creation link specific to this query (likely on 'entries' collection for 'categoryId' and 'createdAt').
-```
+\`\`\`
 
-This **SPECIFICALLY MEANS** the query on the `entries` collection (likely in `src/lib/actions/entryActions.ts` -> `getEntries` when filtering by `categoryId` and ordering by `createdAt`) **NEEDS AN INDEX CONFIGURED IN YOUR FIREBASE PROJECT.**
+This **SPECIFICALLY MEANS** the query on the \`entries\` collection (likely in \`src/lib/actions/entryActions.ts\` -> \`getEntries\` when filtering by \`categoryId\` and ordering by \`createdAt\`) **NEEDS AN INDEX CONFIGURED IN YOUR FIREBASE PROJECT.**
 
 **THIS IS NOT A CODE BUG IN THE NEXT.JS APPLICATION THAT CAN BE FIXED WITH CODE CHANGES. YOU MUST PERFORM THIS ACTION IN THE FIREBASE CONSOLE.**
 
-**To fix this (for the `setgelzuin-app` project, as indicated by YOUR error message):**
+**To fix this (for the \`setgelzuin-app\` project, as indicated by YOUR error message):**
 
-1.  **CLICK THE LINK PROVIDED IN YOUR ERROR MESSAGE IN THE CONSOLE.** For the `setgelzuin-app` project, the specific link you are encountering is:
-    `https://console.firebase.google.com/v1/r/project/setgelzuin-app/firestore/indexes?create_composite=Ck5wcm9qZWN0cy9zZXRnZWx6dWluLWFwcC9kYXRhYmFzZXMvKGRlZmF1bHQpL2NvbGxlY3Rpb25Hcm91cHMvZW50cmllcy9pbmRleGVzL18QARoOCgpjYXRlZ29yeUlkEAEaDQoJY3JlYXRlZEF0EAIaDAoIX19uYW1lX18QAg`
-2.  This link will take you directly to the Firebase Console page to create the required composite index for the `entries` collection.
+1.  **CLICK THE LINK PROVIDED IN YOUR ERROR MESSAGE IN THE CONSOLE.** For the \`setgelzuin-app\` project, the specific link you are encountering is:
+    \`https://console.firebase.google.com/v1/r/project/setgelzuin-app/firestore/indexes?create_composite=Ck5wcm9qZWN0cy9zZXRnZWx6dWluLWFwcC9kYXRhYmFzZXMvKGRlZmF1bHQpL2NvbGxlY3Rpb25Hcm91cHMvZW50cmllcy9pbmRleGVzL18QARoOCgpjYXRlZ29yeUlkEAEaDQoJY3JlYXRlZEF0EAIaDAoIX19uYW1lX18QAg\`
+2.  This link will take you directly to the Firebase Console page to create the required composite index for the \`entries\` collection.
 3.  The fields for the index will be pre-filled based on the link:
-    *   **Collection:** `entries` (This is a collection group query, so it applies to all collections named 'entries')
+    *   **Collection:** \`entries\` (This is a collection group query, so it applies to all collections named 'entries')
     *   **Fields to index:**
-        *   `categoryId` (Ascending / Өсөхөөр)
-        *   `createdAt` (Descending / Буурахаар)
+        *   \`categoryId\` (Ascending / Өсөхөөр)
+        *   \`createdAt\` (Descending / Буурахаар)
 4.  Click **"Create Index"** (or the equivalent in your language).
 5.  **VERY IMPORTANT: WAIT for the index to build.** This might take **SEVERAL MINUTES (sometimes 5-10 minutes or more depending on data size).** You can see the status in the Firebase Console (it will go from "Building" to "Ready" or "Enabled"). **THE ERROR WILL PERSIST UNTIL THE INDEX IS FULLY BUILT AND ENABLED.** Refreshing the app too early will not solve the issue.
 6.  Once the index status is **"Ready" / "Enabled"** in the Firebase Console, **THEN** refresh your application. The error should be gone.
 
 **IF THE ERROR PERSISTS AFTER THE INDEX SHOWS "READY"/"ENABLED" IN FIREBASE:**
 *   Wait a few more minutes. Sometimes propagation takes a bit longer.
-*   Completely stop your Next.js development server (`Ctrl+C` in the terminal) and restart it (`npm run dev`).
+*   Completely stop your Next.js development server (\`Ctrl+C\` in the terminal) and restart it (\`npm run dev\`).
 *   Clear your browser cache for the application site.
 
 **Always check the Firebase console or your server logs for specific index creation links if you encounter these errors. This is a Firebase Firestore configuration step, not a code change within the Next.js application itself.**
@@ -191,8 +192,8 @@ This **SPECIFICALLY MEANS** the query on the `entries` collection (likely in `sr
 
 ## Firestore Security Rules
 
-**Example Firestore Security Rules Snippet (Conceptual - Needs to be updated for `banners`, `ankets`, `help_items`):**
-```firestore
+**Example Firestore Security Rules Snippet (Conceptual - Needs to be updated for \`banners\`, \`ankets\`, \`help_items\`):**
+\`\`\`firestore
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -277,14 +278,14 @@ service cloud.firestore {
     }
   }
 }
-```
+\`\`\`
 *Remember to tailor security rules to your specific application needs.*
 
 ## Environment Variables
 
-Ensure you have a `.env.local` file in the root of your project with your Firebase project configuration:
+Ensure you have a \`.env.local\` file in the root of your project with your Firebase project configuration:
 
-```env
+\`\`\`env
 NEXT_PUBLIC_FIREBASE_API_KEY=YOUR_API_KEY
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=YOUR_AUTH_DOMAIN
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=YOUR_PROJECT_ID
@@ -292,8 +293,8 @@ NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=YOUR_STORAGE_BUCKET
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=YOUR_MESSAGING_SENDER_ID
 NEXT_PUBLIC_FIREBASE_APP_ID=YOUR_APP_ID
 NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=YOUR_MEASUREMENT_ID (optional)
-```
-Replace `YOUR_...` with your actual Firebase project credentials.
-Remember to restart your development server (`npm run dev`) after creating or modifying `.env.local`.
+\`\`\`
+Replace \`YOUR_...\` with your actual Firebase project credentials.
+Remember to restart your development server (\`npm run dev\`) after creating or modifying \`.env.local\`.
 
     

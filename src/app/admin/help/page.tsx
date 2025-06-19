@@ -8,37 +8,44 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger, DialogClose } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Label } from '@/components/ui/label'; // Added import for Label
+import { Label } from '@/components/ui/label';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useToast } from '@/hooks/use-toast';
 import type { HelpItem } from '@/types';
 import { HelpTopic } from '@/types';
-import { getHelpItems, addHelpItem } from '@/lib/actions/helpActions';
-import { Loader2, PlusCircle, BookOpen, Plane, HelpCircle } from 'lucide-react';
+import { getHelpItems, addHelpItem, updateHelpItem, deleteHelpItem } from '@/lib/actions/helpActions';
+import { Loader2, PlusCircle, BookOpen, Plane, HelpCircle, Edit3, Trash2 } from 'lucide-react';
 
 const helpItemFormSchema = z.object({
   topic: z.nativeEnum(HelpTopic, { required_error: "Сэдэв сонгоно уу." }),
   question: z.string().min(1, "Асуулт хоосон байж болохгүй."),
   answer: z.string().min(1, "Хариулт хоосон байж болохгүй."),
 });
-type HelpItemFormValues = z.infer<typeof helpItemFormSchema>;
+export type HelpItemFormValues = z.infer<typeof helpItemFormSchema>;
 
 export default function HelpPage() {
   const [selectedTopicFilter, setSelectedTopicFilter] = useState<HelpTopic | undefined>(undefined);
   const [helpItems, setHelpItems] = useState<HelpItem[]>([]);
   const [isLoadingItems, setIsLoadingItems] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  
+  const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
+  const [editingHelpItem, setEditingHelpItem] = useState<HelpItem | null>(null);
+
+  const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
+  const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
+
   const { toast } = useToast();
 
   const form = useForm<HelpItemFormValues>({
     resolver: zodResolver(helpItemFormSchema),
     defaultValues: {
-      topic: HelpTopic.APPLICATION_GUIDE, // Default topic for new item
+      topic: HelpTopic.APPLICATION_GUIDE,
       question: '',
       answer: '',
     },
@@ -69,20 +76,66 @@ export default function HelpPage() {
     }
   };
 
-  const handleAddNewHelpItem = async (values: HelpItemFormValues) => {
+  const handleOpenFormDialog = (item?: HelpItem) => {
+    if (item) {
+      setEditingHelpItem(item);
+      form.reset({
+        topic: item.topic,
+        question: item.question,
+        answer: item.answer,
+      });
+    } else {
+      setEditingHelpItem(null);
+      form.reset({ // Reset to default for new item
+        topic: HelpTopic.APPLICATION_GUIDE,
+        question: '',
+        answer: '',
+      });
+    }
+    setIsFormDialogOpen(true);
+  };
+
+  const handleSaveHelpItem = async (values: HelpItemFormValues) => {
     setIsSubmitting(true);
-    const result = await addHelpItem(values);
+    let result;
+    if (editingHelpItem) {
+      result = await updateHelpItem(editingHelpItem.id, values);
+    } else {
+      result = await addHelpItem(values);
+    }
     setIsSubmitting(false);
 
-    if ("id" in result) {
-      toast({ title: "Амжилттай", description: "Шинэ тусламжийн зүйл амжилттай нэмэгдлээ." });
-      setIsDialogOpen(false);
-      form.reset();
-      fetchHelpItemsCallback(selectedTopicFilter); // Refresh the list
+    if (result && "id" in result || result && "success" in result && result.success) {
+      toast({ title: "Амжилттай", description: `Тусламжийн зүйл ${editingHelpItem ? "шинэчлэгдлээ" : "нэмэгдлээ"}.` });
+      setIsFormDialogOpen(false);
+      setEditingHelpItem(null);
+      fetchHelpItemsCallback(selectedTopicFilter); 
+    } else if (result && "error" in result ) {
+      toast({ title: "Алдаа", description: result.error, variant: "destructive" });
+    }
+  };
+
+  const handleDeleteClick = (id: string) => {
+    setItemToDeleteId(id);
+    setShowDeleteConfirmDialog(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!itemToDeleteId) return;
+    setIsSubmitting(true); // Use general submitting state or a new one for delete
+    const result = await deleteHelpItem(itemToDeleteId);
+    setIsSubmitting(false);
+    setShowDeleteConfirmDialog(false);
+    setItemToDeleteId(null);
+
+    if (result.success) {
+      toast({ title: "Амжилттай", description: "Тусламжийн зүйл устгагдлаа." });
+      fetchHelpItemsCallback(selectedTopicFilter);
     } else {
       toast({ title: "Алдаа", description: result.error, variant: "destructive" });
     }
   };
+
 
   const getTopicIcon = (topic: HelpTopic | undefined) => {
     if (!topic && !selectedTopicFilter) return <HelpCircle className="mr-2 h-5 w-5 text-primary" />;
@@ -99,87 +152,110 @@ export default function HelpPage() {
 
   return (
     <>
-      <PageHeader title="Тусламж Удирдах" description="Түгээмэл асуулт хариулт (FAQ) нэмэх, засварлах, удирдах.">
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => { form.reset(); setIsDialogOpen(true); }}>
-              <PlusCircle className="mr-2 h-4 w-4" /> Шинэ Асуулт/Хариулт Нэмэх
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle className="font-headline">Шинэ Асуулт/Хариулт Нэмэх</DialogTitle>
-              <DialogDescription>
-                Хэрэглэгчдэд туслах шинэ асуулт, хариултыг оруулна уу.
-              </DialogDescription>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleAddNewHelpItem)} className="space-y-4 py-2">
-                <FormField
-                  control={form.control}
-                  name="topic"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Сэдэв</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Сэдэв сонгоно уу..." />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {Object.values(HelpTopic).map(topic => (
-                            <SelectItem key={topic} value={topic}>{topic}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="question"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Асуулт</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Асуултаа энд бичнэ үү..." {...field} rows={3} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="answer"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Хариулт</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Хариултаа энд дэлгэрэнгүй бичнэ үү..." {...field} rows={6} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <DialogFooter className="pt-4">
-                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSubmitting}>
-                    Цуцлах
-                  </Button>
-                  <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Хадгалах
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+      <PageHeader title="Тусламж Удирдах" description="Түгээмэл асуулт хариулт (FAQ) нэмэх, засварлах, устгах.">
+        <Button onClick={() => handleOpenFormDialog()}>
+            <PlusCircle className="mr-2 h-4 w-4" /> Шинэ Асуулт/Хариулт Нэмэх
+        </Button>
       </PageHeader>
 
+      {/* Form Dialog (Add/Edit) */}
+      <Dialog open={isFormDialogOpen} onOpenChange={(open) => {
+          if(!open) setEditingHelpItem(null); // Clear editing item on dialog close
+          setIsFormDialogOpen(open);
+      }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-headline">{editingHelpItem ? "Асуулт/Хариулт Засварлах" : "Шинэ Асуулт/Хариулт Нэмэх"}</DialogTitle>
+            <DialogDescription>
+              {editingHelpItem ? "Одоо байгаа асуулт, хариултыг өөрчилнө үү." : "Хэрэглэгчдэд туслах шинэ асуулт, хариултыг оруулна уу."}
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleSaveHelpItem)} className="space-y-4 py-2">
+              <FormField
+                control={form.control}
+                name="topic"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Сэдэв</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Сэдэв сонгоно уу..." />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {Object.values(HelpTopic).map(topic => (
+                          <SelectItem key={topic} value={topic}>{topic}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="question"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Асуулт</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Асуултаа энд бичнэ үү..." {...field} rows={3} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="answer"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Хариулт</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Хариултаа энд дэлгэрэнгүй бичнэ үү..." {...field} rows={6} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter className="pt-4">
+                <Button type="button" variant="outline" onClick={() => setIsFormDialogOpen(false)} disabled={isSubmitting}>
+                  Цуцлах
+                </Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Хадгалах
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Энэ үйлдлийг буцаах боломжгүй. Сонгосон асуулт/хариултыг бүрмөсөн устгах болно.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setItemToDeleteId(null)} disabled={isSubmitting}>Цуцлах</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} disabled={isSubmitting} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Устгах
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+
       <div className="mb-6 max-w-xs">
-        <Label htmlFor="topic-filter-select">Сэдвээр шүүх</Label> {/* Changed from FormLabel to Label */}
+        <Label htmlFor="topic-filter-select">Сэдвээр шүүх</Label>
         <Select onValueChange={handleTopicFilterChange} defaultValue="all_topics">
           <SelectTrigger id="topic-filter-select" className="w-full mt-1">
             <SelectValue placeholder="Сэдэв сонгоно уу..." />
@@ -214,13 +290,29 @@ export default function HelpPage() {
             <Accordion type="single" collapsible className="w-full space-y-3">
               {helpItems.map((item) => (
                 <AccordionItem key={item.id} value={item.id} className="border bg-background rounded-md shadow-sm hover:shadow-md transition-shadow">
-                  <AccordionTrigger className="p-4 text-left hover:no-underline focus:no-underline">
-                    <span className="font-medium text-foreground">{item.question}</span>
-                  </AccordionTrigger>
+                  <div className="flex items-center justify-between p-4">
+                    <AccordionTrigger className="text-left hover:no-underline focus:no-underline flex-1 py-0 pr-2">
+                      <span className="font-medium text-foreground">{item.question}</span>
+                    </AccordionTrigger>
+                    <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => handleOpenFormDialog(item)} aria-label="Засах">
+                            <Edit3 className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(item.id)} className="text-destructive hover:text-destructive/90" aria-label="Устгах">
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </div>
+                  </div>
                   <AccordionContent className="p-4 pt-0">
                     <div className="prose prose-sm max-w-none text-muted-foreground whitespace-pre-line">
                       {item.answer}
                     </div>
+                     {item.createdAt && (
+                        <p className="text-xs text-muted-foreground/70 mt-2">
+                            Нэмсэн: {new Date(item.createdAt).toLocaleDateString()}
+                            {item.updatedAt && item.updatedAt !== item.createdAt ? ` | Засварласан: ${new Date(item.updatedAt).toLocaleDateString()}` : ''}
+                        </p>
+                    )}
                   </AccordionContent>
                 </AccordionItem>
               ))}
@@ -235,3 +327,4 @@ export default function HelpPage() {
     </>
   );
 }
+    

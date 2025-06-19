@@ -1,3 +1,4 @@
+
 "use server";
 
 import { db, auth as adminAuth } from "@/lib/firebase";
@@ -7,6 +8,9 @@ import {
   collection,
   addDoc,
   getDocs,
+  doc,
+  updateDoc,
+  deleteDoc,
   query,
   where,
   orderBy,
@@ -16,60 +20,14 @@ import {
 import { revalidatePath } from "next/cache";
 
 const HELP_ITEMS_COLLECTION = "help_items";
-// const HELP_REQUESTS_COLLECTION = "help_requests"; // Keep if user submission might be re-added
-
-// Initial mock data - in a real app, this would be managed in Firestore
-let predefinedHelpItems: HelpItem[] = [
-  {
-    id: "faq1_app",
-    topic: HelpTopic.APPLICATION_GUIDE,
-    question: "Аппликэйшн интернетгүй үед ажилладаг уу?",
-    answer: "Бидний аппликэйшн нь үндсэн функцуудаа ажиллуулахын тулд интернет холболт шаарддаг. Гэсэн хэдий ч, та аяллын төлөвлөгөө, тасалбар зэрэг зарим мэдээллийг офлайн байдлаар хадгалах боломжтой. Офлайн функцүүдийг ашиглахын тулд урьдчилан дата татаж авах шаардлагатайг анхаарна уу. Дэлгэрэнгүй мэдээллийг тохиргоо хэсгээс харна уу.",
-    isPredefined: true,
-    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago
-  },
-  {
-    id: "faq2_app",
-    topic: HelpTopic.APPLICATION_GUIDE,
-    question: "Мэдээллээ яаж устгах вэ?",
-    answer: "Та өөрийн хувийн мэдээлэл болон бүртгэлээ устгахыг хүсвэл аппликэйшны 'Профайл' > 'Тохиргоо' > 'Бүртгэл устгах' хэсэгт хандана уу. Энэ үйлдэл нь таны бүх өгөгдлийг манай системээс бүрмөсөн устгах бөгөөд үүнийг буцаах боломжгүйг анхаарна уу. Хэрэв танд нэмэлт тусламж хэрэгтэй бол бидэнтэй холбогдоно уу.",
-    isPredefined: true,
-    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
-  },
-  {
-    id: "faq3_app",
-    topic: HelpTopic.APPLICATION_GUIDE,
-    question: "Нууц үгээ мартсан тохиолдолд яах вэ?",
-    answer: "Хэрэв та нууц үгээ мартсан бол нэвтрэх хуудасны 'Нууц үг мартсан уу?' холбоос дээр дарна уу. Таны бүртгэлтэй имэйл хаяг руу нууц үг сэргээх зааварчилгаа илгээгдэх болно. Имэйлээ шалгаад, зааврын дагуу шинэ нууц үгээ тохируулна уу. Хэрэв имэйл ирэхгүй байвал спам фолдероо шалгаарай.",
-    isPredefined: true,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "faq1_travel",
-    topic: HelpTopic.TRAVEL_TIPS,
-    question: "Аялахад хамгийн тохиромжтой сар хэзээ вэ?",
-    answer: "Аялахад тохиромжтой сар нь таны очихыг хүсэж буй газар, сонирхож буй үйл ажиллагаанаас ихээхэн хамаарна. Жишээлбэл, далайн эрэг дээр амрахыг хүсвэл зуны сарууд тохиромжтой байдаг бол ууланд авирах, цанаар гулгах сонирхолтой бол өвөл, хаврын эхэн сар илүү тохиромжтой. Мөн аяллын улирлаас гадуур аялах нь зардал хэмнэх, хүн багатай үед тайван аялах боломжийг олгодог.",
-    isPredefined: true,
-    createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
-  },
-  {
-    id: "faq2_travel",
-    topic: HelpTopic.TRAVEL_TIPS,
-    question: "Хямд тийз яаж олох вэ?",
-    answer: "Хямд тийз олохын тулд дараах зөвлөмжүүдийг анхаараарай: 1. Аялахаар төлөвлөж буй хугацаанаасаа дор хаяж 1-3 сарын өмнө тийзээ хайж эхлээрэй. 2. Долоо хоногийн дунд үеийн (Мягмар, Лхагва) нислэгүүд ихэвчлэн хямд байдаг. 3. Янз бүрийн авиа компани болон тийз борлуулах вэбсайтуудын үнийг харьцуулж үзээрэй. 4. Аяллын улирлаас гадуурх үеийг сонгох. 5. Нислэгийн компанийн мэдээллийн хуудсанд бүртгүүлж, хямдралтай саналуудыг хүлээж аваарай.",
-    isPredefined: true,
-    createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(), // 4 days ago
-  },
-];
 
 export async function getHelpItems(topic?: HelpTopic): Promise<HelpItem[]> {
   try {
-    // For now, return filtered mock data, sorted by most recent first.
-    // In a real scenario, fetch from Firestore:
     const helpItemsRef = collection(db, HELP_ITEMS_COLLECTION);
     const q = topic 
                 ? query(helpItemsRef, where("topic", "==", topic), orderBy("createdAt", "desc"))
                 : query(helpItemsRef, orderBy("createdAt", "desc"));
+    
     const querySnapshot = await getDocs(q);
     const itemsFromDb = querySnapshot.docs.map(doc => {
         const data = doc.data();
@@ -81,22 +39,34 @@ export async function getHelpItems(topic?: HelpTopic): Promise<HelpItem[]> {
             isPredefined: data.isPredefined === true,
             createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : new Date().toISOString(),
             updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().toISOString() : undefined,
+            createdBy: data.createdBy,
          } as HelpItem;
     });
     
-    // Combine with mock if DB is empty or for demo purposes
-    // For now, let's assume Firestore is the source of truth IF items exist there
-    // If not, fall back to mock. This logic can be refined.
-    if (itemsFromDb.length > 0) {
-        return itemsFromDb;
+    // If Firestore is empty, return a default set of mock data as an example for admins
+    if (itemsFromDb.length === 0 && !topic) { // Only show mocks if DB is empty and no filter is applied
+        const mockItems: HelpItem[] = [
+             {
+                id: "mock_faq1_app",
+                topic: HelpTopic.APPLICATION_GUIDE,
+                question: "Аппликэйшн интернетгүй үед ажилладаг уу? (Жишээ)",
+                answer: "Энэ бол админ панелаас оруулсан жишээ хариулт. Та үүнийг засаж эсвэл устгаж болно.",
+                isPredefined: true,
+                createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), 
+              },
+              {
+                id: "mock_faq1_travel",
+                topic: HelpTopic.TRAVEL_TIPS,
+                question: "Аялахад хамгийн тохиромжтой сар хэзээ вэ? (Жишээ)",
+                answer: "Энэ бол \"Хэрхэн хямд аялах вэ?\" сэдвийн жишээ хариулт.",
+                isPredefined: true,
+                createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+              },
+        ];
+        return mockItems;
     }
-    
-    // Fallback to mock data if DB is empty
-    let filteredMockItems = predefinedHelpItems;
-    if (topic) {
-      filteredMockItems = predefinedHelpItems.filter(item => item.topic === topic);
-    }
-    return filteredMockItems.sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+
+    return itemsFromDb;
 
   } catch (e: any) {
     console.error("Error getting help items: ", e);
@@ -104,7 +74,7 @@ export async function getHelpItems(topic?: HelpTopic): Promise<HelpItem[]> {
   }
 }
 
-interface AddHelpItemData {
+export interface AddHelpItemData {
   topic: HelpTopic;
   question: string;
   answer: string;
@@ -121,23 +91,13 @@ export async function addHelpItem(
   try {
     const dataToSave = {
       ...data,
-      isPredefined: true, // Items added by admin are considered predefined FAQs
-      createdBy: currentAdmin.uid, // Optional: track who created it
+      isPredefined: true,
+      createdBy: currentAdmin.uid,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };
 
     const docRef = await addDoc(collection(db, HELP_ITEMS_COLLECTION), dataToSave);
-    
-    // This is for mock data update. In a real app, Firestore update is enough.
-    // For demonstration with mock data, we can add it here so it appears on refresh.
-    // predefinedHelpItems.unshift({
-    //   id: docRef.id,
-    //   ...data,
-    //   isPredefined: true,
-    //   createdAt: new Date().toISOString(),
-    // });
-
     revalidatePath("/admin/help");
     return { id: docRef.id };
   } catch (e: any) {
@@ -146,32 +106,44 @@ export async function addHelpItem(
   }
 }
 
-// The function below was for user-submitted questions.
-// If the new flow is only for admins to create FAQs, this might be removed or repurposed.
-// For now, I'll comment it out.
-/*
-export async function submitHelpRequest(
-  topic: HelpTopic,
-  question: string
-): Promise<{ id: string } | { error: string }> {
-  const currentUser = adminAuth.currentUser; // If submitted from admin panel
-  try {
-    const dataToSave: Omit<HelpRequest, "id" | "createdAt"> & { createdAt: any } = {
-      topic,
-      question,
-      userId: currentUser?.uid,
-      userEmail: currentUser?.email,
-      status: 'pending',
-      createdAt: serverTimestamp(),
-    };
+export type UpdateHelpItemData = Partial<Pick<HelpItem, "topic" | "question" | "answer">>;
 
-    const docRef = await addDoc(collection(db, HELP_REQUESTS_COLLECTION), dataToSave);
-    revalidatePath("/admin/help"); // Revalidate if admin can see these requests
-    return { id: docRef.id };
+export async function updateHelpItem(
+  id: string,
+  data: UpdateHelpItemData
+): Promise<{ success: boolean } | { error: string }> {
+  const currentAdmin = adminAuth.currentUser;
+  if (!currentAdmin) {
+    return { error: "Админ нэвтрээгүй байна. Өөрчлөлт хийх боломжгүй." };
+  }
+  try {
+    const docRef = doc(db, HELP_ITEMS_COLLECTION, id);
+    await updateDoc(docRef, {
+      ...data,
+      updatedAt: serverTimestamp(),
+      // createdBy should not change on update, only when initially created.
+    });
+    revalidatePath("/admin/help");
+    return { success: true };
   } catch (e: any) {
-    console.error("Error submitting help request: ", e);
-    return { error: e.message || "Тусламж хүсэлт илгээхэд алдаа гарлаа." };
+    console.error("Error updating help item: ", e);
+    return { error: e.message || "Тусламжийн зүйл шинэчлэхэд алдаа гарлаа." };
   }
 }
-*/
+
+export async function deleteHelpItem(id: string): Promise<{ success: boolean } | { error: string }> {
+  const currentAdmin = adminAuth.currentUser;
+  if (!currentAdmin) {
+    return { error: "Админ нэвтрээгүй байна. Устгах боломжгүй." };
+  }
+  try {
+    const docRef = doc(db, HELP_ITEMS_COLLECTION, id);
+    await deleteDoc(docRef);
+    revalidatePath("/admin/help");
+    return { success: true };
+  } catch (e: any) {
+    console.error("Error deleting help item: ", e);
+    return { error: e.message || "Тусламжийн зүйл устгахад алдаа гарлаа." };
+  }
+}
     
