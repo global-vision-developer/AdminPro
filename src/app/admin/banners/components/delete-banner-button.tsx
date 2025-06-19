@@ -8,7 +8,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Loader2, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { deleteBanner } from '@/lib/actions/bannerActions';
-import { useRouter } from 'next/navigation'; // useRouter-г нэмсэн
+import { useRouter } from 'next/navigation';
 
 interface DeleteBannerButtonProps {
   bannerId: string;
@@ -16,29 +16,63 @@ interface DeleteBannerButtonProps {
 }
 
 export function DeleteBannerButton({ bannerId, bannerDescription }: DeleteBannerButtonProps) {
-  const router = useRouter(); // useRouter-г эхлүүлсэн
+  const router = useRouter();
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [isOpen, setIsOpen] = React.useState(false);
   const { toast } = useToast();
 
   const handleDelete = async () => {
-    setIsDeleting(true);
-    const result = await deleteBanner(bannerId);
-    setIsDeleting(false);
-    setIsOpen(false); // Dialog-г хаах
-
-    if (result.success) {
+    console.log("[DeleteBannerButton] handleDelete triggered. bannerId:", bannerId);
+    if (!bannerId) {
+      console.error("[DeleteBannerButton] bannerId is missing!");
       toast({
-        title: "Баннер устгагдлаа",
-        description: `"${bannerDescription}" тайлбартай баннер амжилттай устгагдлаа.`,
-      });
-      router.refresh(); // Хуудсыг дахин ачааллах (UI шинэчлэх)
-    } else if (result.error) {
-      toast({
-        title: "Баннер устгахад алдаа гарлаа",
-        description: result.error,
+        title: "Алдаа",
+        description: "Баннерын ID олдсонгүй. Устгах боломжгүй.",
         variant: "destructive",
       });
+      setIsDeleting(false);
+      setIsOpen(false);
+      return;
+    }
+
+    setIsDeleting(true);
+    console.log("[DeleteBannerButton] Calling deleteBanner server action...");
+    try {
+      const result = await deleteBanner(bannerId);
+      console.log("[DeleteBannerButton] Server action result:", result);
+      
+      if (result && result.success) {
+        console.log("[DeleteBannerButton] Deletion successful. Toasting and refreshing.");
+        toast({
+          title: "Баннер устгагдлаа",
+          description: `"${bannerDescription}" тайлбартай баннер амжилттай устгагдлаа.`,
+        });
+        router.refresh();
+      } else if (result && result.error) {
+        console.error("[DeleteBannerButton] Deletion failed. Error:", result.error);
+        toast({
+          title: "Баннер устгахад алдаа гарлаа",
+          description: result.error,
+          variant: "destructive",
+        });
+      } else {
+        console.error("[DeleteBannerButton] Unknown result from server action:", result);
+        toast({
+          title: "Үл мэдэгдэх алдаа",
+          description: "Баннер устгахад үл мэдэгдэх алдаа гарлаа.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+        console.error("[DeleteBannerButton] Exception during deleteBanner call or subsequent logic:", error);
+        toast({
+          title: "Гэнэтийн алдаа",
+          description: "Баннер устгах явцад гэнэтийн алдаа гарлаа.",
+          variant: "destructive",
+        });
+    } finally {
+        setIsDeleting(false);
+        setIsOpen(false); // Ensure dialog closes in all cases
     }
   };
 
