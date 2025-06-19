@@ -100,9 +100,9 @@ export const processNotificationRequest = onDocumentCreated(
     // `FunctionNotificationTarget` рүү cast хийж байна.
     const originalTargetsArray: FunctionNotificationTarget[] =
       Array.isArray(targets) ?
-      (targets as unknown as FunctionNotificationTarget[]).map(
-        (t: FunctionNotificationTarget) => ({ ...t }) // t-г FunctionNotificationTarget гэж үзнэ
-      ) : [];
+        (targets as unknown as FunctionNotificationTarget[]).map(
+          (t: FunctionNotificationTarget) => ({...t}) // t-г FunctionNotificationTarget гэж үзнэ
+        ) : [];
 
 
     originalTargetsArray.forEach((target) => {
@@ -232,12 +232,10 @@ export const processNotificationRequest = onDocumentCreated(
             processedAt: errorTimestamp,
           });
       } catch (err) {
-        logger.error(
-          "Error updating to error status:", // Double quotes used here
-          err
-        );
+        logger.error("Error updating to error status:", err);
       }
     }
     return null;
   }
 );
+
