@@ -6,10 +6,11 @@ import { useRouter, useParams } from 'next/navigation';
 import { PageHeader } from '@/components/admin/page-header';
 import { EntryForm } from '../../components/entry-form';
 import { useToast } from '@/hooks/use-toast';
-import type { Category, Entry } from '@/types';
-import { UserRole } from '@/types'; // Import UserRole
-import { useAuth } from '@/hooks/use-auth'; // Import useAuth
+import type { Category, Entry, City } from '@/types'; // Added City
+import { UserRole } from '@/types'; 
+import { useAuth } from '@/hooks/use-auth'; 
 import { getCategories } from '@/lib/actions/categoryActions';
+import { getCities } from '@/lib/actions/cityActions'; // Added
 import { getEntry } from '@/lib/actions/entryActions';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -23,9 +24,10 @@ export default function EditEntryPage() {
   const entryId = params.id as string;
 
   const { toast } = useToast();
-  const { currentUser } = useAuth(); // Get current user
+  const { currentUser } = useAuth(); 
   const [entry, setEntry] = useState<Entry | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [cities, setCities] = useState<City[]>([]); // Added state for cities
   const [isLoading, setIsLoading] = useState(true);
   const [accessDenied, setAccessDenied] = useState(false);
 
@@ -46,10 +48,13 @@ export default function EditEntryPage() {
       setIsLoading(true); 
       setAccessDenied(false);
       try {
-        const [fetchedEntry, fetchedCategories] = await Promise.all([
+        const [fetchedEntry, fetchedCategories, fetchedCities] = await Promise.all([ // Modified
           getEntry(entryId), 
-          getCategories() 
+          getCategories(),
+          getCities() // Fetch cities
         ]);
+
+        setCities(fetchedCities); // Set cities state
 
         if (fetchedEntry) {
           if (currentUser?.role === UserRole.SUB_ADMIN) {
@@ -69,7 +74,7 @@ export default function EditEntryPage() {
           router.push('/admin/entries');
         }
       } catch (error) {
-        console.error("Failed to load entry or categories:", error);
+        console.error("Failed to load entry, categories, or cities:", error);
         toast({ title: "Алдаа", description: "Засварлах мэдээллийг ачааллахад алдаа гарлаа.", variant: "destructive" });
       } finally {
         setIsLoading(false); 
@@ -160,9 +165,9 @@ export default function EditEntryPage() {
         initialData={entry}
         categories={categories} 
         selectedCategory={selectedCategory}
+        cities={cities} // Pass cities to EntryForm
         onSubmitSuccess={handleEntryFormSuccess}
       />
     </>
   );
 }
-

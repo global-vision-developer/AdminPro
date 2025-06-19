@@ -20,6 +20,7 @@ export enum FieldType {
   DATE = 'Date',
   BOOLEAN = 'Boolean',
   IMAGE_GALLERY = 'Image Gallery',
+  CITY_PICKER = 'City Picker', // New Field Type for City Selection
 }
 
 export interface ImageGalleryItemForm {

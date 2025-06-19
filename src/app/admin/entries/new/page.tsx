@@ -6,27 +6,29 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/admin/page-header';
 import { EntryForm } from '../components/entry-form';
 import { useToast } from '@/hooks/use-toast';
-import type { Category } from '@/types';
-import { UserRole } from '@/types'; // Import UserRole
-import { useAuth } from '@/hooks/use-auth'; // Import useAuth
+import type { Category, City } from '@/types'; // Added City
+import { UserRole } from '@/types'; 
+import { useAuth } from '@/hooks/use-auth'; 
 import { getCategories } from '@/lib/actions/categoryActions';
+import { getCities } from '@/lib/actions/cityActions'; // Added
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, Info } from 'lucide-react'; // Import Info
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'; // Import Alert components
+import { AlertTriangle, Info } from 'lucide-react'; 
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'; 
 
 
 export default function NewEntryPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  const { currentUser } = useAuth(); // Get current user
+  const { currentUser } = useAuth(); 
   
-  const [allCategories, setAllCategories] = useState<Category[]>([]); // Store all categories
-  const [selectableCategories, setSelectableCategories] = useState<Category[]>([]); // Categories user can select
+  const [allCategories, setAllCategories] = useState<Category[]>([]); 
+  const [allCities, setAllCities] = useState<City[]>([]); // Added state for cities
+  const [selectableCategories, setSelectableCategories] = useState<Category[]>([]); 
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -34,15 +36,19 @@ export default function NewEntryPage() {
     async function loadData() {
       setIsLoading(true);
       try {
-        const fetchedCategories = await getCategories();
+        const [fetchedCategories, fetchedCities] = await Promise.all([
+          getCategories(),
+          getCities() // Fetch cities
+        ]);
         setAllCategories(fetchedCategories);
+        setAllCities(fetchedCities); // Set cities state
 
         let filteredForSubAdmin: Category[] = fetchedCategories;
         if (currentUser && currentUser.role === UserRole.SUB_ADMIN) {
           if (currentUser.allowedCategoryIds && currentUser.allowedCategoryIds.length > 0) {
             filteredForSubAdmin = fetchedCategories.filter(cat => currentUser.allowedCategoryIds!.includes(cat.id));
           } else {
-            filteredForSubAdmin = []; // SubAdmin has no assigned categories
+            filteredForSubAdmin = []; 
           }
         }
         setSelectableCategories(filteredForSubAdmin);
@@ -58,9 +64,10 @@ export default function NewEntryPage() {
         }
 
       } catch (error) {
-        console.error("Failed to load categories:", error);
-        toast({ title: "Error", description: "Failed to load categories.", variant: "destructive" });
+        console.error("Failed to load categories or cities:", error);
+        toast({ title: "Error", description: "Failed to load categories or cities.", variant: "destructive" });
         setAllCategories([]);
+        setAllCities([]); // Reset cities on error
         setSelectableCategories([]);
         setSelectedCategoryId(undefined);
       } finally {
@@ -197,6 +204,7 @@ export default function NewEntryPage() {
           key={selectedCategory.id} 
           categories={allCategories} 
           selectedCategory={selectedCategory}
+          cities={allCities} // Pass cities to EntryForm
           onSubmitSuccess={handleEntryFormSuccess}
         />
       ) : (

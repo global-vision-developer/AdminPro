@@ -14,7 +14,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import type { Category, Entry, FieldDefinition, ImageGalleryItemForm, ImageGalleryItemStored } from '@/types';
+import type { Category, Entry, FieldDefinition, ImageGalleryItemForm, ImageGalleryItemStored, City } from '@/types'; // Added City
 import { FieldType } from '@/types';
 import { CalendarIcon, Save, Loader2, Wand2, AlertTriangle, Info, MessageSquareText, Star, PlusCircle, Trash2, Image as ImageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -32,6 +32,7 @@ interface EntryFormProps {
   initialData?: Entry | null;
   categories: Category[];
   selectedCategory: Category;
+  cities: City[]; // Added cities prop
   onSubmitSuccess?: () => void;
 }
 
@@ -55,9 +56,8 @@ const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, a
     let fieldSchema: z.ZodTypeAny;
     switch (field.type) {
       case FieldType.TEXT:
-        // For ImageUploader fields (which now return Base64 or keep URL), ensure it's a string or null
         if (field.key === 'nuur-zurag-url' || field.label.toLowerCase().includes('image url') || field.label.toLowerCase().includes('cover image')) {
-            fieldSchema = z.string().nullable().optional(); // Can be data URI or URL
+            fieldSchema = z.string().nullable().optional(); 
         } else if (field.required) {
           fieldSchema = z.string().trim().min(1, { message: `${field.label} field is required.` });
         } else {
@@ -101,7 +101,7 @@ const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, a
       case FieldType.IMAGE_GALLERY:
         const imageGalleryItemSchema = z.object({
             clientId: z.string(),
-            imageUrl: z.string().nullable().optional(), // Can be Base64 data URI or URL string
+            imageUrl: z.string().nullable().optional(), 
             description: z.string().optional().transform(val => val === '' ? undefined : val),
         });
 
@@ -111,6 +111,13 @@ const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, a
                                      .refine(items => items.some(item => item.imageUrl !== null && item.imageUrl !== ''), {
                                         message: `${field.label}: At least one image URL/Data is required.`,
                                       });
+        }
+        break;
+      case FieldType.CITY_PICKER: // Added schema for City Picker
+        if (field.required) {
+          fieldSchema = z.string().min(1, { message: `${field.label} is required.` });
+        } else {
+          fieldSchema = z.string().optional().nullable(); // Stores city ID
         }
         break;
       default:
@@ -133,7 +140,7 @@ const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, a
 };
 
 
-export function EntryForm({ initialData, categories, selectedCategory, onSubmitSuccess }: EntryFormProps) {
+export function EntryForm({ initialData, categories, selectedCategory, cities, onSubmitSuccess }: EntryFormProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -166,8 +173,9 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                 defaultDataValues[field.key] = Array.isArray(initialValueFromData)
                     ? initialValueFromData.map((item: ImageGalleryItemStored) => ({ ...item, clientId: uuidv4(), imageUrl: item.imageUrl || null }))
                     : [];
-            }
-             else {
+            } else if (field.type === FieldType.CITY_PICKER) { // Added for City Picker
+                defaultDataValues[field.key] = initialValueFromData || undefined; // Stores city ID
+            } else {
                 defaultDataValues[field.key] = initialValueFromData;
             }
         } else {
@@ -175,8 +183,9 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
             else if (field.type === FieldType.NUMBER) defaultDataValues[field.key] = undefined;
             else if (field.type === FieldType.DATE) defaultDataValues[field.key] = undefined;
             else if (field.type === FieldType.IMAGE_GALLERY) defaultDataValues[field.key] = [];
+            else if (field.type === FieldType.CITY_PICKER) defaultDataValues[field.key] = undefined; // Default for City Picker
             else if (field.key === 'nuur-zurag-url' || field.label.toLowerCase().includes('image url') || field.label.toLowerCase().includes('cover image')) {
-                 defaultDataValues[field.key] = null; // For ImageUploader fields
+                 defaultDataValues[field.key] = null; 
             }
             else defaultDataValues[field.key] = '';
         }
@@ -283,10 +292,9 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
           break;
         case FieldType.TEXT:
         case FieldType.TEXTAREA:
-          // For text fields, if it's an image field (handled by ImageUploader), it could be a Base64 string or null.
-          // Otherwise, it's regular text.
+        case FieldType.CITY_PICKER: // City Picker stores string (ID) or null
           if (field.key === 'nuur-zurag-url' || field.label.toLowerCase().includes('image url') || field.label.toLowerCase().includes('cover image')) {
-            valueToSave = typeof valueFromForm === 'string' ? valueFromForm : null; // Allow null for empty images
+            valueToSave = typeof valueFromForm === 'string' ? valueFromForm : null; 
           } else {
             valueToSave = (typeof valueFromForm === 'string') ? valueFromForm : (valueFromForm === null ? null : '');
           }
@@ -396,7 +404,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                     const { fields: galleryFields, append, remove, update: updateGalleryItem } = useFieldArray({
                       control: form.control,
                       name: `data.${catField.key}` as any,
-                      keyName: "clientId", // Ensure this matches the id field in your ImageGalleryItemForm
+                      keyName: "clientId", 
                     });
 
                     return (
@@ -412,8 +420,8 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                                   name={`data.${catField.key}.${index}.imageUrl` as const}
                                   render={({ field: galleryItemField }) => (
                                     <ImageUploader
-                                      initialImageUrl={galleryItemField.value} // Can be data URI or URL
-                                      onUploadComplete={(dataUri) => { // Receives data URI
+                                      initialImageUrl={galleryItemField.value} 
+                                      onUploadComplete={(dataUri) => { 
                                         const currentItem = form.getValues(`data.${catField.key}`)[index];
                                         updateGalleryItem(index, { ...currentItem, imageUrl: dataUri });
                                       }}
@@ -472,8 +480,8 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                                     {catField.description && <FormDescription>{catField.description === "Энэ бичлэгийн гол нүүр зургийн интернет хаяг." ? "үндсэн нүүр зургийн интернет хаяг(address)" : catField.description}</FormDescription>}
                                     <FormControl>
                                         <ImageUploader
-                                            initialImageUrl={formHookField.value} // Can be data URI or URL
-                                            onUploadComplete={(dataUri) => formHookField.onChange(dataUri)} // Receives data URI
+                                            initialImageUrl={formHookField.value} 
+                                            onUploadComplete={(dataUri) => formHookField.onChange(dataUri)} 
                                             label={catField.label}
                                         />
                                     </FormControl>
@@ -482,6 +490,47 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                             )}
                         />
                      );
+                  }
+
+                  if (catField.type === FieldType.CITY_PICKER) {
+                    return (
+                      <FormField
+                        key={catField.id}
+                        control={form.control}
+                        name={`data.${catField.key}`}
+                        render={({ field: formHookField }) => (
+                          <FormItem>
+                            <FormLabel>{catField.label}{catField.required && <span className="text-destructive">*</span>}</FormLabel>
+                            {catField.description && <FormDescription>{catField.description}</FormDescription>}
+                            <Select
+                              onValueChange={(value) => formHookField.onChange(value === "" ? null : value)} // Handle "None" selection
+                              defaultValue={formHookField.value || ""}
+                              disabled={cities.length === 0 && !catField.required} // Disable if no cities and not required
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder={catField.placeholder || `Select ${catField.label.toLowerCase()}`} />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="">-- Хоосон --</SelectItem>
+                                {cities.map((city) => (
+                                  <SelectItem key={city.id} value={city.id}>
+                                    {city.name} ({city.nameCN})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            {cities.length === 0 && (
+                              <FormDescription className="text-orange-600">
+                                Хотын жагсаалт хоосон байна. Эхлээд "Хотууд" хэсэгт хот нэмнэ үү.
+                              </FormDescription>
+                            )}
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    );
                   }
 
 
@@ -732,4 +781,3 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
     </Form>
   );
 }
-

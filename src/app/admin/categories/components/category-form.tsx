@@ -37,7 +37,7 @@ const categoryFormSchema = z.object({
   name: z.string(),
   slug: z.string().min(1, "Slug is required.").regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug must contain only lowercase letters, numbers, and hyphens."),
   description: z.string().optional().default(''),
-  coverImageUrl: z.string().nullable().optional(), // Can be Base64 data URI or URL
+  coverImageUrl: z.string().nullable().optional(), 
   fields: z.array(fieldDefinitionClientSchema).min(0, "You can save a category without fields initially."),
 });
 
@@ -71,10 +71,10 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
         id: uuidv4(),
         label: 'City',
         key: 'city',
-        type: FieldType.TEXT,
+        type: FieldType.CITY_PICKER, // Changed to CITY_PICKER
         required: false,
-        placeholder: 'e.g., Ulaanbaatar',
-        description: 'үүнд хамаарах хотын нэр.'
+        placeholder: 'Select a city', // Updated placeholder
+        description: 'The city associated with this entry.' // Updated description
       },
       {
         id: uuidv4(),
@@ -296,9 +296,8 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                     <FormLabel>Нүүр Зураг</FormLabel>
                     <FormControl>
                        <ImageUploader
-                        initialImageUrl={field.value} // Can be data URI or URL
-                        onUploadComplete={(dataUri) => field.onChange(dataUri)} // Receives data URI
-                        // storagePath is not used when storing as Base64
+                        initialImageUrl={field.value} 
+                        onUploadComplete={(dataUri) => field.onChange(dataUri)} 
                         label="Категорийн нүүр зураг"
                       />
                     </FormControl>
@@ -368,7 +367,6 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
         </form>
       </Form>
 
-      {/* Field Form Dialog */}
       <Dialog open={isFieldFormOpen} onOpenChange={(open) => {
         if (!open) {
           setEditingFieldIndex(null); 
