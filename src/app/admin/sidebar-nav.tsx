@@ -129,7 +129,7 @@ export function SidebarNav() {
                 <Icon className="h-4 w-4" />
                 <span className="truncate">{item.label}</span>
               </div>
-              <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
+              {/* The AccordionTrigger from shadcn/ui automatically adds its own ChevronDown icon */}
             </AccordionTrigger>
             <AccordionContent className="pt-0 pb-0 pl-4">
               <SidebarMenuSub className="mx-0 border-l-0 px-0 py-1">

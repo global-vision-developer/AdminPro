@@ -36,28 +36,28 @@ interface NavItem {
   icon: React.ElementType;
   roles?: UserRole[];
   subItems?: NavItem[];
-  hideIfSubAdmin?: boolean; 
+  hideIfSubAdmin?: boolean;
 }
 
 const navItems: NavItem[] = [
-  { href: "/admin/dashboard", label: "Хяналтын самбар", icon: LayoutDashboard }, 
+  { href: "/admin/dashboard", label: "Хяналтын самбар", icon: LayoutDashboard },
   {
-    href: "/admin/content", label: "Контент", icon: Library, 
+    href: "/admin/content", label: "Контент", icon: Library,
     subItems: [
-      { href: "/admin/categories", label: "ангилал", icon: Library, roles: [UserRole.SUPER_ADMIN] }, 
-      { href: "/admin/entries", label: "бүртгэл", icon: Newspaper, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] }, 
+      { href: "/admin/categories", label: "ангилал", icon: Library, roles: [UserRole.SUPER_ADMIN] },
+      { href: "/admin/entries", label: "бүртгэл", icon: Newspaper, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
     ]
   },
   { href: "/admin/notifications", label: "Мэдэгдэл", icon: Bell, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] }, // Мэдэгдэл цэс нэмэгдсэн
-  { href: "/admin/users", label: "Хэрэглэгчид", icon: Users, roles: [UserRole.SUPER_ADMIN] }, 
-  // { href: "/admin/settings", label: "Settings", icon: Settings }, 
+  { href: "/admin/users", label: "Хэрэглэгчид", icon: Users, roles: [UserRole.SUPER_ADMIN] },
+  // { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
 
 export function SidebarNav() {
   const pathname = usePathname();
   const { currentUser } = useAuth();
-  const { state: sidebarState } = useSidebar(); 
+  const { state: sidebarState } = useSidebar();
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
 
   const toggleMenu = (label: string) => {
@@ -73,7 +73,7 @@ export function SidebarNav() {
     if (item.hideIfSubAdmin && currentUser.role === UserRole.SUB_ADMIN) {
         return null;
     }
-    if (item.label === "ангилал" && currentUser.role === UserRole.SUB_ADMIN) { 
+    if (item.label === "ангилал" && currentUser.role === UserRole.SUB_ADMIN) {
         return null;
     }
 
@@ -84,11 +84,11 @@ export function SidebarNav() {
             return pathname.startsWith(sub.href);
         });
     }
-    
+
     const Icon = item.icon;
     const isMenuOpen = openMenus[item.label] || (item.subItems && item.subItems.some(sub => pathname.startsWith(sub.href)));
 
-    if (item.subItems) { 
+    if (item.subItems) {
       const visibleSubItems = item.subItems.filter(subItem => {
         if (subItem.roles && !subItem.roles.includes(currentUser.role)) return false;
         if (subItem.hideIfSubAdmin && currentUser.role === UserRole.SUB_ADMIN) return false;
@@ -96,14 +96,14 @@ export function SidebarNav() {
         return true;
       });
 
-      if (visibleSubItems.length === 0) return null; 
+      if (visibleSubItems.length === 0) return null;
 
       if (sidebarState === 'collapsed') {
         return (
           <SidebarMenuItem key={item.label}>
             <SidebarMenuButton
-              asChild={false} 
-              isActive={itemIsActive} 
+              asChild={false}
+              isActive={itemIsActive}
               tooltip={item.label}
               className="justify-start"
             >
@@ -129,13 +129,13 @@ export function SidebarNav() {
                 <Icon className="h-4 w-4" />
                 <span className="truncate">{item.label}</span>
               </div>
-              <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
+              {/* The AccordionTrigger from shadcn/ui automatically adds its own ChevronDown icon */}
             </AccordionTrigger>
             <AccordionContent className="pt-0 pb-0 pl-4">
               <SidebarMenuSub className="mx-0 border-l-0 px-0 py-1">
                 {visibleSubItems.map(subItem => (
-                  <SidebarMenuSubItem key={subItem.label}> 
-                     {renderNavItem(subItem, true)} 
+                  <SidebarMenuSubItem key={subItem.label}>
+                     {renderNavItem(subItem, true)}
                   </SidebarMenuSubItem>
                 ))}
               </SidebarMenuSub>
@@ -143,12 +143,12 @@ export function SidebarNav() {
           </AccordionItem>
         </Accordion>
       );
-    } else { 
+    } else {
       if (isSubItem) {
         return (
           <SidebarMenuSubButton
             asChild
-            isActive={itemIsActive} 
+            isActive={itemIsActive}
           >
             <Link href={item.href} className="flex items-center gap-2">
               <Icon />
