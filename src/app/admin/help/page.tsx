@@ -11,14 +11,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Label } from '@/components/ui/label'; // Changed from FormLabel for non-form context
+import { Label } from '@/components/ui/label';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useToast } from '@/hooks/use-toast';
 import type { HelpItem } from '@/types';
 import { HelpTopic, UserRole } from '@/types';
-import { getHelpItems, addHelpItem, updateHelpItem, deleteHelpItem } from '@/lib/actions/helpActions';
+import { getHelpItems, addHelpItem, updateHelpItem, deleteHelpItem, type AddHelpItemData } from '@/lib/actions/helpActions';
 import { Loader2, PlusCircle, BookOpen, Plane, HelpCircle, Edit3, Trash2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 
@@ -34,7 +34,7 @@ export default function HelpPage() {
   const [helpItems, setHelpItems] = useState<HelpItem[]>([]);
   const [isLoadingItems, setIsLoadingItems] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [editingHelpItem, setEditingHelpItem] = useState<HelpItem | null>(null);
 
@@ -93,8 +93,8 @@ export default function HelpPage() {
       });
     } else {
       setEditingHelpItem(null);
-      form.reset({ 
-        topic: selectedTopicFilter || HelpTopic.APPLICATION_GUIDE, // Default to current filter or first topic
+      form.reset({
+        topic: selectedTopicFilter || HelpTopic.APPLICATION_GUIDE,
         question: '',
         answer: '',
       });
@@ -109,10 +109,12 @@ export default function HelpPage() {
     }
     setIsSubmitting(true);
     let result;
+    const dataPayload: AddHelpItemData = { ...values, adminId: currentUser.id };
+
     if (editingHelpItem) {
       result = await updateHelpItem(editingHelpItem.id, values);
     } else {
-      result = await addHelpItem({ ...values, adminId: currentUser.id });
+      result = await addHelpItem(dataPayload);
     }
     setIsSubmitting(false);
 
@@ -120,7 +122,7 @@ export default function HelpPage() {
       toast({ title: "Амжилттай", description: `Тусламжийн зүйл ${editingHelpItem ? "шинэчлэгдлээ" : "нэмэгдлээ"}.` });
       setIsFormDialogOpen(false);
       setEditingHelpItem(null);
-      fetchHelpItemsCallback(selectedTopicFilter); 
+      fetchHelpItemsCallback(selectedTopicFilter);
     } else if (result && "error" in result ) {
       toast({ title: "Алдаа", description: result.error, variant: "destructive" });
     }
@@ -142,11 +144,11 @@ export default function HelpPage() {
         setItemToDelete(null);
         return;
     }
-    setIsSubmitting(true); 
+    setIsSubmitting(true);
     const result = await deleteHelpItem(itemToDelete.id);
     setIsSubmitting(false);
     setShowDeleteConfirmDialog(false);
-    
+
     if (result.success) {
       toast({ title: "Амжилттай", description: `"${itemToDelete.question.substring(0,30)}..." асуулт устгагдлаа.` });
       setItemToDelete(null);
@@ -164,7 +166,7 @@ export default function HelpPage() {
     if (currentTopic === HelpTopic.TRAVEL_TIPS) return <Plane className="mr-2 h-5 w-5 text-primary" />;
     return <HelpCircle className="mr-2 h-5 w-5 text-primary" />;
   };
-  
+
   const getTopicDisplayName = (topicValue?: HelpTopic) => {
     if (!topicValue) return "Бүх Сэдэв";
     return topicValue;
@@ -183,7 +185,7 @@ export default function HelpPage() {
       <Dialog open={isFormDialogOpen} onOpenChange={(open) => {
           if(!open) {
               setEditingHelpItem(null);
-              form.reset({ topic: HelpTopic.APPLICATION_GUIDE, question: '', answer: ''});
+              form.reset({ topic: selectedTopicFilter || HelpTopic.APPLICATION_GUIDE, question: '', answer: ''});
           }
           setIsFormDialogOpen(open);
       }}>
@@ -296,7 +298,7 @@ export default function HelpPage() {
       <Card className="shadow-lg min-h-[400px]">
         <CardHeader>
           <CardTitle className="font-headline flex items-center">
-            {getTopicIcon(selectedTopicFilter)} 
+            {getTopicIcon(selectedTopicFilter)}
             {getTopicDisplayName(selectedTopicFilter)}
           </CardTitle>
           <CardDescription>
@@ -335,7 +337,11 @@ export default function HelpPage() {
                         <p className="text-xs text-muted-foreground/70 mt-2">
                             Нэмсэн: {new Date(item.createdAt).toLocaleDateString()}
                             {item.updatedAt && item.updatedAt !== item.createdAt ? ` | Засварласан: ${new Date(item.updatedAt).toLocaleDateString()}` : ''}
-                            {item.createdBy && ` | by: ${item.createdBy.substring(0,5)}...`}
+                        </p>
+                    )}
+                     {item.createdBy && (
+                        <p className="text-xs text-muted-foreground/70">
+                            Үүсгэсэн: {item.createdBy.substring(0,5)}...
                         </p>
                     )}
                   </AccordionContent>
@@ -352,3 +358,6 @@ export default function HelpPage() {
     </>
   );
 }
+
+
+    
