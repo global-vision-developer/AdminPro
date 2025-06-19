@@ -2,7 +2,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { unstable_noStore as noStore } from 'next/cache';
-import { PlusCircle, Edit, Image as ImageIcon, ExternalLink, Eye, EyeOff } from 'lucide-react'; 
+import { PlusCircle, Edit, Image as ImageIcon, ExternalLink, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { PageHeader } from '@/components/admin/page-header';
@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { getBanners } from '@/lib/actions/bannerActions';
-import { BannerImage } from './components/banner-image'; 
+import { BannerImage } from './components/banner-image';
 import { DeleteBannerButton } from './components/delete-banner-button';
 
 
@@ -24,7 +24,7 @@ export default async function BannersPage() {
       <PageHeader title="Баннер Удирдах" description="Вебсайтын баннеруудыг нэмэх, засах, устгах.">
         <Link href="/admin/banners/new" passHref>
           <Button>
-            <PlusCircle className="mr-2 h-4 w-4" /> Шинэ баннер нэмэх
+            <PlusCircle className="mr-2 h-4 w-4" /> Нэмэх
           </Button>
         </Link>
       </PageHeader>
@@ -128,3 +128,4 @@ export default async function BannersPage() {
 export const metadata = {
   title: "Banners | Admin Pro",
 };
+
