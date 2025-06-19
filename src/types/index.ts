@@ -9,8 +9,8 @@ export interface UserProfile {
   name: string;
   email: string;
   role: UserRole;
-  avatar?: string; 
-  allowedCategoryIds?: string[]; 
+  avatar?: string;
+  allowedCategoryIds?: string[];
 }
 
 export enum FieldType {
@@ -24,12 +24,12 @@ export enum FieldType {
 
 export interface ImageGalleryItemForm {
   clientId: string;
-  imageUrl: string | null; 
+  imageUrl: string | null;
   description?: string;
 }
 
 export interface ImageGalleryItemStored {
-  imageUrl: string; 
+  imageUrl: string;
   description?: string;
 }
 
@@ -50,7 +50,7 @@ export interface Category {
   slug: string;
   description?: string;
   fields: FieldDefinition[];
-  coverImageUrl?: string | null; 
+  coverImageUrl?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -60,7 +60,7 @@ export interface Entry {
   categoryId: string;
   title?: string;
   categoryName?: string;
-  data: Record<string, any | ImageGalleryItemStored[]>; 
+  data: Record<string, any | ImageGalleryItemStored[]>;
   status: 'draft' | 'published' | 'scheduled';
   publishAt?: string;
   createdAt: string;
@@ -69,10 +69,10 @@ export interface Entry {
 
 
 export interface AppUser {
-  id: string; 
+  id: string;
   email: string;
   displayName?: string;
-  fcmTokens?: string[]; 
+  fcmTokens?: string[];
 }
 
 export interface NotificationTarget {
@@ -83,35 +83,35 @@ export interface NotificationTarget {
   status: 'pending' | 'success' | 'failed';
   error?: string;
   messageId?: string;
-  attemptedAt?: string; 
+  attemptedAt?: string;
 }
 
 export interface NotificationLog {
-  id?: string; 
+  id?: string;
   title: string;
   body: string;
-  imageUrl?: string | null; 
+  imageUrl?: string | null;
   deepLink?: string | null;
-  scheduleAt?: string | null; 
+  scheduleAt?: string | null;
   adminCreator: {
     uid: string;
-    name?: string; 
-    email: string;   
+    name?: string;
+    email: string;
   };
-  createdAt: string; 
+  createdAt: string;
   processingStatus: 'pending' | 'processing' | 'completed' | 'partially_completed' | 'error' | 'scheduled' | 'completed_no_targets';
-  processedAt?: string | null; 
+  processedAt?: string | null;
   targets: NotificationTarget[];
 }
 
 export interface Banner {
   id: string;
-  imageUrl: string | null; 
+  imageUrl: string | null;
   description: string;
-  link?: string | null; 
-  isActive: boolean; 
-  createdAt?: string; 
-  updatedAt?: string; 
+  link?: string | null;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export enum AnketStatus {
@@ -125,49 +125,47 @@ export interface Anket {
   name: string;
   email: string;
   phoneNumber?: string;
-  cvLink?: string; 
-  message?: string; 
-  submittedAt: string; 
+  cvLink?: string;
+  message?: string;
+  submittedAt: string;
   status: AnketStatus;
-  processedBy?: string; 
-  processedAt?: string; 
+  processedBy?: string;
+  processedAt?: string;
 }
 
 
 export enum HelpTopic {
-  APPLICATION_GUIDE = "1", 
-  TRAVEL_TIPS = "2",       
+  APPLICATION_GUIDE = "Аппликэйшн ашиглах заавар",
+  TRAVEL_TIPS = "Хэрхэн хямд аялах вэ?",
 }
 
 export const HELP_TOPIC_DISPLAY_NAMES: Record<HelpTopic | string, string> = {
   [HelpTopic.APPLICATION_GUIDE]: "Аппликэйшн ашиглах заавар",
   [HelpTopic.TRAVEL_TIPS]: "Хэрхэн хямд аялах вэ?",
   "all_topics": "Бүх Сэдэв",
-  "1": "Аппликэйшн ашиглах заавар", 
-  "2": "Хэрхэн хямд аялах вэ?",  
 };
 
 
 export interface HelpItem {
   id: string;
-  topic: HelpTopic; 
+  topic: HelpTopic;
   question: string;
   answer: string;
-  isPredefined: boolean; 
-  createdAt?: string; 
-  updatedAt?: string; 
-  createdBy?: string; 
+  isPredefined: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  createdBy?: string;
 }
 
 
 export interface HelpRequest {
-  id?: string; 
-  topic: HelpTopic;
+  id?: string;
+  topic: HelpTopic; // Should remain HelpTopic for consistency if this type is used
   question: string;
-  userId?: string; 
-  userEmail?: string; 
-  status: 'pending' | 'answered' | 'archived'; 
-  createdAt: string; 
+  userId?: string;
+  userEmail?: string;
+  status: 'pending' | 'answered' | 'archived';
+  createdAt: string;
   answeredAt?: string;
   adminNotes?: string;
 }

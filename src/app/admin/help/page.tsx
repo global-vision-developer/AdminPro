@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription as UiDialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription as UiDialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle as UiAlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Label } from '@/components/ui/label';
@@ -18,7 +18,7 @@ import * as z from 'zod';
 import { useToast } from '@/hooks/use-toast';
 import type { HelpItem } from '@/types';
 import { HelpTopic, UserRole, HELP_TOPIC_DISPLAY_NAMES } from '@/types';
-import { getHelpItems, addHelpItem, updateHelpItem, deleteHelpItem, type AddHelpItemData, type UpdateHelpItemData } from '@/lib/actions/helpActions';
+import { getHelpItems, addHelpItem, updateHelpItem, deleteHelpItem, type AddHelpItemData } from '@/lib/actions/helpActions';
 import { Loader2, PlusCircle, BookOpen, Plane, HelpCircle, Edit3, Trash2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 
@@ -47,7 +47,7 @@ export default function HelpPage() {
   const form = useForm<HelpItemFormValues>({
     resolver: zodResolver(helpItemFormSchema),
     defaultValues: {
-      topic: HelpTopic.APPLICATION_GUIDE, // Default to "1"
+      topic: HelpTopic.APPLICATION_GUIDE,
       question: '',
       answer: '',
     },
@@ -105,10 +105,9 @@ export default function HelpPage() {
     }
     setIsSubmitting(true);
     let result;
-    
+
     if (editingHelpItem) {
-      const updateData: UpdateHelpItemData = { topic: values.topic, question: values.question, answer: values.answer };
-      result = await updateHelpItem(editingHelpItem.id, updateData);
+      result = await updateHelpItem(editingHelpItem.id, { ...values, adminId: currentUser.id });
     } else {
       const addData: AddHelpItemData = { ...values, adminId: currentUser.id };
       result = await addHelpItem(addData);
@@ -119,8 +118,9 @@ export default function HelpPage() {
       toast({ title: "Амжилттай", description: `Тусламжийн зүйл ${editingHelpItem ? "шинэчлэгдлээ" : "нэмэгдлээ"}.` });
       setIsFormDialogOpen(false);
       setEditingHelpItem(null);
+      // Refetch items
       const effectiveFilter = selectedTopicFilter === "all_topics" ? undefined : selectedTopicFilter;
-      const updatedItems = await getHelpItems(effectiveFilter);
+      const updatedItems = await getHelpItems(effectiveFilter); // fetch again
       setHelpItems(updatedItems);
     } else if (result && "error" in result ) {
       toast({ title: "Алдаа", description: result.error, variant: "destructive" });
@@ -144,14 +144,14 @@ export default function HelpPage() {
         return;
     }
     setIsSubmitting(true);
-    const result = await deleteHelpItem(itemToDelete.id);
+    const result = await deleteHelpItem(itemToDelete.id, currentUser.id);
     setIsSubmitting(false);
     setShowDeleteConfirmDialog(false);
 
     if (result.success) {
       toast({ title: "Амжилттай", description: `"${itemToDelete.question.substring(0,30)}..." асуулт устгагдлаа.` });
       const effectiveFilter = selectedTopicFilter === "all_topics" ? undefined : selectedTopicFilter;
-      const updatedItems = await getHelpItems(effectiveFilter);
+      const updatedItems = await getHelpItems(effectiveFilter); // fetch again
       setHelpItems(updatedItems);
       setItemToDelete(null);
     } else if (result.error) {
@@ -166,11 +166,6 @@ export default function HelpPage() {
     if (topicId === HelpTopic.TRAVEL_TIPS) return <Plane className="mr-2 h-5 w-5 text-primary" />;
     return <HelpCircle className="mr-2 h-5 w-5 text-primary" />;
   };
-
-  const getTopicDisplayName = (topicId?: HelpTopic | "all_topics") => {
-    if (!topicId) return "Тодорхойгүй сэдэв";
-    return HELP_TOPIC_DISPLAY_NAMES[topicId] || "Тодорхойгүй сэдэв";
-  }
 
   return (
     <>
@@ -282,7 +277,7 @@ export default function HelpPage() {
         <Label htmlFor="topic-filter-select">Сэдвээр шүүх</Label>
         <Select
           onValueChange={handleTopicFilterChange}
-          value={selectedTopicFilter} 
+          value={selectedTopicFilter}
         >
           <SelectTrigger id="topic-filter-select" className="w-full mt-1">
             <SelectValue placeholder="Сэдэв сонгоно уу..." />
@@ -302,10 +297,10 @@ export default function HelpPage() {
         <CardHeader>
           <CardTitle className="font-headline flex items-center">
             {getTopicIcon(selectedTopicFilter)}
-            {getTopicDisplayName(selectedTopicFilter)}
+            {HELP_TOPIC_DISPLAY_NAMES[selectedTopicFilter]}
           </CardTitle>
           <CardDescription>
-            {selectedTopicFilter === "all_topics" ? "Бүх нийтлэг асуулт, хариултууд." : `"${getTopicDisplayName(selectedTopicFilter)}" сэдэвтэй холбоотой нийтлэг асуулт, хариултууд.`}
+            {selectedTopicFilter === "all_topics" ? "Бүх нийтлэг асуулт, хариултууд." : `"${HELP_TOPIC_DISPLAY_NAMES[selectedTopicFilter]}" сэдэвтэй холбоотой нийтлэг асуулт, хариултууд.`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -358,7 +353,7 @@ export default function HelpPage() {
             </Accordion>
           ) : (
             <p className="text-center text-muted-foreground py-8">
-              {selectedTopicFilter === "all_topics" ? "Харуулах асуулт, хариулт алга." : `"${getTopicDisplayName(selectedTopicFilter)}" сэдэвтэй холбоотой нийтлэг асуулт олдсонгүй.`}
+              {selectedTopicFilter === "all_topics" ? "Харуулах асуулт, хариулт алга." : `"${HELP_TOPIC_DISPLAY_NAMES[selectedTopicFilter]}" сэдэвтэй холбоотой нийтлэг асуулт олдсонгүй.`}
             </p>
           )}
         </CardContent>
