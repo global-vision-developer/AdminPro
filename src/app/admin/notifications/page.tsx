@@ -15,8 +15,9 @@ import type { AppUser } from '@/types';
 import { getAppUsers } from '@/lib/actions/appUserActions';
 import { NotificationForm, type NotificationFormValues } from './components/notification-form';
 import { createNotificationEntry } from '@/lib/actions/notificationActions'; 
-import { MailWarning, Send, Users, Loader2, Search as SearchIcon } from 'lucide-react';
+import { MailWarning, Send, Users, Loader2, Search as SearchIcon, Info } from 'lucide-react'; // Added Info
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'; // Added Alert
 
 export default function NotificationsPage() {
   const [appUsers, setAppUsers] = useState<AppUser[]>([]);
@@ -117,6 +118,16 @@ export default function NotificationsPage() {
         </Button>
       </PageHeader>
 
+      <Alert variant="default" className="mb-4 border-blue-500">
+        <Info className="h-5 w-5 text-blue-500" />
+        <AlertTitle className="font-semibold text-blue-700">Expo Push Tokens</AlertTitle>
+        <AlertDescription className="text-blue-600">
+          Хэрэв таны аппликэйшн Expo ашигладаг бол, Expo-гоос авсан push token-ууд (жишээ нь, <code className="font-mono bg-blue-100 px-1 rounded text-blue-800">ExponentPushToken[...]</code>) нь FCM token-той нийцтэй ажиллана.
+          Таны клиент (Expo) аппликэйшн нь эдгээр токенуудыг Firestore-ийн <code className="font-mono bg-blue-100 px-1 rounded text-blue-800">users</code> коллекцийн <code className="font-mono bg-blue-100 px-1 rounded text-blue-800">fcmTokens</code> (массив) талбарт хадгалах ёстой.
+          Энэ админ панел нь тухайн токенуудыг ашиглан Firebase Cloud Functions (FCM) рүү мэдэгдэл илгээх хүсэлт тавина.
+        </AlertDescription>
+      </Alert>
+
       <Card>
         <CardHeader>
           <CardTitle>Апп Хэрэглэгчид</CardTitle>
@@ -146,7 +157,7 @@ export default function NotificationsPage() {
               </p>
             </div>
           ) : (
-            <ScrollArea className="h-[calc(100vh-350px)]">
+            <ScrollArea className="h-[calc(100vh-420px)]"> {/* Adjusted height for the new Alert */}
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -228,4 +239,3 @@ export default function NotificationsPage() {
     </>
   );
 }
-

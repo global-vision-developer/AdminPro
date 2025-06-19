@@ -65,7 +65,7 @@ Stores profile information for the end-users of your application, primarily for 
 *   **Fields:**
     *   `email: string` (App user's email)
     *   `displayName: string` (App user's display name, optional)
-    *   `fcmTokens: array<string>` (List of Firebase Cloud Messaging registration tokens for this user's devices. Updated by the client app.)
+    *   `fcmTokens: array<string>` (List of Firebase Cloud Messaging (FCM) registration tokens for this user's devices. **Expo Push Tokens (e.g., `ExponentPushToken[...]`) should be stored here by your client application.** The admin panel uses these tokens to send notifications via FCM.)
     *   `createdAt: firebase.firestore.Timestamp` (Server timestamp when the app user document was created)
     *   `lastLoginAt: firebase.firestore.Timestamp` (Optional: Server timestamp of the user's last login)
 
@@ -92,7 +92,7 @@ Stores logs of push notifications sent or scheduled to be sent to app users. A F
             *   `userId: string` (Target app user's UID)
             *   `userEmail: string` (Target app user's email, denormalized)
             *   `userName: string` (Target app user's name, denormalized, optional)
-            *   `token: string` (The specific FCM token targeted for this user device)
+            *   `token: string` (The specific FCM token targeted for this user device, e.g., an Expo Push Token)
             *   `status: string` (e.g., "pending", "success", "failed" - updated by the Firebase Function)
             *   `error: string` (Optional: Error message if sending to this token failed)
             *   `messageId: string` (Optional: FCM message ID on successful send)
@@ -110,6 +110,23 @@ Stores banner information for display on the website/app.
     *   `isActive: boolean` (Controls whether the banner is currently active and should be displayed)
     *   `createdAt: firebase.firestore.Timestamp` (Server timestamp of when the banner was created)
     *   `updatedAt: firebase.firestore.Timestamp` (Server timestamp of when the banner was last updated)
+
+### `ankets` Collection
+
+Stores submitted applications or forms (e.g., for translators).
+
+*   **Document ID:** Auto-generated Firestore ID
+*   **Fields:**
+    *   `name: string` (Applicant's name)
+    *   `email: string` (Applicant's email)
+    *   `phoneNumber: string` (Optional, applicant's phone number)
+    *   `cvLink: string` (Optional, URL to applicant's CV/resume)
+    *   `message: string` (Optional, cover letter or additional message from applicant)
+    *   `submittedAt: firebase.firestore.Timestamp` (Server timestamp of when the anket was submitted)
+    *   `status: string` (e.g., "pending", "approved", "rejected" - matching `AnketStatus` enum)
+    *   `processedBy: string` (Optional, UID of the admin who processed the anket)
+    *   `processedAt: firebase.firestore.Timestamp` (Optional, server timestamp of when the anket was processed)
+
 
 This structure is designed to be scalable and flexible, allowing for dynamic content types based on category definitions. Firestore security rules should be configured to protect this data appropriately (e.g., only authenticated admins can write to `admins`, `categories`, `entries`).
 
@@ -155,7 +172,7 @@ This **SPECIFICALLY MEANS** the query on the `entries` collection (likely in `sr
 
 ## Firestore Security Rules
 
-**Example Firestore Security Rules Snippet (Conceptual - Needs to be updated for `banners`):**
+**Example Firestore Security Rules Snippet (Conceptual - Needs to be updated for `banners` and `ankets`):**
 ```firestore
 rules_version = '2';
 service cloud.firestore {
@@ -182,37 +199,53 @@ service cloud.firestore {
                                            get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
     }
 
-    // App Users collection
+    // App Users collection ('users')
     match /users/{userId} {
-      allow read: if request.auth != null && 
-                    (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
-                     get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
+      // Admins can read app user data (e.g., for notification targeting)
+      allow read, list: if request.auth != null && 
+                           (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
+                            get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
+      // Only the app user themselves can write to their own document (e.g., to update fcmTokens)
+      // Ensure your client app authenticates users before writing to their own doc.
       allow write: if request.auth != null && request.auth.uid == userId;
-      allow list: if request.auth != null && 
-                    (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
-                     get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
+      // Disallow creation by admins directly, should be done by app users through auth.
+      allow create: if request.auth != null && request.auth.uid == userId; 
     }
 
-    // Notifications collection
+    // Notifications collection ('notifications')
     match /notifications/{notificationId} {
+      // Admins can create notification requests
       allow create: if request.auth != null &&
                       (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
                        get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
+      // Admins can read/list notifications they might have created or for logging
       allow read, list: if request.auth != null &&
                           (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
                            get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
+      // Firebase Functions (unauthenticated or service account) or Super Admins can update (e.g., status)
       allow update: if request.auth == null || get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin'; 
+      // Only Super Admins can delete notification logs
       allow delete: if request.auth != null && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin';
     }
 
     // Banners collection
     match /banners/{bannerId} {
-      // Any authenticated admin can read banners
       allow read: if request.auth != null;
-      // Super Admins and Sub Admins can manage banners
       allow list, create, update, delete: if request.auth != null &&
                                           (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
                                            get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
+    }
+
+    // Ankets collection
+    match /ankets/{anketId} {
+      // App users (or unauthenticated if form is public) can create ankets
+      allow create: if true; // Or restrict to authenticated app users: request.auth != null;
+      // Admins can read, list, and update (status) ankets
+      allow read, list, update: if request.auth != null &&
+                                   (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
+                                    get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
+      // Only Super Admins can delete ankets
+      allow delete: if request.auth != null && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin';
     }
   }
 }
@@ -234,3 +267,4 @@ NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=YOUR_MEASUREMENT_ID (optional)
 ```
 Replace `YOUR_...` with your actual Firebase project credentials.
 Remember to restart your development server (`npm run dev`) after creating or modifying `.env.local`.
+
