@@ -4,6 +4,7 @@
 import {
   onDocumentCreated,
   FirestoreEvent,
+  // DocumentSnapshot, // Not directly used from here in v2
 } from "firebase-functions/v2/firestore";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
@@ -35,7 +36,7 @@ export const processNotificationRequest = onDocumentCreated(
   },
   async (event: FirestoreEvent<FirebaseFirestore.DocumentSnapshot | undefined>) => {
     const notificationId = event.params.notificationId;
-    const snapshot = event.data;
+    const snapshot = event.data; // DocumentSnapshot
 
     if (!snapshot) {
       logger.error(`No data for event. ID: ${notificationId}`);
@@ -62,10 +63,11 @@ export const processNotificationRequest = onDocumentCreated(
       scheduleAt, // Энэ нь Firestore Timestamp байх ёстой
     } = notificationData;
 
+    // Хуваарьт илгээлт
     if (scheduleAt && scheduleAt.toMillis() > Date.now() + 5 * 60 * 1000) {
       const scheduledTime = new Date(scheduleAt.toMillis()).toISOString();
       logger.info(
-        `Sched skip: ID ${notificationId} for ${scheduledTime}`
+        `Sched skip: ID ${notificationId} for ${scheduledTime}.`
       );
       try {
         await db.doc(`notifications/${notificationId}`).update({
@@ -80,6 +82,7 @@ export const processNotificationRequest = onDocumentCreated(
       return null;
     }
 
+    // Боловсруулж эхэлснийг тэмдэглэх
     try {
       await db.doc(`notifications/${notificationId}`).update({
         processingStatus: "processing",
@@ -151,16 +154,20 @@ export const processNotificationRequest = onDocumentCreated(
       }
 
       let allSentSuccessfully = response.failureCount === 0;
+      // Firestore-д хадгалах хуулбар
       const updatedTargetsFirestore = [...originalTargetsArray];
       const currentTimestamp = admin.firestore.FieldValue.serverTimestamp();
 
       response.responses.forEach((result, index) => {
         const token = tokensToSend[index];
+        // Зөвхөн энэ илгээлтэд хамаарах 'pending' статустай,
+        // ижил token-той анхны target-г олох
         const originalTargetIndex = originalTargetsArray.findIndex(
           (t) => t.token === token && t.status === "pending"
         );
 
         if (originalTargetIndex !== -1) {
+          // Type assertion to ensure we are working with the correct type
           const targetToUpdateInFirestore: FunctionNotificationTarget =
             updatedTargetsFirestore[originalTargetIndex];
           if (result.success) {
@@ -182,6 +189,7 @@ export const processNotificationRequest = onDocumentCreated(
         }
       });
 
+      // Notification document-ийн ерөнхий статус болон targets-г шинэчлэх
       const finalProcessingStatus = allSentSuccessfully ?
         "completed" :
         "partially_completed";
@@ -189,7 +197,7 @@ export const processNotificationRequest = onDocumentCreated(
       await db.doc(`notifications/${notificationId}`).update({
         targets: updatedTargetsFirestore,
         processingStatus: finalProcessingStatus,
-        processedAt: currentTimestamp,
+        processedAt: currentTimestamp, // Эцсийн боловсруулсан цаг
       });
 
       logger.info(
@@ -201,6 +209,8 @@ export const processNotificationRequest = onDocumentCreated(
         `Critical error sending multicast for ID: ${notificationId}:`,
         error
       );
+      // Ерөнхий алдаа гарсан тохиолдолд
+      // бүх pending target-уудын статусыг 'failed' болгох
       const errorTimestamp = admin.firestore.FieldValue.serverTimestamp();
       const updatedTargetsOnError = originalTargetsArray.map((t) => {
         if (t.status === "pending") {
