@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { getAnkets } from '@/lib/actions/anketActions'; 
 import { format } from 'date-fns';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+// import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'; // Removed Alert import
 import { CreateTestAnketButton } from './components/create-test-anket-button';
 
 
@@ -45,16 +45,7 @@ export default async function AnketsPage({
          <CreateTestAnketButton />
       </PageHeader>
       
-      <Alert variant="default" className="mb-4 border-blue-500">
-        <Info className="h-5 w-5 text-blue-500" />
-        <AlertTitle className="font-semibold text-blue-700">Чухал Анхааруулга: "Орчуулагчид" Категори</AlertTitle>
-        <AlertDescription className="text-blue-600">
-          Анкет "Зөвшөөрөх" үйлдэл нь тухайн хүний мэдээллийг <strong>"Орчуулагчид"</strong> (slug: <code>orchluulagchid</code>) нэртэй категорид шинэ бүртгэл болгон нэмнэ.
-          Энэ категори урьдчилан үүсгэгдсэн байх ёстой бөгөөд анкетаас ирэх мэдээлэлд (нэр, имэйл, утас, CV гэх мэт) тохирох талбаруудтай (жишээ нь, `name`, `email`, `phone_number`, `cv_link` гэсэн түлхүүр үгсээр) байх шаардлагатайг анхаарна уу.
-          Хэрэв энэ категори байхгүй, эсвэл талбарууд нь буруу тохируулагдсан бол "Зөвшөөрөх" үйлдэл алдаа зааж болзошгүй.
-        </AlertDescription>
-      </Alert>
-
+      {/* Removed the Alert component that was here */}
 
       <Card className="shadow-lg">
         <CardHeader>
