@@ -1,4 +1,3 @@
-
 # Firebase Studio
 
 This is a NextJS starter in Firebase Studio.
@@ -49,7 +48,6 @@ Stores individual content entries belonging to a specific category.
 *   **Document ID:** Auto-generated Firestore ID
 *   **Fields:**
     *   `categoryId: string` (ID of the document in the `categories` collection this entry belongs to)
-    *   `categoryName: string` (Denormalized name of the category for easier display)
     *   `title: string` (A general title for the entry, useful for display in lists and admin UI. This might be derived from a specific field in `data` if a standard 'title' field exists in the category definition, or can be a separate field.)
     *   `data: map` (An object where keys are `fieldDefinition.id` from the parent category's `fields` array, and values are the actual content for those fields. Image data stored as Base64 data URIs.)
     *   `status: string` (e.g., "draft", "published", "scheduled" - matching `Entry['status']` type)
@@ -87,7 +85,7 @@ Stores logs of push notifications sent or scheduled to be sent to app users. A F
         *   `email: string` (Email of the admin)
         *   `name: string` (Name of the admin, optional)
     *   `createdAt: firebase.firestore.Timestamp` (Timestamp of when the admin created this log)
-    *   `processingStatus: string` (e.g., "pending", "processing", "completed", "partially_completed", "error" - managed by the Firebase Function)
+    *   `processingStatus: string` (e.g., "pending", "processing", "completed", "partially_completed", "scheduled", "completed_no_targets", "error" - managed by the Firebase Function)
     *   `processedAt: firebase.firestore.Timestamp` (Optional: Timestamp of when processing by Firebase Function started/completed)
     *   `targets: array` (Array of target user tokens and their individual statuses)
         *   Each object in the array:
@@ -125,39 +123,24 @@ Stores submitted applications or forms (e.g., for translators or general applica
     *   `cvLink: string` (Optional, URL to applicant's CV/resume)
     *   `message: string` (Optional, cover letter or additional message from applicant)
     *   `submittedAt: firebase.firestore.Timestamp` (Server timestamp of when the anket was submitted)
-    *   `status: string` (e.g., "pending", "approved", "rejected" - matching `AnketStatus` enum from `src/types/index.ts`)
+    *   `status: string` (e.g., "pending", "approved", "rejected" - matching `AnketStatus` enum)
     *   `processedBy: string` (Optional, UID of the admin who processed the anket)
     *   `processedAt: firebase.firestore.Timestamp` (Optional, server timestamp of when the anket was processed)
 
 ### `help_items` Collection (For Help Section FAQs)
 
-Stores pre-defined frequently asked questions and their answers.
-
-*   **Document ID:** Auto-generated Firestore ID or a custom meaningful ID (e.g., `faq_app_offline_mode`)
-*   **Fields:**
-    *   `topic: string` (e.g., "Аппликэйшн ашиглах заавар", "Хэрхэн хямд аялах вэ?" - matching `HelpTopic` enum from `src/types/index.ts`)
-    *   `question: string` (The frequently asked question text)
-    *   `answer: string` (The answer to the question, can be long text/HTML)
-    *   `isPredefined: boolean` (Should be `true` for these items)
-    *   `order: number` (Optional: for ordering FAQs within a topic)
-    *   `createdAt: firebase.firestore.Timestamp`
-    *   `updatedAt: firebase.firestore.Timestamp`
-
-### `help_requests` Collection (For User-Submitted Questions)
-
-Stores questions submitted by users through the help section. Admins would review these and potentially create new `help_items` or respond directly.
+Stores pre-defined frequently asked questions and their answers, managed by admins.
 
 *   **Document ID:** Auto-generated Firestore ID
 *   **Fields:**
-    *   `topic: string` (The topic selected by the user when submitting - matching `HelpTopic` enum)
-    *   `question: string` (The user's submitted question)
-    *   `userId: string` (Optional: UID of the authenticated admin who submitted, if applicable)
-    *   `userEmail: string` (Optional: Email of the admin who submitted)
-    *   `status: string` (e.g., "pending", "answered", "archived" - managed by admins)
-    *   `createdAt: firebase.firestore.Timestamp` (When the request was submitted)
-    *   `answeredAt: firebase.firestore.Timestamp` (Optional: When an admin responded or created an FAQ)
-    *   `adminNotes: string` (Optional: Internal notes by admins regarding this request)
-
+    *   `topic: string` (e.g., "Аппликэйшн ашиглах заавар", "Хэрхэн хямд аялах вэ?" - matching `HelpTopic` enum)
+    *   `question: string` (The frequently asked question text)
+    *   `answer: string` (The answer to the question, can be long text/HTML)
+    *   `isPredefined: boolean` (Should be `true` for these items as they are admin-curated FAQs)
+    *   `order: number` (Optional: for ordering FAQs within a topic)
+    *   `createdAt: firebase.firestore.Timestamp`
+    *   `updatedAt: firebase.firestore.Timestamp`
+    *   `createdBy: string` (Optional: UID of the admin who created/updated the item)
 
 This structure is designed to be scalable and flexible, allowing for dynamic content types based on category definitions. Firestore security rules should be configured to protect this data appropriately (e.g., only authenticated admins can write to `admins`, `categories`, `entries`).
 
@@ -168,8 +151,6 @@ As you build queries for Firestore, you might encounter errors like **"FirebaseE
 ---
 
 🚨🚨🚨 **CRITICAL: FIXING THE RECURRING "The query requires an index" ERROR FOR `entries` COLLECTION** 🚨🚨🚨
-
-**THIS IS A VERY COMMON AND REPEATED ISSUE. PLEASE READ CAREFULLY.**
 
 If you are seeing an error message in your Next.js console similar to this (especially when navigating to the "Entries" page or filtering entries):
 
@@ -210,7 +191,7 @@ This **SPECIFICALLY MEANS** the query on the `entries` collection (likely in `sr
 
 ## Firestore Security Rules
 
-**Example Firestore Security Rules Snippet (Conceptual - Needs to be updated for `allowedCategoryIds` for Sub Admins, `banners`, `ankets`, `help_items`, and `help_requests`):**
+**Example Firestore Security Rules Snippet (Conceptual - Needs to be updated for `banners`, `ankets`, `help_items`):**
 ```firestore
 rules_version = '2';
 service cloud.firestore {
@@ -218,62 +199,51 @@ service cloud.firestore {
     // Admins collection
     match /admins/{adminId} {
       allow read: if request.auth != null && request.auth.uid == adminId; // Own record
-      // Super Admins can list and manage all admin records
       allow list, write: if request.auth != null && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin';
     }
 
     // Categories collection
     match /categories/{categoryId} {
-      // Any authenticated admin can read categories
-      allow read: if request.auth != null;
-      // Only Super Admins can manage categories
+      allow read: if request.auth != null; // Authenticated admins can read
       allow list, create, update, delete: if request.auth != null &&
-                                          get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin';
+                                          (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
+                                           get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
     }
 
     // Entries collection
     match /entries/{entryId} {
-      // Any authenticated admin can read any entry (for now, can be restricted later)
-      allow read: if request.auth != null;
-
-      // Super Admins can manage all entries
-      // Sub Admins can manage entries if the entry's categoryId is in their allowedCategoryIds list
+      allow read: if request.auth != null; // Authenticated admins can read
       allow list, create, update, delete: if request.auth != null &&
-                                          (
-                                            get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin'
-                                            ||
-                                            (
-                                              get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin' &&
-                                              (request.resource.data.categoryId in get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.allowedCategoryIds ||
-                                               resource.data.categoryId in get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.allowedCategoryIds)
-                                            )
-                                          );
+                                          (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
+                                           get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
     }
 
     // App Users collection ('users')
     match /users/{userId} {
-      // Admins can read app user data for notification targeting
+      // Admins can read app user data (e.g., for notification targeting)
       allow read, list: if request.auth != null &&
                            (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
                             get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
-      // Only the app user themselves can write to their own document (e.g., update fcmTokens)
-      // Your client app should authenticate users properly before writing.
+      // Only the app user themselves can write to their own document (e.g., to update fcmTokens)
+      // Ensure your client app authenticates users before writing to their own doc.
       allow write: if request.auth != null && request.auth.uid == userId;
-      // App users create their own documents usually upon first sign-in or registration via client SDK.
-      // Admins should not typically create these directly.
+      // Disallow creation by admins directly, should be done by app users through auth.
       allow create: if request.auth != null && request.auth.uid == userId;
     }
 
     // Notifications collection ('notifications')
     match /notifications/{notificationId} {
+      // Admins can create notification requests
       allow create: if request.auth != null &&
                       (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
                        get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
+      // Admins can read/list notifications they might have created or for logging
       allow read, list: if request.auth != null &&
                           (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
                            get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
       // Firebase Functions (unauthenticated or service account) or Super Admins can update (e.g., status)
       allow update: if request.auth == null || get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin';
+      // Only Super Admins can delete notification logs
       allow delete: if request.auth != null && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin';
     }
 
@@ -287,42 +257,28 @@ service cloud.firestore {
 
     // Ankets collection
     match /ankets/{anketId} {
-      // Allow creation by anyone (if public form) or authenticated app users
-      allow create: if true; // Or: if request.auth != null; (for authenticated app users)
-      // Admins can manage ankets
+      // App users (or unauthenticated if form is public) can create ankets
+      allow create: if true; // Or restrict to authenticated app users: request.auth != null;
+      // Admins can read, list, and update (status) ankets
       allow read, list, update: if request.auth != null &&
-                                (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
-                                 get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
+                                   (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
+                                    get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
+      // Only Super Admins can delete ankets
       allow delete: if request.auth != null && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin';
     }
 
     // Help Items (FAQs) collection
     match /help_items/{helpItemId} {
-      // Anyone (including unauthenticated users if your help page is public) can read FAQs
-      allow read: if true;
-      // Only Super Admins can create, update, or delete FAQs
-      allow list, create, update, delete: if request.auth != null &&
-                                          get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin';
-    }
-
-    // Help Requests collection (user-submitted questions)
-    match /help_requests/{helpRequestId} {
-      // Authenticated admins can submit help requests (e.g., testing or on behalf of a user)
-      allow create: if request.auth != null &&
-                      (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
-                       get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
-      // Admins can read and list requests to manage them
-      allow read, list: if request.auth != null &&
-                          (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
-                           get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
-      // Super Admins can update (e.g., status, add answer/notes) or delete requests
-      allow update, delete: if request.auth != null &&
-                             get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin';
+      allow read: if true; // Publicly readable
+      // Super Admins and Sub Admins can manage FAQs
+      allow list, create, update, delete: if request.auth != null && 
+                                          (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
+                                           get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
     }
   }
 }
 ```
-*Remember to tailor security rules to your specific application needs and test them thoroughly.*
+*Remember to tailor security rules to your specific application needs.*
 
 ## Environment Variables
 

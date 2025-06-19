@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -8,159 +7,230 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import { useToast } from '@/hooks/use-toast';
-import type { HelpItem, HelpRequest } from '@/types';
+import type { HelpItem } from '@/types';
 import { HelpTopic } from '@/types';
-import { getHelpItems, submitHelpRequest } from '@/lib/actions/helpActions';
-import { Loader2, Send, HelpCircle, MessageSquarePlus, BookOpen, Plane } from 'lucide-react';
+import { getHelpItems, addHelpItem } from '@/lib/actions/helpActions';
+import { Loader2, PlusCircle, BookOpen, Plane, HelpCircle } from 'lucide-react';
+
+const helpItemFormSchema = z.object({
+  topic: z.nativeEnum(HelpTopic, { required_error: "Сэдэв сонгоно уу." }),
+  question: z.string().min(1, "Асуулт хоосон байж болохгүй."),
+  answer: z.string().min(1, "Хариулт хоосон байж болохгүй."),
+});
+type HelpItemFormValues = z.infer<typeof helpItemFormSchema>;
 
 export default function HelpPage() {
-  const [selectedTopic, setSelectedTopic] = useState<HelpTopic | undefined>(HelpTopic.APPLICATION_GUIDE);
+  const [selectedTopicFilter, setSelectedTopicFilter] = useState<HelpTopic | undefined>(undefined);
   const [helpItems, setHelpItems] = useState<HelpItem[]>([]);
-  const [isLoadingItems, setIsLoadingItems] = useState(false);
-  const [newQuestion, setNewQuestion] = useState('');
+  const [isLoadingItems, setIsLoadingItems] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
 
-  const fetchHelpItems = useCallback(async (topic?: HelpTopic) => {
+  const form = useForm<HelpItemFormValues>({
+    resolver: zodResolver(helpItemFormSchema),
+    defaultValues: {
+      topic: HelpTopic.APPLICATION_GUIDE, // Default topic for new item
+      question: '',
+      answer: '',
+    },
+  });
+
+  const fetchHelpItemsCallback = useCallback(async (topic?: HelpTopic) => {
     setIsLoadingItems(true);
-    const items = await getHelpItems(topic);
-    setHelpItems(items);
-    setIsLoadingItems(false);
-  }, []);
+    try {
+      const items = await getHelpItems(topic);
+      setHelpItems(items);
+    } catch (error) {
+      toast({ title: "Алдаа", description: "Тусламжийн мэдээллийг ачааллахад алдаа гарлаа.", variant: "destructive" });
+      setHelpItems([]);
+    } finally {
+      setIsLoadingItems(false);
+    }
+  }, [toast]);
 
   useEffect(() => {
-    fetchHelpItems(selectedTopic);
-  }, [selectedTopic, fetchHelpItems]);
+    fetchHelpItemsCallback(selectedTopicFilter);
+  }, [selectedTopicFilter, fetchHelpItemsCallback]);
 
-  const handleTopicChange = (topicValue: string) => {
-    setSelectedTopic(topicValue as HelpTopic);
+  const handleTopicFilterChange = (topicValue: string) => {
+    if (topicValue === "all_topics") {
+      setSelectedTopicFilter(undefined);
+    } else {
+      setSelectedTopicFilter(topicValue as HelpTopic);
+    }
   };
 
-  const handleSubmitNewQuestion = async () => {
-    if (!newQuestion.trim()) {
-      toast({ title: "Алдаа", description: "Асуултаа бичнэ үү.", variant: "destructive" });
-      return;
-    }
-    if (!selectedTopic) {
-      toast({ title: "Алдаа", description: "Эхлээд тусламжийн сэдэв сонгоно уу.", variant: "destructive" });
-      return;
-    }
-
+  const handleAddNewHelpItem = async (values: HelpItemFormValues) => {
     setIsSubmitting(true);
-    const result = await submitHelpRequest(selectedTopic, newQuestion);
+    const result = await addHelpItem(values);
     setIsSubmitting(false);
 
     if ("id" in result) {
-      toast({ title: "Амжилттай", description: "Таны асуултыг амжилттай илгээлээ. Бид удахгүй хариулах болно." });
-      setNewQuestion('');
-      // Optionally, re-fetch user-submitted questions if displayed on this page, or navigate.
+      toast({ title: "Амжилттай", description: "Шинэ тусламжийн зүйл амжилттай нэмэгдлээ." });
+      setIsDialogOpen(false);
+      form.reset();
+      fetchHelpItemsCallback(selectedTopicFilter); // Refresh the list
     } else {
       toast({ title: "Алдаа", description: result.error, variant: "destructive" });
     }
   };
 
   const getTopicIcon = (topic: HelpTopic | undefined) => {
-    if (topic === HelpTopic.APPLICATION_GUIDE) return <BookOpen className="mr-2 h-5 w-5 text-primary" />;
-    if (topic === HelpTopic.TRAVEL_TIPS) return <Plane className="mr-2 h-5 w-5 text-primary" />;
+    if (!topic && !selectedTopicFilter) return <HelpCircle className="mr-2 h-5 w-5 text-primary" />;
+    const currentTopic = topic || selectedTopicFilter;
+    if (currentTopic === HelpTopic.APPLICATION_GUIDE) return <BookOpen className="mr-2 h-5 w-5 text-primary" />;
+    if (currentTopic === HelpTopic.TRAVEL_TIPS) return <Plane className="mr-2 h-5 w-5 text-primary" />;
     return <HelpCircle className="mr-2 h-5 w-5 text-primary" />;
+  };
+  
+  const getTopicDisplayName = (topicValue?: HelpTopic) => {
+    if (!topicValue) return "Бүх Сэдэв";
+    return topicValue;
   }
 
   return (
     <>
-      <PageHeader title="Тусламж, Дэмжлэг" description="Аппликэйшн ашиглах болон аялалтай холбоотой түгээмэл асуулт, хариултууд." />
+      <PageHeader title="Тусламж Удирдах" description="Түгээмэл асуулт хариулт (FAQ) нэмэх, засварлах, удирдах.">
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button onClick={() => { form.reset(); setIsDialogOpen(true); }}>
+              <PlusCircle className="mr-2 h-4 w-4" /> Шинэ Асуулт/Хариулт Нэмэх
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="font-headline">Шинэ Асуулт/Хариулт Нэмэх</DialogTitle>
+              <DialogDescription>
+                Хэрэглэгчдэд туслах шинэ асуулт, хариултыг оруулна уу.
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(handleAddNewHelpItem)} className="space-y-4 py-2">
+                <FormField
+                  control={form.control}
+                  name="topic"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Сэдэв</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Сэдэв сонгоно уу..." />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {Object.values(HelpTopic).map(topic => (
+                            <SelectItem key={topic} value={topic}>{topic}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="question"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Асуулт</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Асуултаа энд бичнэ үү..." {...field} rows={3} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="answer"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Хариулт</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Хариултаа энд дэлгэрэнгүй бичнэ үү..." {...field} rows={6} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <DialogFooter className="pt-4">
+                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSubmitting}>
+                    Цуцлах
+                  </Button>
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Хадгалах
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+      </PageHeader>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-1 space-y-6">
-          <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle className="font-headline flex items-center">
-                <HelpCircle className="mr-2 h-6 w-6 text-primary" />
-                Тусламжийн сэдэв
-              </CardTitle>
-              <CardDescription>Сонирхож буй сэдвээ сонгоно уу.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Select onValueChange={handleTopicChange} defaultValue={selectedTopic}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Сэдэв сонгоно уу..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.values(HelpTopic).map(topic => (
-                    <SelectItem key={topic} value={topic}>
-                      {topic}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle className="font-headline flex items-center">
-                <MessageSquarePlus className="mr-2 h-6 w-6 text-primary" />
-                Шинэ асуулт илгээх
-              </CardTitle>
-              <CardDescription>Нийтлэг асуултаас хариултаа олоогүй бол эндээс асуугаарай.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Textarea
-                placeholder="Асуултаа энд бичнэ үү..."
-                value={newQuestion}
-                onChange={(e) => setNewQuestion(e.target.value)}
-                rows={5}
-                className="text-base"
-              />
-              <Button onClick={handleSubmitNewQuestion} disabled={isSubmitting || !newQuestion.trim() || !selectedTopic} className="w-full">
-                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                Илгээх
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="md:col-span-2">
-          <Card className="shadow-lg min-h-[400px]">
-            <CardHeader>
-              <CardTitle className="font-headline flex items-center">
-                {getTopicIcon(selectedTopic)}
-                {selectedTopic || "Нийтлэг Асуулт Хариулт"}
-              </CardTitle>
-              <CardDescription>
-                {selectedTopic ? `"${selectedTopic}" сэдэвтэй холбоотой нийтлэг асуулт, хариултууд.` : "Сэдэв сонгоно уу."}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoadingItems ? (
-                <div className="flex justify-center items-center h-40">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </div>
-              ) : helpItems.length > 0 ? (
-                <Accordion type="single" collapsible className="w-full space-y-3">
-                  {helpItems.map((item) => (
-                    <AccordionItem key={item.id} value={item.id} className="border bg-background rounded-md shadow-sm hover:shadow-md transition-shadow">
-                      <AccordionTrigger className="p-4 text-left hover:no-underline focus:no-underline">
-                        <span className="font-medium text-foreground">{item.question}</span>
-                      </AccordionTrigger>
-                      <AccordionContent className="p-4 pt-0">
-                        <div className="prose prose-sm max-w-none text-muted-foreground whitespace-pre-line">
-                          {item.answer}
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-              ) : (
-                <p className="text-center text-muted-foreground py-8">
-                  {selectedTopic ? "Энэ сэдэвтэй холбоотой нийтлэг асуулт олдсонгүй." : "Харуулах асуулт, хариулт алга."}
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+      <div className="mb-6 max-w-xs">
+        <FormLabel htmlFor="topic-filter-select">Сэдвээр шүүх</FormLabel>
+        <Select onValueChange={handleTopicFilterChange} defaultValue="all_topics">
+          <SelectTrigger id="topic-filter-select" className="w-full mt-1">
+            <SelectValue placeholder="Сэдэв сонгоно уу..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all_topics">Бүх сэдэв</SelectItem>
+            {Object.values(HelpTopic).map(topic => (
+              <SelectItem key={topic} value={topic}>
+                {topic}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
+
+      <Card className="shadow-lg min-h-[400px]">
+        <CardHeader>
+          <CardTitle className="font-headline flex items-center">
+            {getTopicIcon(undefined)} 
+            {getTopicDisplayName(selectedTopicFilter)}
+          </CardTitle>
+          <CardDescription>
+            {selectedTopicFilter ? `"${selectedTopicFilter}" сэдэвтэй холбоотой нийтлэг асуулт, хариултууд.` : "Бүх нийтлэг асуулт, хариултууд."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoadingItems ? (
+            <div className="flex justify-center items-center h-40">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : helpItems.length > 0 ? (
+            <Accordion type="single" collapsible className="w-full space-y-3">
+              {helpItems.map((item) => (
+                <AccordionItem key={item.id} value={item.id} className="border bg-background rounded-md shadow-sm hover:shadow-md transition-shadow">
+                  <AccordionTrigger className="p-4 text-left hover:no-underline focus:no-underline">
+                    <span className="font-medium text-foreground">{item.question}</span>
+                  </AccordionTrigger>
+                  <AccordionContent className="p-4 pt-0">
+                    <div className="prose prose-sm max-w-none text-muted-foreground whitespace-pre-line">
+                      {item.answer}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          ) : (
+            <p className="text-center text-muted-foreground py-8">
+              {selectedTopicFilter ? "Энэ сэдэвтэй холбоотой нийтлэг асуулт олдсонгүй." : "Харуулах асуулт, хариулт алга."}
+            </p>
+          )}
+        </CardContent>
+      </Card>
     </>
   );
 }
-
+    

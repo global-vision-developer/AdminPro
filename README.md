@@ -1,4 +1,3 @@
-
 # Firebase Studio
 
 This is a NextJS starter in Firebase Studio.
@@ -85,7 +84,7 @@ Stores logs of push notifications sent or scheduled to be sent to app users. A F
         *   `email: string` (Email of the admin)
         *   `name: string` (Name of the admin, optional)
     *   `createdAt: firebase.firestore.Timestamp` (Timestamp of when the admin created this log)
-    *   `processingStatus: string` (e.g., "pending", "processing", "completed", "partially_completed", "error" - managed by the Firebase Function)
+    *   `processingStatus: string` (e.g., "pending", "processing", "completed", "partially_completed", "scheduled", "completed_no_targets", "error" - managed by the Firebase Function)
     *   `processedAt: firebase.firestore.Timestamp` (Optional: Timestamp of when processing by Firebase Function started/completed)
     *   `targets: array` (Array of target user tokens and their individual statuses)
         *   Each object in the array:
@@ -129,9 +128,9 @@ Stores submitted applications or forms (e.g., for translators).
 
 ### `help_items` Collection (For Help Section FAQs)
 
-Stores pre-defined frequently asked questions and their answers.
+Stores pre-defined frequently asked questions and their answers, managed by admins.
 
-*   **Document ID:** Auto-generated Firestore ID or a custom meaningful ID
+*   **Document ID:** Auto-generated Firestore ID
 *   **Fields:**
     *   `topic: string` (e.g., "Аппликэйшн ашиглах заавар" - matching `HelpTopic` enum)
     *   `question: string` (The frequently asked question text)
@@ -140,20 +139,7 @@ Stores pre-defined frequently asked questions and their answers.
     *   `order: number` (Optional: for ordering FAQs within a topic)
     *   `createdAt: firebase.firestore.Timestamp`
     *   `updatedAt: firebase.firestore.Timestamp`
-
-### `help_requests` Collection (For User-Submitted Questions)
-
-Stores questions submitted by users through the help section.
-
-*   **Document ID:** Auto-generated Firestore ID
-*   **Fields:**
-    *   `topic: string` (The topic selected by the user)
-    *   `question: string` (The user's submitted question)
-    *   `userId: string` (Optional: UID of the admin, if submitted from admin panel)
-    *   `userEmail: string` (Optional: Email of the admin)
-    *   `status: string` (e.g., "pending", "answered")
-    *   `createdAt: firebase.firestore.Timestamp`
-
+    *   `createdBy: string` (Optional: UID of the admin who created/updated the item)
 
 This structure is designed to be scalable and flexible, allowing for dynamic content types based on category definitions. Firestore security rules should be configured to protect this data appropriately (e.g., only authenticated admins can write to `admins`, `categories`, `entries`).
 
@@ -199,7 +185,7 @@ This **SPECIFICALLY MEANS** the query on the `entries` collection (likely in `sr
 
 ## Firestore Security Rules
 
-**Example Firestore Security Rules Snippet (Conceptual - Needs to be updated for `banners`, `ankets`, `help_items`, `help_requests`):**
+**Example Firestore Security Rules Snippet (Conceptual - Needs to be updated for `banners`, `ankets`, `help_items`):**
 ```firestore
 rules_version = '2';
 service cloud.firestore {
@@ -278,13 +264,8 @@ service cloud.firestore {
     // Help Items (FAQs) collection
     match /help_items/{helpItemId} {
       allow read: if true; // Publicly readable
-      allow list, create, update, delete: if request.auth != null && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin';
-    }
-
-    // Help Requests collection
-    match /help_requests/{helpRequestId} {
-      allow create: if request.auth != null; // Authenticated admins can submit requests
-      allow read, list, update, delete: if request.auth != null &&
+      // Super Admins and Sub Admins can manage FAQs
+      allow list, create, update, delete: if request.auth != null && 
                                           (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
                                            get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
     }
