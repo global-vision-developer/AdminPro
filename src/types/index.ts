@@ -19,11 +19,11 @@ export enum FieldType {
   NUMBER = 'Number',
   DATE = 'Date',
   BOOLEAN = 'Boolean',
-  IMAGE_GALLERY = 'Image Gallery', 
+  IMAGE_GALLERY = 'Image Gallery',
 }
 
 export interface ImageGalleryItemForm {
-  clientId: string; 
+  clientId: string;
   imageUrl: string | null; // Can be Base64 data URI or existing URL
   description?: string;
 }
@@ -35,36 +35,36 @@ export interface ImageGalleryItemStored {
 
 
 export interface FieldDefinition {
-  id: string; 
-  key: string; 
-  label: string; 
+  id: string;
+  key: string;
+  label: string;
   type: FieldType;
   required?: boolean;
   placeholder?: string;
-  description?: string; 
+  description?: string;
 }
 
 export interface Category {
-  id: string; 
+  id: string;
   name: string;
-  slug: string; 
-  description?: string; 
+  slug: string;
+  description?: string;
   fields: FieldDefinition[];
   coverImageUrl?: string | null; // Can be Base64 data URI or existing URL
-  createdAt?: string; 
-  updatedAt?: string; 
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Entry {
-  id: string; 
-  categoryId: string; 
-  title?: string; 
-  categoryName?: string; 
+  id: string;
+  categoryId: string;
+  title?: string;
+  categoryName?: string;
   data: Record<string, any | ImageGalleryItemStored[]>; // Image URLs here can be Base64
   status: 'draft' | 'published' | 'scheduled';
-  publishAt?: string; 
-  createdAt: string; 
-  updatedAt?: string; 
+  publishAt?: string;
+  createdAt: string;
+  updatedAt?: string;
 }
 
 // For App Users (distinct from Admin Users/UserProfiles)
@@ -73,21 +73,19 @@ export interface AppUser {
   email: string;
   displayName?: string;
   fcmTokens?: string[]; // Array of FCM registration tokens
-  // other app-specific user fields can go here
 }
 
 export interface NotificationTarget {
   userId: string;
-  userEmail?: string; 
-  userName?: string;  
-  token: string;      
+  userEmail?: string;
+  userName?: string;
+  token: string;
   status: 'pending' | 'success' | 'failed';
-  error?: string;     
-  messageId?: string; 
+  error?: string;
+  messageId?: string;
   attemptedAt?: string; // When the Firebase Function attempted to send
 }
 
-// Represents a notification request logged by an admin, to be processed by a Firebase Function
 export interface NotificationLog {
   id?: string; // Firestore document ID
   title: string;
@@ -95,22 +93,15 @@ export interface NotificationLog {
   imageUrl?: string | null; // Can be Base64 data URI or existing URL
   deepLink?: string | null;
   scheduleAt?: string | null; // ISO string, for when it should be sent (optional)
-  
-  // Admin-set metadata
   adminCreator: {
     uid: string;
     name?: string; // Admin's name
     email: string;   // Admin's email
   };
   createdAt: string; // ISO string, when the admin created this notification request (client-generated or serverTimestamp)
-
-  // Firebase Function processed metadata (optional, set by function)
   processingStatus: 'pending' | 'processing' | 'completed' | 'partially_completed' | 'error';
   processedAt?: string | null; // ISO string, when FF started/finished processing
-  
-  targets: NotificationTarget[]; // List of users/tokens this notification is for
-  // This will be populated by the admin action with initial status 'pending'
-  // The Firebase Function will update the status for each target.
+  targets: NotificationTarget[];
 }
 
 export interface Banner {
@@ -140,6 +131,32 @@ export interface Anket {
   status: AnketStatus;
   processedBy?: string; // Admin UID who processed it
   processedAt?: string; // ISO string timestamp
-  // Add any other fields that come from the app's anket submission
-  // Example: yearsOfExperience?: number; languagesSpoken?: string[];
 }
+
+// Help Section Types
+export enum HelpTopic {
+  APPLICATION_GUIDE = 'Аппликэйшн ашиглах заавар',
+  TRAVEL_TIPS = 'Хэрхэн хямд аялах вэ?',
+}
+
+export interface HelpItem {
+  id: string;
+  topic: HelpTopic;
+  question: string;
+  answer: string;
+  isPredefined: boolean; // True for FAQs, false for user-submitted (once answered)
+  createdAt?: string; // ISO string timestamp
+  updatedAt?: string; // ISO string timestamp
+}
+
+export interface HelpRequest {
+  id?: string; // Firestore document ID
+  topic: HelpTopic;
+  question: string;
+  userId?: string; // UID of the admin who submitted, if applicable from admin panel
+  userEmail?: string; // Email of the admin
+  status: 'pending' | 'answered'; // Status of the request
+  createdAt: string; // ISO string timestamp
+}
+
+    

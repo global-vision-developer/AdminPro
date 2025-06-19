@@ -129,6 +129,35 @@ Stores submitted applications or forms (e.g., for translators or general applica
     *   `processedBy: string` (Optional, UID of the admin who processed the anket)
     *   `processedAt: firebase.firestore.Timestamp` (Optional, server timestamp of when the anket was processed)
 
+### `help_items` Collection (For Help Section FAQs)
+
+Stores pre-defined frequently asked questions and their answers.
+
+*   **Document ID:** Auto-generated Firestore ID or a custom meaningful ID (e.g., `faq_app_offline_mode`)
+*   **Fields:**
+    *   `topic: string` (e.g., "Аппликэйшн ашиглах заавар", "Хэрхэн хямд аялах вэ?" - matching `HelpTopic` enum from `src/types/index.ts`)
+    *   `question: string` (The frequently asked question text)
+    *   `answer: string` (The answer to the question, can be long text/HTML)
+    *   `isPredefined: boolean` (Should be `true` for these items)
+    *   `order: number` (Optional: for ordering FAQs within a topic)
+    *   `createdAt: firebase.firestore.Timestamp`
+    *   `updatedAt: firebase.firestore.Timestamp`
+
+### `help_requests` Collection (For User-Submitted Questions)
+
+Stores questions submitted by users through the help section. Admins would review these and potentially create new `help_items` or respond directly.
+
+*   **Document ID:** Auto-generated Firestore ID
+*   **Fields:**
+    *   `topic: string` (The topic selected by the user when submitting - matching `HelpTopic` enum)
+    *   `question: string` (The user's submitted question)
+    *   `userId: string` (Optional: UID of the authenticated admin who submitted, if applicable)
+    *   `userEmail: string` (Optional: Email of the admin who submitted)
+    *   `status: string` (e.g., "pending", "answered", "archived" - managed by admins)
+    *   `createdAt: firebase.firestore.Timestamp` (When the request was submitted)
+    *   `answeredAt: firebase.firestore.Timestamp` (Optional: When an admin responded or created an FAQ)
+    *   `adminNotes: string` (Optional: Internal notes by admins regarding this request)
+
 
 This structure is designed to be scalable and flexible, allowing for dynamic content types based on category definitions. Firestore security rules should be configured to protect this data appropriately (e.g., only authenticated admins can write to `admins`, `categories`, `entries`).
 
@@ -181,7 +210,7 @@ This **SPECIFICALLY MEANS** the query on the `entries` collection (likely in `sr
 
 ## Firestore Security Rules
 
-**Example Firestore Security Rules Snippet (Conceptual - Needs to be updated for `allowedCategoryIds` for Sub Admins, `banners`, and `ankets`):**
+**Example Firestore Security Rules Snippet (Conceptual - Needs to be updated for `allowedCategoryIds` for Sub Admins, `banners`, `ankets`, `help_items`, and `help_requests`):**
 ```firestore
 rules_version = '2';
 service cloud.firestore {
@@ -196,9 +225,9 @@ service cloud.firestore {
     // Categories collection
     match /categories/{categoryId} {
       // Any authenticated admin can read categories
-      allow read: if request.auth != null; 
+      allow read: if request.auth != null;
       // Only Super Admins can manage categories
-      allow list, create, update, delete: if request.auth != null && 
+      allow list, create, update, delete: if request.auth != null &&
                                           get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin';
     }
 
@@ -211,7 +240,7 @@ service cloud.firestore {
       // Sub Admins can manage entries if the entry's categoryId is in their allowedCategoryIds list
       allow list, create, update, delete: if request.auth != null &&
                                           (
-                                            get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' 
+                                            get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin'
                                             ||
                                             (
                                               get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin' &&
@@ -224,7 +253,7 @@ service cloud.firestore {
     // App Users collection ('users')
     match /users/{userId} {
       // Admins can read app user data for notification targeting
-      allow read, list: if request.auth != null && 
+      allow read, list: if request.auth != null &&
                            (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
                             get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
       // Only the app user themselves can write to their own document (e.g., update fcmTokens)
@@ -232,7 +261,7 @@ service cloud.firestore {
       allow write: if request.auth != null && request.auth.uid == userId;
       // App users create their own documents usually upon first sign-in or registration via client SDK.
       // Admins should not typically create these directly.
-      allow create: if request.auth != null && request.auth.uid == userId; 
+      allow create: if request.auth != null && request.auth.uid == userId;
     }
 
     // Notifications collection ('notifications')
@@ -244,7 +273,7 @@ service cloud.firestore {
                           (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
                            get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
       // Firebase Functions (unauthenticated or service account) or Super Admins can update (e.g., status)
-      allow update: if request.auth == null || get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin'; 
+      allow update: if request.auth == null || get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin';
       allow delete: if request.auth != null && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin';
     }
 
@@ -265,6 +294,30 @@ service cloud.firestore {
                                 (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
                                  get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
       allow delete: if request.auth != null && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin';
+    }
+
+    // Help Items (FAQs) collection
+    match /help_items/{helpItemId} {
+      // Anyone (including unauthenticated users if your help page is public) can read FAQs
+      allow read: if true;
+      // Only Super Admins can create, update, or delete FAQs
+      allow list, create, update, delete: if request.auth != null &&
+                                          get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin';
+    }
+
+    // Help Requests collection (user-submitted questions)
+    match /help_requests/{helpRequestId} {
+      // Authenticated admins can submit help requests (e.g., testing or on behalf of a user)
+      allow create: if request.auth != null &&
+                      (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
+                       get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
+      // Admins can read and list requests to manage them
+      allow read, list: if request.auth != null &&
+                          (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
+                           get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
+      // Super Admins can update (e.g., status, add answer/notes) or delete requests
+      allow update, delete: if request.auth != null &&
+                             get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin';
     }
   }
 }
@@ -287,3 +340,4 @@ NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=YOUR_MEASUREMENT_ID (optional)
 Replace `YOUR_...` with your actual Firebase project credentials.
 Remember to restart your development server (`npm run dev`) after creating or modifying `.env.local`.
 
+    

@@ -127,6 +127,33 @@ Stores submitted applications or forms (e.g., for translators).
     *   `processedBy: string` (Optional, UID of the admin who processed the anket)
     *   `processedAt: firebase.firestore.Timestamp` (Optional, server timestamp of when the anket was processed)
 
+### `help_items` Collection (For Help Section FAQs)
+
+Stores pre-defined frequently asked questions and their answers.
+
+*   **Document ID:** Auto-generated Firestore ID or a custom meaningful ID
+*   **Fields:**
+    *   `topic: string` (e.g., "Аппликэйшн ашиглах заавар" - matching `HelpTopic` enum)
+    *   `question: string` (The frequently asked question text)
+    *   `answer: string` (The answer to the question)
+    *   `isPredefined: boolean` (`true` for these items)
+    *   `order: number` (Optional: for ordering FAQs within a topic)
+    *   `createdAt: firebase.firestore.Timestamp`
+    *   `updatedAt: firebase.firestore.Timestamp`
+
+### `help_requests` Collection (For User-Submitted Questions)
+
+Stores questions submitted by users through the help section.
+
+*   **Document ID:** Auto-generated Firestore ID
+*   **Fields:**
+    *   `topic: string` (The topic selected by the user)
+    *   `question: string` (The user's submitted question)
+    *   `userId: string` (Optional: UID of the admin, if submitted from admin panel)
+    *   `userEmail: string` (Optional: Email of the admin)
+    *   `status: string` (e.g., "pending", "answered")
+    *   `createdAt: firebase.firestore.Timestamp`
+
 
 This structure is designed to be scalable and flexible, allowing for dynamic content types based on category definitions. Firestore security rules should be configured to protect this data appropriately (e.g., only authenticated admins can write to `admins`, `categories`, `entries`).
 
@@ -172,7 +199,7 @@ This **SPECIFICALLY MEANS** the query on the `entries` collection (likely in `sr
 
 ## Firestore Security Rules
 
-**Example Firestore Security Rules Snippet (Conceptual - Needs to be updated for `banners` and `ankets`):**
+**Example Firestore Security Rules Snippet (Conceptual - Needs to be updated for `banners`, `ankets`, `help_items`, `help_requests`):**
 ```firestore
 rules_version = '2';
 service cloud.firestore {
@@ -186,7 +213,7 @@ service cloud.firestore {
     // Categories collection
     match /categories/{categoryId} {
       allow read: if request.auth != null; // Authenticated admins can read
-      allow list, create, update, delete: if request.auth != null && 
+      allow list, create, update, delete: if request.auth != null &&
                                           (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
                                            get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
     }
@@ -202,14 +229,14 @@ service cloud.firestore {
     // App Users collection ('users')
     match /users/{userId} {
       // Admins can read app user data (e.g., for notification targeting)
-      allow read, list: if request.auth != null && 
+      allow read, list: if request.auth != null &&
                            (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
                             get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
       // Only the app user themselves can write to their own document (e.g., to update fcmTokens)
       // Ensure your client app authenticates users before writing to their own doc.
       allow write: if request.auth != null && request.auth.uid == userId;
       // Disallow creation by admins directly, should be done by app users through auth.
-      allow create: if request.auth != null && request.auth.uid == userId; 
+      allow create: if request.auth != null && request.auth.uid == userId;
     }
 
     // Notifications collection ('notifications')
@@ -223,7 +250,7 @@ service cloud.firestore {
                           (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
                            get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
       // Firebase Functions (unauthenticated or service account) or Super Admins can update (e.g., status)
-      allow update: if request.auth == null || get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin'; 
+      allow update: if request.auth == null || get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin';
       // Only Super Admins can delete notification logs
       allow delete: if request.auth != null && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin';
     }
@@ -247,6 +274,20 @@ service cloud.firestore {
       // Only Super Admins can delete ankets
       allow delete: if request.auth != null && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin';
     }
+
+    // Help Items (FAQs) collection
+    match /help_items/{helpItemId} {
+      allow read: if true; // Publicly readable
+      allow list, create, update, delete: if request.auth != null && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin';
+    }
+
+    // Help Requests collection
+    match /help_requests/{helpRequestId} {
+      allow create: if request.auth != null; // Authenticated admins can submit requests
+      allow read, list, update, delete: if request.auth != null &&
+                                          (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Super Admin' ||
+                                           get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'Sub Admin');
+    }
   }
 }
 ```
@@ -268,3 +309,4 @@ NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=YOUR_MEASUREMENT_ID (optional)
 Replace `YOUR_...` with your actual Firebase project credentials.
 Remember to restart your development server (`npm run dev`) after creating or modifying `.env.local`.
 
+    
