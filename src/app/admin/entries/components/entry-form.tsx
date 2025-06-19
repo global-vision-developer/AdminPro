@@ -37,6 +37,7 @@ interface EntryFormProps {
 }
 
 const USER_ONLY_FIELD_MARKER = "This field is for app users, not admins.";
+const EMPTY_CITY_PICKER_VALUE = "_EMPTY_"; // Sentinel value for "no selection"
 
 const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, any> => {
   const shape: Record<string, z.ZodTypeAny> = {
@@ -503,9 +504,9 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
                             <FormLabel>{catField.label}{catField.required && <span className="text-destructive">*</span>}</FormLabel>
                             {catField.description && <FormDescription>{catField.description}</FormDescription>}
                             <Select
-                              onValueChange={(value) => formHookField.onChange(value === "" ? null : value)} // Handle "None" selection
-                              defaultValue={formHookField.value || ""}
-                              disabled={cities.length === 0 && !catField.required} // Disable if no cities and not required
+                              onValueChange={(value) => formHookField.onChange(value === EMPTY_CITY_PICKER_VALUE ? null : value)}
+                              value={formHookField.value ?? undefined} // Pass undefined to Select to show placeholder if value is null
+                              disabled={cities.length === 0 && !catField.required}
                             >
                               <FormControl>
                                 <SelectTrigger>
@@ -513,7 +514,7 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="">-- Хоосон --</SelectItem>
+                                <SelectItem value={EMPTY_CITY_PICKER_VALUE}>-- Хоосон --</SelectItem>
                                 {cities.map((city) => (
                                   <SelectItem key={city.id} value={city.id}>
                                     {city.name} ({city.nameCN})
@@ -781,3 +782,4 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
     </Form>
   );
 }
+
