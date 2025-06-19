@@ -11,27 +11,10 @@ import { AnketStatus } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { getAnkets, submitTestAnket } from '@/lib/actions/anketActions'; // Assuming actions exist
+import { getAnkets } from '@/lib/actions/anketActions'; 
 import { format } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-
-
-function CreateTestAnketButton() {
-    "use client"
-    const [loading, setLoading] = React.useState(false);
-    const handleClick = async () => {
-        setLoading(true);
-        await submitTestAnket({
-            name: "Тест Өргөдөл " + Math.floor(Math.random() * 100),
-            email: `test${Math.floor(Math.random() * 1000)}@example.com`,
-            phoneNumber: "99001122",
-            cvLink: "https://example.com/cv.pdf",
-            message: "Энэ бол туршилтын зорилгоор автоматаар үүсгэсэн анкет юм."
-        });
-        setLoading(false);
-    }
-    return <Button onClick={handleClick} disabled={loading} variant="outline" size="sm"> {loading ? "Түр хүлээнэ үү..." : "Тест Анкет Нэмэх"} </Button>
-}
+import { CreateTestAnketButton } from './components/create-test-anket-button';
 
 
 export default async function AnketsPage({
@@ -59,7 +42,6 @@ export default async function AnketsPage({
   return (
     <TooltipProvider>
       <PageHeader title="Анкет Удирдах" description="Ирүүлсэн анкетуудыг хянах, боловсруулах.">
-        {/* TODO: Add filter component if needed */}
          <CreateTestAnketButton />
       </PageHeader>
       
