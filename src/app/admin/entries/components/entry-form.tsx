@@ -442,7 +442,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                                 onClick={() => remove(index)}
                                 className="mt-2 text-destructive hover:text-destructive/90"
                               >
-                                <Trash2 className="mr-1 h-3.5 w-3.5" /> Delete
+                                <Trash2 className="mr-1 h-3.5 w-3.5" /> Устгах
                               </Button>
                             </Card>
                           ))}
