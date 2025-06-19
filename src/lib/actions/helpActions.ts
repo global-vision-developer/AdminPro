@@ -2,7 +2,8 @@
 "use server";
 
 import { db, auth as adminAuth } from "@/lib/firebase";
-import type { HelpItem, HelpRequest, HelpTopic } from "@/types";
+import type { HelpItem, HelpRequest } from "@/types"; // Keep existing type import
+import { HelpTopic } from "@/types"; // Added this line to import HelpTopic
 import {
   collection,
   addDoc,
