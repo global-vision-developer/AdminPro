@@ -401,7 +401,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
 
                     return (
                       <FormItem key={catField.id}>
-                        <FormLabel>{catField.label}{catField.required && <span className="text-destructive">*</span>}</FormLabel>
+                        <FormLabel>{catField.label === 'golheseg' ? 'аппын эхний нүүр хэсэг(home page) дээр preview гаргах эсэх' : catField.label}{catField.required && <span className="text-destructive">*</span>}</FormLabel>
                         {catField.description && <FormDescription>{catField.description}</FormDescription>}
                         <div className="space-y-4 p-4 border rounded-md">
                           {galleryFields.map((item, index) => (
@@ -468,7 +468,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                             name={`data.${catField.key}`}
                             render={({ field: formHookField }) => (
                                 <FormItem>
-                                    <FormLabel>{catField.label}{catField.required && <span className="text-destructive">*</span>}</FormLabel>
+                                    <FormLabel>{catField.label === 'golheseg' ? 'аппын эхний нүүр хэсэг(home page) дээр preview гаргах эсэх' : catField.label}{catField.required && <span className="text-destructive">*</span>}</FormLabel>
                                     {catField.description && <FormDescription>{catField.description === "Энэ бичлэгийн гол нүүр зургийн интернет хаяг." ? "үндсэн нүүр зургийн интернет хаяг(address)" : catField.description}</FormDescription>}
                                     <FormControl>
                                         <ImageUploader
@@ -494,7 +494,7 @@ export function EntryForm({ initialData, categories, selectedCategory, onSubmitS
                         const { formItemId } = useFormField();
                         return (
                             <FormItem>
-                            <FormLabel>{catField.label}{catField.required && <span className="text-destructive">*</span>}</FormLabel>
+                            <FormLabel>{catField.label === 'golheseg' ? 'аппын эхний нүүр хэсэг(home page) дээр preview гаргах эсэх' : catField.label}{catField.required && <span className="text-destructive">*</span>}</FormLabel>
                             {catField.description && <FormDescription>{catField.description}</FormDescription>}
 
                             {catField.type === FieldType.TEXT && (
