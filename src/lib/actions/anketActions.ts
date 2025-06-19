@@ -223,4 +223,7 @@ export async function submitTestAnket(anketData: Omit<Anket, "id" | "submittedAt
         revalidatePath("/admin/anket");
         return docRef.id;
     } catch (error: any) {
-        console.error("Error submitting
+        console.error("Error submitting test anket: ", error);
+        return { error: error.message || "Error submitting test anket." };
+    }
+}

@@ -16,7 +16,7 @@ import { format } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 
-async function CreateTestAnketButton() {
+function CreateTestAnketButton() {
     "use client"
     const [loading, setLoading] = React.useState(false);
     const handleClick = async () => {
@@ -144,4 +144,6 @@ export default async function AnketsPage({
           )}
         </CardContent>
       </Card>
-    </Tooltip
+    </TooltipProvider>
+  );
+}
