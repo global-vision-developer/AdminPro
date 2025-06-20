@@ -13,7 +13,6 @@ import {
 } from "firebase-functions/v2/https"; // Import for v2 HTTPS functions
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
-// import * as functions from "firebase-functions"; // No longer needed for v1 specific constructs
 
 // Firebase Admin SDK-г эхлүүлнэ (зөвхөн нэг удаа)
 if (admin.apps.length === 0) {
@@ -261,7 +260,6 @@ interface UpdateAdminAuthDetailsData {
 }
 
 // V2 onCall syntax
-/* eslint-disable indent */
 export const updateAdminAuthDetails = onCall(
   {region: "us-central1"}, // Region configuration for v2
   async (request: CallableRequest<UpdateAdminAuthDetailsData>) => {
@@ -288,7 +286,7 @@ export const updateAdminAuthDetails = onCall(
           "Caller does not have Super Admin privileges."
         );
       }
-    } catch (error) {
+    } catch (error) { // Line 327: This catch error parameter will have 'any' type
       logger.error("Error checking caller permissions:", error);
       if (error instanceof HttpsError) throw error;
       throw new HttpsError(
@@ -375,7 +373,7 @@ export const updateAdminAuthDetails = onCall(
         message: "Admin authentication and Firestore details updated successfully.",
       };
     /* eslint-disable @typescript-eslint/no-explicit-any */
-    } catch (error: any) {
+    } catch (error: any) { // This is where the other 'any' warning likely is
     /* eslint-enable @typescript-eslint/no-explicit-any */
       logger.error("Error updating admin auth details:", error);
       let errorCode: HttpsError["code"] = "unknown";
@@ -384,6 +382,8 @@ export const updateAdminAuthDetails = onCall(
       // Check if error has a 'code' property (typical for Firebase errors)
       if (error && typeof error === "object" && "code" in error) {
         const firebaseErrorCode = (error as {code: string}).code;
+        /* eslint-disable indent */
+        // Starting ESLint disable for indent rule in this switch block
         switch (firebaseErrorCode) {
           case "auth/email-already-exists":
             errorCode = "already-exists";
@@ -406,6 +406,8 @@ export const updateAdminAuthDetails = onCall(
             errorCode = "internal";
             errorMessage = (error as Error).message || "An internal error occurred during auth update.";
         }
+        // Ending ESLint disable for indent rule
+        /* eslint-enable indent */
         throw new HttpsError(errorCode, errorMessage, {originalCode: firebaseErrorCode});
       } else {
         // Handle non-Firebase errors or errors without a specific code
@@ -415,6 +417,3 @@ export const updateAdminAuthDetails = onCall(
     }
   }
 );
-/* eslint-enable indent */
-
-    
