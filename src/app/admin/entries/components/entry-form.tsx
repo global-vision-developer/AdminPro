@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -57,7 +58,7 @@ const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, a
     switch (field.type) {
       case FieldType.TEXT:
         if (field.key === 'nuur-zurag-url' || field.label.toLowerCase().includes('image url') || field.label.toLowerCase().includes('cover image')) {
-            fieldSchema = z.string().nullable().optional(); 
+            fieldSchema = z.string().nullable().optional();
         } else if (field.required) {
           fieldSchema = z.string().trim().min(1, { message: `${field.label} field is required.` });
         } else {
@@ -101,16 +102,18 @@ const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, a
       case FieldType.IMAGE_GALLERY:
         const imageGalleryItemSchema = z.object({
             clientId: z.string(),
-            imageUrl: z.string().nullable().optional(), 
+            imageUrl: z.string().nullable().optional(),
             description: z.string().optional().transform(val => val === '' ? undefined : val),
         });
 
-        fieldSchema = z.array(imageGalleryItemSchema).optional().default([]);
         if (field.required) {
-            fieldSchema = fieldSchema.min(1, { message: `${field.label}: At least one image is required.` })
-                                     .refine(items => items.some(item => item.imageUrl !== null && item.imageUrl !== ''), {
-                                        message: `${field.label}: At least one image URL/Data is required.`,
-                                      });
+            fieldSchema = z.array(imageGalleryItemSchema)
+                .min(1, { message: `${field.label}: At least one image is required.` })
+                .refine(items => items.some(item => item.imageUrl !== null && item.imageUrl !== ''), {
+                    message: `${field.label}: At least one image URL/Data is required.`,
+                });
+        } else {
+            fieldSchema = z.array(imageGalleryItemSchema).optional().default([]);
         }
         break;
       case FieldType.CITY_PICKER: // Added schema for City Picker
@@ -185,7 +188,7 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
             else if (field.type === FieldType.IMAGE_GALLERY) defaultDataValues[field.key] = [];
             else if (field.type === FieldType.CITY_PICKER) defaultDataValues[field.key] = undefined; // Default for City Picker
             else if (field.key === 'nuur-zurag-url' || field.label.toLowerCase().includes('image url') || field.label.toLowerCase().includes('cover image')) {
-                 defaultDataValues[field.key] = null; 
+                 defaultDataValues[field.key] = null;
             }
             else defaultDataValues[field.key] = '';
         }
@@ -294,15 +297,15 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
         case FieldType.TEXTAREA:
         case FieldType.CITY_PICKER: // City Picker stores string (ID) or null
           if (field.key === 'nuur-zurag-url' || field.label.toLowerCase().includes('image url') || field.label.toLowerCase().includes('cover image')) {
-            valueToSave = typeof valueFromForm === 'string' ? valueFromForm : null; 
+            valueToSave = typeof valueFromForm === 'string' ? valueFromForm : null;
           } else {
             valueToSave = (typeof valueFromForm === 'string') ? valueFromForm : (valueFromForm === null ? null : '');
           }
           break;
         case FieldType.IMAGE_GALLERY:
           valueToSave = Array.isArray(valueFromForm)
-            ? valueFromForm.filter(item => item.imageUrl !== null && item.imageUrl !== '').map((item: ImageGalleryItemForm) => ({ 
-                imageUrl: item.imageUrl as string, 
+            ? valueFromForm.filter(item => item.imageUrl !== null && item.imageUrl !== '').map((item: ImageGalleryItemForm) => ({
+                imageUrl: item.imageUrl as string,
                 description: item.description,
               }))
             : [];
@@ -404,7 +407,7 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
                     const { fields: galleryFields, append, remove, update: updateGalleryItem } = useFieldArray({
                       control: form.control,
                       name: `data.${catField.key}` as any,
-                      keyName: "clientId", 
+                      keyName: "clientId",
                     });
 
                     return (
@@ -420,8 +423,8 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
                                   name={`data.${catField.key}.${index}.imageUrl` as const}
                                   render={({ field: galleryItemField }) => (
                                     <ImageUploader
-                                      initialImageUrl={galleryItemField.value} 
-                                      onUploadComplete={(dataUri) => { 
+                                      initialImageUrl={galleryItemField.value}
+                                      onUploadComplete={(dataUri) => {
                                         const currentItem = form.getValues(`data.${catField.key}`)[index];
                                         updateGalleryItem(index, { ...currentItem, imageUrl: dataUri });
                                       }}
@@ -480,8 +483,8 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
                                     {catField.description && <FormDescription>{catField.description === "Энэ бичлэгийн гол нүүр зургийн интернет хаяг." ? "үндсэн нүүр зургийн интернет хаяг(address)" : catField.description}</FormDescription>}
                                     <FormControl>
                                         <ImageUploader
-                                            initialImageUrl={formHookField.value} 
-                                            onUploadComplete={(dataUri) => formHookField.onChange(dataUri)} 
+                                            initialImageUrl={formHookField.value}
+                                            onUploadComplete={(dataUri) => formHookField.onChange(dataUri)}
                                             label={catField.label}
                                         />
                                     </FormControl>
@@ -504,7 +507,7 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
                             {catField.description && <FormDescription>{catField.description}</FormDescription>}
                             <Select
                               onValueChange={(value) => formHookField.onChange(value === EMPTY_CITY_PICKER_VALUE ? null : value)}
-                              value={formHookField.value ?? EMPTY_CITY_PICKER_VALUE} 
+                              value={formHookField.value ?? EMPTY_CITY_PICKER_VALUE}
                               disabled={cities.length === 0 && !catField.required}
                             >
                               <FormControl>
