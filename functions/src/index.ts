@@ -314,7 +314,7 @@ export const updateAdminAuthDetails = functions
           "Cannot change the email of the primary super admin account."
         );
       }
-    } catch (error: any) {
+    } catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
       logger.error("Error fetching target user for pre-check:", error);
     }
 
@@ -362,7 +362,7 @@ export const updateAdminAuthDetails = functions
         success: true,
         message: "Admin authentication and Firestore details updated successfully.",
       };
-    } catch (error: any) { // Changed from error: FunctionsErrorCode to error: any
+    } catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
       logger.error("Error updating admin auth details:", error);
       let errorCode: functions.https.FunctionsErrorCode = "unknown";
       let errorMessage = "Failed to update admin authentication details.";
@@ -370,6 +370,7 @@ export const updateAdminAuthDetails = functions
       // Check if error has a 'code' property (typical for Firebase errors)
       if (error && typeof error === "object" && "code" in error) {
         const firebaseErrorCode = (error as {code: string}).code;
+        /* eslint-disable indent */
         switch (firebaseErrorCode) {
           case "auth/email-already-exists":
             errorCode = "already-exists";
@@ -392,6 +393,7 @@ export const updateAdminAuthDetails = functions
             errorCode = "internal";
             errorMessage = (error as Error).message || "An internal error occurred during auth update.";
         }
+        /* eslint-enable indent */
         throw new functions.https.HttpsError(errorCode, errorMessage, {originalCode: firebaseErrorCode});
       } else {
         // Handle non-Firebase errors or errors without a specific code
@@ -400,5 +402,3 @@ export const updateAdminAuthDetails = functions
       }
     }
   });
-
-    
