@@ -62,7 +62,7 @@ export const processNotificationRequest = onDocumentCreated(
       body,
       imageUrl,
       deepLink,
-      targets, // Энэ нь { userId, token, status, ... } объектуудын массив байна
+      targets, // Энэ нь {userId, token, status, ...} объектуудын массив байна
       scheduleAt, // Энэ нь Firestore Timestamp байх ёстой
     } = notificationData;
 
@@ -393,3 +393,5 @@ export const updateAdminAuthDetails = functions
       throw new functions.https.HttpsError(errorCode, errorMessage, {originalCode: error.code});
     }
   });
+
+    
