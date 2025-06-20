@@ -374,25 +374,25 @@ export const updateAdminAuthDetails = functions
         // Starting ESLint disable for indent rule in this switch block
         switch (firebaseErrorCode) {
           case "auth/email-already-exists":
-          errorCode = "already-exists";
-          errorMessage =
-            "The new email address is already in use by another account.";
-          break;
+            errorCode = "already-exists";
+            errorMessage =
+              "The new email address is already in use by another account.";
+            break;
           case "auth/invalid-email":
-          errorCode = "invalid-argument";
-          errorMessage = "The new email address is not valid.";
-          break;
+            errorCode = "invalid-argument";
+            errorMessage = "The new email address is not valid.";
+            break;
           case "auth/user-not-found":
-          errorCode = "not-found";
-          errorMessage = "Target user not found in Firebase Authentication.";
-          break;
+            errorCode = "not-found";
+            errorMessage = "Target user not found in Firebase Authentication.";
+            break;
           case "auth/weak-password":
-          errorCode = "invalid-argument";
-          errorMessage = "The new password is too weak.";
-          break;
+            errorCode = "invalid-argument";
+            errorMessage = "The new password is too weak.";
+            break;
           default:
-          errorCode = "internal";
-          errorMessage = (error as Error).message || "An internal error occurred during auth update.";
+            errorCode = "internal";
+            errorMessage = (error as Error).message || "An internal error occurred during auth update.";
         }
         // Ending ESLint disable for indent rule
         /* eslint-enable indent */
@@ -404,5 +404,3 @@ export const updateAdminAuthDetails = functions
       }
     }
   });
-
-    
