@@ -1,3 +1,4 @@
+
 // functions/src/index.ts
 
 import {
@@ -361,13 +362,15 @@ export const updateAdminAuthDetails = functions
         success: true,
         message: "Admin authentication and Firestore details updated successfully.",
       };
-    } catch (error: any) {
+    } catch (error: any) { // Changed from error: FunctionsErrorCode to error: any
       logger.error("Error updating admin auth details:", error);
       let errorCode: functions.https.FunctionsErrorCode = "unknown";
       let errorMessage = "Failed to update admin authentication details.";
 
-      if (error.code) {
-        switch (error.code) {
+      // Check if error has a 'code' property (typical for Firebase errors)
+      if (error && typeof error === "object" && "code" in error) {
+        const firebaseErrorCode = (error as {code: string}).code;
+        switch (firebaseErrorCode) {
           case "auth/email-already-exists":
             errorCode = "already-exists";
             errorMessage =
@@ -387,9 +390,15 @@ export const updateAdminAuthDetails = functions
             break;
           default:
             errorCode = "internal";
-            errorMessage = error.message || "An internal error occurred during auth update.";
+            errorMessage = (error as Error).message || "An internal error occurred during auth update.";
         }
+        throw new functions.https.HttpsError(errorCode, errorMessage, {originalCode: firebaseErrorCode});
+      } else {
+        // Handle non-Firebase errors or errors without a specific code
+        errorMessage = (error as Error).message || "An unknown error occurred.";
+        throw new functions.https.HttpsError("internal", errorMessage);
       }
-      throw new functions.https.HttpsError(errorCode, errorMessage, {originalCode: error.code});
     }
   });
+
+    
