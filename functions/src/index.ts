@@ -1,4 +1,3 @@
-
 // functions/src/index.ts
 
 import {
@@ -393,5 +392,3 @@ export const updateAdminAuthDetails = functions
       throw new functions.https.HttpsError(errorCode, errorMessage, {originalCode: error.code});
     }
   });
-
-    
