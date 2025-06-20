@@ -105,7 +105,7 @@ export const processNotificationRequest = onDocumentCreated(
     const originalTargetsArray: FunctionNotificationTarget[] =
       Array.isArray(typedTargets) ?
         typedTargets.map(
-          (t: FunctionNotificationTarget) => ({...t}) // t-г FunctionNotificationTarget гэж үзнэ
+          (t: FunctionNotificationTarget) => ({ ...t }) // t-г FunctionNotificationTarget гэж үзнэ
         ) : [];
 
 
@@ -119,7 +119,7 @@ export const processNotificationRequest = onDocumentCreated(
       logger.info(`No valid pending tokens for ID: ${notificationId}`);
       await db
         .doc(`notifications/${notificationId}`)
-        .update({processingStatus: "completed_no_targets"})
+        .update({ processingStatus: "completed_no_targets" })
         .catch((err) =>
           logger.error("Err updating to completed_no_targets:", err)
         );
@@ -130,11 +130,11 @@ export const processNotificationRequest = onDocumentCreated(
       notification: {
         title: title || "New Notification",
         body: body || "You have a new message.",
-        ...(imageUrl && {imageUrl: imageUrl as string}),
+        ...(imageUrl && { imageUrl: imageUrl as string }),
       },
       tokens: tokensToSend,
       data: {
-        ...(deepLink && {deepLink: deepLink as string}),
+        ...(deepLink && { deepLink: deepLink as string }),
         notificationId: notificationId,
       },
     };
@@ -286,7 +286,7 @@ export const updateAdminAuthDetails = functions
       );
     }
 
-    const {targetUserId, newEmail, newPassword} = data;
+    const { targetUserId, newEmail, newPassword } = data;
 
     if (!targetUserId) {
       throw new functions.https.HttpsError(
@@ -390,8 +390,8 @@ export const updateAdminAuthDetails = functions
             errorMessage = error.message || "An internal error occurred during auth update.";
         }
       }
-      throw new functions.https.HttpsError(errorCode, errorMessage, {originalCode: error.code});
+      throw new functions.https.HttpsError(errorCode, errorMessage, { originalCode: error.code });
     }
   });
 
-      
+    
