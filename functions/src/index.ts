@@ -3,12 +3,17 @@
 
 import {
   onDocumentCreated,
-  FirestoreEvent,
+  type FirestoreEvent,
   // DocumentSnapshot, // Not directly used from here in v2
 } from "firebase-functions/v2/firestore";
+import {
+  onCall,
+  type CallableRequest,
+  HttpsError,
+} from "firebase-functions/v2/https"; // Import for v2 HTTPS functions
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
-import * as functions from "firebase-functions"; // Added for https.onCall
+// import * as functions from "firebase-functions"; // No longer needed for v1 specific constructs
 
 // Firebase Admin SDK-г эхлүүлнэ (зөвхөн нэг удаа)
 if (admin.apps.length === 0) {
@@ -30,6 +35,7 @@ interface FunctionNotificationTarget {
   attemptedAt?: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
 }
 
+/* eslint-disable indent */
 export const processNotificationRequest = onDocumentCreated(
   {
     document: "notifications/{notificationId}",
@@ -243,6 +249,7 @@ export const processNotificationRequest = onDocumentCreated(
     return null;
   }
 );
+/* eslint-enable indent */
 
 // --- Шинэ Cloud Function: Админ хэрэглэгчийн Auth мэдээллийг шинэчлэх ---
 const ADMINS_COLLECTION = "admins"; // Firestore дахь админуудын коллекцын нэр
@@ -253,18 +260,20 @@ interface UpdateAdminAuthDetailsData {
   newPassword?: string;
 }
 
-export const updateAdminAuthDetails = functions
-  .region("us-central1") // Өөрийн Firebase төслийн бүс нутгийг сонгоно уу
-  .https.onCall(async (data: UpdateAdminAuthDetailsData, context) => {
+// V2 onCall syntax
+/* eslint-disable indent */
+export const updateAdminAuthDetails = onCall(
+  {region: "us-central1"}, // Region configuration for v2
+  async (request: CallableRequest<UpdateAdminAuthDetailsData>) => {
     // 1. Дуудаж буй хэрэглэгчийн эрхийг шалгах
-    if (!context.auth) {
-      throw new functions.https.HttpsError(
+    if (!request.auth) {
+      throw new HttpsError(
         "unauthenticated",
         "The function must be called while authenticated."
       );
     }
 
-    const callerUid = context.auth.uid;
+    const callerUid = request.auth.uid;
     try {
       const callerAdminDoc = await db
         .collection(ADMINS_COLLECTION)
@@ -274,29 +283,30 @@ export const updateAdminAuthDetails = functions
         !callerAdminDoc.exists ||
         callerAdminDoc.data()?.role !== "Super Admin"
       ) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
           "permission-denied",
           "Caller does not have Super Admin privileges."
         );
       }
     } catch (error) {
       logger.error("Error checking caller permissions:", error);
-      throw new functions.https.HttpsError(
+      if (error instanceof HttpsError) throw error;
+      throw new HttpsError(
         "internal",
         "Could not verify caller permissions."
       );
     }
 
-    const {targetUserId, newEmail, newPassword} = data;
+    const {targetUserId, newEmail, newPassword} = request.data;
 
     if (!targetUserId) {
-      throw new functions.https.HttpsError(
+      throw new HttpsError(
         "invalid-argument",
         "targetUserId is required."
       );
     }
     if (!newEmail && !newPassword) {
-      throw new functions.https.HttpsError(
+      throw new HttpsError(
         "invalid-argument",
         "Either newEmail or newPassword must be provided."
       );
@@ -309,13 +319,15 @@ export const updateAdminAuthDetails = functions
         newEmail &&
         newEmail !== "super@example.com"
       ) {
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
           "permission-denied",
           "Cannot change the email of the primary super admin account."
         );
       }
-    } catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
       logger.error("Error fetching target user for pre-check:", error);
+      // If user not found, it's fine for now, main update will catch it
+      // If other error, log and proceed, update might still work or fail more clearly
     }
 
 
@@ -327,7 +339,7 @@ export const updateAdminAuthDetails = functions
 
       if (newEmail) {
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
-          throw new functions.https.HttpsError(
+          throw new HttpsError(
             "invalid-argument",
             "The new email address is not valid."
           );
@@ -338,7 +350,7 @@ export const updateAdminAuthDetails = functions
 
       if (newPassword) {
         if (newPassword.length < 6) {
-          throw new functions.https.HttpsError(
+          throw new HttpsError(
             "invalid-argument",
             "New password must be at least 6 characters long."
           );
@@ -362,16 +374,16 @@ export const updateAdminAuthDetails = functions
         success: true,
         message: "Admin authentication and Firestore details updated successfully.",
       };
-    } catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    } catch (error: any) {
+    /* eslint-enable @typescript-eslint/no-explicit-any */
       logger.error("Error updating admin auth details:", error);
-      let errorCode: functions.https.FunctionsErrorCode = "unknown";
+      let errorCode: HttpsError["code"] = "unknown";
       let errorMessage = "Failed to update admin authentication details.";
 
       // Check if error has a 'code' property (typical for Firebase errors)
       if (error && typeof error === "object" && "code" in error) {
         const firebaseErrorCode = (error as {code: string}).code;
-        /* eslint-disable indent */
-        // Starting ESLint disable for indent rule in this switch block
         switch (firebaseErrorCode) {
           case "auth/email-already-exists":
             errorCode = "already-exists";
@@ -394,13 +406,15 @@ export const updateAdminAuthDetails = functions
             errorCode = "internal";
             errorMessage = (error as Error).message || "An internal error occurred during auth update.";
         }
-        // Ending ESLint disable for indent rule
-        /* eslint-enable indent */
-        throw new functions.https.HttpsError(errorCode, errorMessage, {originalCode: firebaseErrorCode});
+        throw new HttpsError(errorCode, errorMessage, {originalCode: firebaseErrorCode});
       } else {
         // Handle non-Firebase errors or errors without a specific code
         errorMessage = (error as Error).message || "An unknown error occurred.";
-        throw new functions.https.HttpsError("internal", errorMessage);
+        throw new HttpsError("internal", errorMessage);
       }
     }
-  });
+  }
+);
+/* eslint-enable indent */
+
+    
