@@ -286,7 +286,7 @@ export const updateAdminAuthDetails = functions
       );
     }
 
-    const { targetUserId, newEmail, newPassword } = data;
+    const {targetUserId, newEmail, newPassword} = data;
 
     if (!targetUserId) {
       throw new functions.https.HttpsError(
@@ -300,7 +300,7 @@ export const updateAdminAuthDetails = functions
         "Either newEmail or newPassword must be provided."
       );
     }
-    
+
     try {
       const targetUserRecord = await admin.auth().getUser(targetUserId);
       if (
@@ -314,25 +314,25 @@ export const updateAdminAuthDetails = functions
         );
       }
     } catch (error: any) {
-         logger.error("Error fetching target user for pre-check:", error);
+      logger.error("Error fetching target user for pre-check:", error);
     }
 
 
     try {
-      const updatePayloadAuth: { email?: string; password?: string } = {};
-      const updatePayloadFirestore: { email?: string; updatedAt: FirebaseFirestore.FieldValue } = {
+      const updatePayloadAuth: {email?: string; password?: string} = {};
+      const updatePayloadFirestore: {email?: string; updatedAt: FirebaseFirestore.FieldValue} = {
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       };
 
       if (newEmail) {
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
-            throw new functions.https.HttpsError(
-                "invalid-argument",
-                "The new email address is not valid."
-            );
+          throw new functions.https.HttpsError(
+            "invalid-argument",
+            "The new email address is not valid."
+          );
         }
         updatePayloadAuth.email = newEmail;
-        updatePayloadFirestore.email = newEmail; 
+        updatePayloadFirestore.email = newEmail;
       }
 
       if (newPassword) {
@@ -394,4 +394,4 @@ export const updateAdminAuthDetails = functions
     }
   });
 
-    
+      
