@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -505,7 +504,7 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
                             {catField.description && <FormDescription>{catField.description}</FormDescription>}
                             <Select
                               onValueChange={(value) => formHookField.onChange(value === EMPTY_CITY_PICKER_VALUE ? null : value)}
-                              value={formHookField.value ?? undefined} // Pass undefined to Select to show placeholder if value is null
+                              value={formHookField.value ?? EMPTY_CITY_PICKER_VALUE} 
                               disabled={cities.length === 0 && !catField.required}
                             >
                               <FormControl>
@@ -782,4 +781,3 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
     </Form>
   );
 }
-
