@@ -35,17 +35,16 @@ const newUserFormSchema = userFormSchemaBase.extend({
   path: ["confirmPassword"],
 });
 
-const editUserFormSchema = userFormSchemaBase;
+const editUserFormSchema = userFormSchemaBase; // Password fields are not part of the edit schema directly here
 
-
-export type UserFormValues = z.infer<typeof newUserFormSchema>;
+export type UserFormValues = z.infer<typeof newUserFormSchema>; // Use the most inclusive for typing
 
 interface UserFormProps {
   initialData?: UserProfile | null;
-  onSubmit: (data: UserFormValues) => Promise<void>;
+  onSubmit: (data: UserFormValues) => Promise<{error?: string, success?: boolean, message?: string}>; // Updated return type
   isSubmitting: boolean;
   isEditing?: boolean;
-  onSendPasswordReset?: (email: string) => Promise<void>; // New prop
+  onSendPasswordReset?: (email: string) => Promise<void>;
 }
 
 export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = false, onSendPasswordReset }: UserFormProps) {
@@ -78,8 +77,8 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
     defaultValues: initialData ? {
       ...initialData,
       allowedCategoryIds: initialData.allowedCategoryIds || [],
-      password: '',
-      confirmPassword: '',
+      password: '', // Not directly edited here, but part of type
+      confirmPassword: '', // Not directly edited here
     } : {
       name: '',
       email: '',
@@ -92,12 +91,27 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
 
   const watchRole = form.watch('role');
 
-  const handleFormSubmit = (data: UserFormValues) => {
+  const handleFormSubmit = async (data: UserFormValues) => {
     const dataToSubmit = {
       ...data,
       allowedCategoryIds: data.role === UserRole.SUB_ADMIN ? data.allowedCategoryIds || [] : [],
     };
-    onSubmit(dataToSubmit);
+    // Password fields are only relevant for new user creation schema
+    // For editing, password is handled via reset, and not directly submitted through this form for changing.
+    if (isEditing) {
+        // @ts-ignore
+        delete dataToSubmit.password; 
+        // @ts-ignore
+        delete dataToSubmit.confirmPassword;
+    }
+    const result = await onSubmit(dataToSubmit);
+    if (result.error) {
+        toast({ title: "Error", description: result.error, variant: "destructive" });
+    } else if (result.success) {
+        toast({ title: "Success", description: result.message || `User ${isEditing ? 'updated' : 'created'} successfully.` });
+        if (!isEditing) form.reset(); // Reset only on new user creation success
+        router.push('/admin/users');
+    }
   }
 
   return (
@@ -131,9 +145,9 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
                 <FormItem>
                   <FormLabel>Имейл Хаяг</FormLabel>
                   <FormControl>
-                    <Input type="email" placeholder="user@example.com" {...field} disabled={isEditing} />
+                    <Input type="email" placeholder="user@example.com" {...field} disabled={isEditing && initialData?.email === 'super@example.com'} />
                   </FormControl>
-                  {isEditing && <FormDescription>Имэйл хаягийг зөвхөн Firebase Admin SDK (Cloud Function) ашиглан өөрчлөх боломжтой. Энд зөвхөн харагдана.</FormDescription>}
+                  {isEditing && <FormDescription>Firestore дахь имэйлийг шинэчилнэ. Firebase Authentication дахь имэйлийг Cloud Function ашиглан солих шаардлагатай.</FormDescription>}
                   <FormMessage />
                 </FormItem>
               )}
@@ -169,6 +183,8 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
                       }
                     }}
                     defaultValue={field.value}
+                    // Disable role change for the super@example.com user or self
+                    disabled={isEditing && (initialData?.email === 'super@example.com' || initialData?.id === form.control._options.context?.currentUser?.id)}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -187,6 +203,9 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
                       })}
                     </SelectContent>
                   </Select>
+                   {(isEditing && (initialData?.email === 'super@example.com' || initialData?.id === form.control._options.context?.currentUser?.id)) && (
+                    <FormDescription>Өөрийн болон үндсэн сүпер админы эрхийг өөрчлөх боломжгүй.</FormDescription>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}
@@ -300,3 +319,5 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
     </Form>
   );
 }
+
+    

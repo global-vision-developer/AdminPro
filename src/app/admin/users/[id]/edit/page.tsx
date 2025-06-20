@@ -10,11 +10,7 @@ import { useAuth } from '@/hooks/use-auth';
 import type { UserProfile } from '@/types';
 import { UserRole } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { db, auth } from '@/lib/firebase';
-import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { sendPasswordResetEmail } from 'firebase/auth'; // Import sendPasswordResetEmail
-
-const ADMINS_COLLECTION = "admins";
+import { getAdminUser, updateAdminUser, sendAdminPasswordResetEmail } from '@/lib/actions/userActions'; // Updated imports
 
 export default function EditUserPage() {
   const router = useRouter();
@@ -22,7 +18,7 @@ export default function EditUserPage() {
   const userId = params.id as string;
 
   const { toast } = useToast();
-  const { currentUser: superAdminUser } = useAuth();
+  const { currentUser: superAdminUser } = useAuth(); // This is the currently logged-in Super Admin
   const [userToEdit, setUserToEdit] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -38,28 +34,14 @@ export default function EditUserPage() {
   const fetchUserToEdit = useCallback(async () => {
     if (!userId || (superAdminUser && superAdminUser.role !== UserRole.SUPER_ADMIN)) return;
     setIsLoading(true);
-    try {
-      const userDocRef = doc(db, ADMINS_COLLECTION, userId);
-      const userDocSnap = await getDoc(userDocRef);
-
-      if (userDocSnap.exists()) {
-        const data = userDocSnap.data();
-        setUserToEdit({
-          id: userDocSnap.id,
-          ...data,
-          allowedCategoryIds: data.role === UserRole.SUB_ADMIN && Array.isArray(data.allowedCategoryIds) ? data.allowedCategoryIds : []
-        } as UserProfile);
-      } else {
-        toast({ title: "Error", description: `Admin user not found in '${ADMINS_COLLECTION}' collection.`, variant: "destructive" });
-        router.push('/admin/users');
-      }
-    } catch (error) {
-      console.error("Error fetching admin user:", error);
-      toast({ title: "Error", description: "Failed to fetch admin user details.", variant: "destructive" });
+    const fetchedUser = await getAdminUser(userId);
+    if (fetchedUser) {
+      setUserToEdit(fetchedUser);
+    } else {
+      toast({ title: "Error", description: "Admin user not found.", variant: "destructive" });
       router.push('/admin/users');
-    } finally {
-      setIsLoading(false);
     }
+    setIsLoading(false);
   }, [userId, superAdminUser, router, toast]);
 
   useEffect(() => {
@@ -67,52 +49,38 @@ export default function EditUserPage() {
   }, [fetchUserToEdit]);
 
 
-  const handleSubmit = async (data: UserFormValues) => {
+  const handleSubmit = async (data: UserFormValues): Promise<{error?: string, success?: boolean, message?: string}> => {
     setIsSubmitting(true);
-    if (!userToEdit) return;
+    if (!userToEdit) {
+        setIsSubmitting(false);
+        return { error: "User data not loaded."};
+    }
 
     if (superAdminUser?.id === userToEdit.id && data.role !== UserRole.SUPER_ADMIN && superAdminUser.role === UserRole.SUPER_ADMIN) {
         toast({ title: "Action Prohibited", description: "Super Admins cannot change or downgrade their own role.", variant: "destructive"});
         setIsSubmitting(false);
-        return;
+        return { error: "Super Admins cannot change or downgrade their own role." };
     }
-
-    try {
-      const userDocRef = doc(db, ADMINS_COLLECTION, userToEdit.id);
-      const updateData: Partial<UserProfile> & { updatedAt: any } = {
-        name: data.name,
-        // Email is not directly updatable here for other users; Firestore copy might be updated if needed but Auth is source of truth
-        role: data.role,
-        updatedAt: serverTimestamp(),
-      };
-
-      if (data.role === UserRole.SUB_ADMIN) {
-        updateData.allowedCategoryIds = data.allowedCategoryIds || [];
-      } else {
-        updateData.allowedCategoryIds = [];
-      }
-      
-      // Note: We are NOT updating email in Firestore here to avoid inconsistency with Firebase Auth
-      // If email change is required, it should be handled via a separate mechanism (e.g. Cloud Function)
-      // or by the user themselves after logging in.
-
-      await updateDoc(userDocRef, updateData);
-      
-      toast({
-        title: "Admin User Updated",
-        description: `Admin user "${data.name}" details successfully updated in Firestore. Email and password changes are handled separately.`,
-      });
-      router.push('/admin/users');
-    } catch (error) {
-      console.error("Failed to update admin user:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update admin user. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
+    if (userToEdit.email === 'super@example.com' && (data.email !== 'super@example.com' || data.role !== UserRole.SUPER_ADMIN)) {
+      toast({ title: "Action Prohibited", description: "The main super admin (super@example.com) email and role cannot be changed.", variant: "destructive" });
       setIsSubmitting(false);
+      return { error: "Main super admin email and role cannot be changed." };
     }
+
+    const updatePayload: Partial<Pick<UserProfile, "name" | "email" | "role" | "allowedCategoryIds">> = {
+      name: data.name,
+      email: data.email, // Email will be updated in Firestore
+      role: data.role,
+    };
+    if (data.role === UserRole.SUB_ADMIN) {
+      updatePayload.allowedCategoryIds = data.allowedCategoryIds || [];
+    } else {
+      updatePayload.allowedCategoryIds = [];
+    }
+
+    const result = await updateAdminUser(userToEdit.id, updatePayload);
+    setIsSubmitting(false);
+    return result; // Server action will provide message for toast
   };
 
   const handleSendPasswordReset = async (email: string) => {
@@ -120,23 +88,21 @@ export default function EditUserPage() {
         toast({ title: "Error", description: "Email address is missing.", variant: "destructive"});
         return;
     }
-    setIsSubmitting(true); // Disable form submit button while this is in progress
-    try {
-        await sendPasswordResetEmail(auth, email);
+    setIsSubmitting(true); 
+    const result = await sendAdminPasswordResetEmail(email);
+    if (result.success) {
         toast({
             title: "Password Reset Email Sent",
             description: `A password reset email has been sent to ${email}. Please check the inbox.`,
         });
-    } catch (error: any) {
-        console.error("Error sending password reset email:", error);
+    } else {
         toast({
             title: "Error Sending Reset Email",
-            description: error.message || "Failed to send password reset email. Please try again.",
+            description: result.error || "Failed to send password reset email. Please try again.",
             variant: "destructive",
         });
-    } finally {
-        setIsSubmitting(false);
     }
+    setIsSubmitting(false);
   };
 
   if (superAdminUser?.role !== UserRole.SUPER_ADMIN && !isLoading) {
@@ -171,8 +137,10 @@ export default function EditUserPage() {
         onSubmit={handleSubmit} 
         isSubmitting={isSubmitting} 
         isEditing={true}
-        onSendPasswordReset={handleSendPasswordReset} // Pass the new handler
+        onSendPasswordReset={handleSendPasswordReset}
       />
     </>
   );
 }
+
+    
