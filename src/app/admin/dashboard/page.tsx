@@ -1,21 +1,93 @@
 
 "use client";
 
+import React, { useState, useEffect } from 'react';
 import { PageHeader } from "@/components/admin/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/use-auth";
 import { UserRole } from "@/types";
-import { Users, Library, Newspaper, Activity } from "lucide-react";
+import { Users, Library, Newspaper, Activity, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { db } from '@/lib/firebase';
+import { collection, getCountFromServer } from 'firebase/firestore';
+import { Skeleton } from '@/components/ui/skeleton';
+
+interface SummaryCardData {
+  title: string;
+  value: string;
+  icon: React.ElementType;
+  href: string;
+  roles?: UserRole[];
+  isLoading: boolean;
+}
 
 export default function DashboardPage() {
   const { currentUser } = useAuth();
+  const [categoryCount, setCategoryCount] = useState(0);
+  const [entryCount, setEntryCount] = useState(0);
+  const [adminUserCount, setAdminUserCount] = useState(0);
+  const [loadingCounts, setLoadingCounts] = useState(true);
 
-  const summaryCards = [
-    { title: "Нийт категори", value: "5", icon: Library, href: "/admin/categories", roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
-    { title: "Нийт бүртгэл", value: "27", icon: Newspaper, href: "/admin/entries", roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
-    { title: "Админ Хэрэглэгчид", value: "3", icon: Users, href: "/admin/users", roles: [UserRole.SUPER_ADMIN] },
+  useEffect(() => {
+    const fetchCounts = async () => {
+      setLoadingCounts(true);
+      try {
+        const categoriesCol = collection(db, "categories");
+        const entriesCol = collection(db, "entries");
+        const adminsCol = collection(db, "admins");
+
+        const [categoriesSnapshot, entriesSnapshot, adminsSnapshot] = await Promise.all([
+          getCountFromServer(categoriesCol),
+          getCountFromServer(entriesCol),
+          getCountFromServer(adminsCol),
+        ]);
+
+        setCategoryCount(categoriesSnapshot.data().count);
+        setEntryCount(entriesSnapshot.data().count);
+        setAdminUserCount(adminsSnapshot.data().count);
+
+      } catch (error) {
+        console.error("Error fetching dashboard counts:", error);
+        // Optionally set counts to a fallback or error indicator
+        setCategoryCount(0);
+        setEntryCount(0);
+        setAdminUserCount(0);
+      } finally {
+        setLoadingCounts(false);
+      }
+    };
+
+    if (currentUser) {
+      fetchCounts();
+    }
+  }, [currentUser]);
+
+  const summaryCards: SummaryCardData[] = [
+    { 
+      title: "Нийт категори", 
+      value: categoryCount.toString(), 
+      icon: Library, 
+      href: "/admin/categories", 
+      roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN],
+      isLoading: loadingCounts 
+    },
+    { 
+      title: "Нийт бүртгэл", 
+      value: entryCount.toString(), 
+      icon: Newspaper, 
+      href: "/admin/entries", 
+      roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN],
+      isLoading: loadingCounts 
+    },
+    { 
+      title: "Админ Хэрэглэгчид", 
+      value: adminUserCount.toString(), 
+      icon: Users, 
+      href: "/admin/users", 
+      roles: [UserRole.SUPER_ADMIN],
+      isLoading: loadingCounts 
+    },
     // { title: "Recent Activity", value: "12", icon: Activity, href: "#" },
   ];
 
@@ -41,10 +113,12 @@ export default function DashboardPage() {
                   <card.icon className="h-5 w-5 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-foreground">{card.value}</div>
-                  <p className="text-xs text-muted-foreground pt-1">
-                    демо дата(жишиг)
-                  </p>
+                  {card.isLoading ? (
+                    <Skeleton className="h-8 w-1/4" />
+                  ) : (
+                    <div className="text-3xl font-bold text-foreground">{card.value}</div>
+                  )}
+                  {/* "демо дата(жишиг)" text removed */}
                 </CardContent>
               </Card>
           </Link>
