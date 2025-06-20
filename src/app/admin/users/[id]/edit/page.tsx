@@ -10,7 +10,7 @@ import { useAuth } from '@/hooks/use-auth';
 import type { UserProfile } from '@/types';
 import { UserRole } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getAdminUser, updateAdminUser, sendAdminPasswordResetEmail } from '@/lib/actions/userActions'; // Updated imports
+import { getAdminUser, updateAdminUser, sendAdminPasswordResetEmail } from '@/lib/actions/userActions';
 
 export default function EditUserPage() {
   const router = useRouter();
@@ -18,7 +18,7 @@ export default function EditUserPage() {
   const userId = params.id as string;
 
   const { toast } = useToast();
-  const { currentUser: superAdminUser } = useAuth(); // This is the currently logged-in Super Admin
+  const { currentUser: superAdminUser } = useAuth(); 
   const [userToEdit, setUserToEdit] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -67,20 +67,34 @@ export default function EditUserPage() {
       return { error: "Main super admin email and role cannot be changed." };
     }
 
-    const updatePayload: Partial<Pick<UserProfile, "name" | "email" | "role" | "allowedCategoryIds">> = {
+    const updatePayload: Partial<Pick<UserProfile, "name" | "email" | "role" | "allowedCategoryIds">> & { newPassword?: string } = {
       name: data.name,
-      email: data.email, // Email will be updated in Firestore
+      email: data.email, 
       role: data.role,
     };
+
     if (data.role === UserRole.SUB_ADMIN) {
       updatePayload.allowedCategoryIds = data.allowedCategoryIds || [];
     } else {
       updatePayload.allowedCategoryIds = [];
     }
 
+    if (data.newPassword && data.newPassword.length > 0) {
+        if (data.newPassword.length < 6) {
+             setIsSubmitting(false);
+             return { error: "New password must be at least 6 characters."};
+        }
+        if (data.newPassword !== data.confirmNewPassword) {
+            setIsSubmitting(false);
+            return { error: "New passwords do not match."};
+        }
+        updatePayload.newPassword = data.newPassword;
+    }
+
+
     const result = await updateAdminUser(userToEdit.id, updatePayload);
     setIsSubmitting(false);
-    return result; // Server action will provide message for toast
+    return result; 
   };
 
   const handleSendPasswordReset = async (email: string) => {

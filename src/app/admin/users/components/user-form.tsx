@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription as UiCardDesc
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import type { UserProfile, Category } from '@/types';
 import { UserRole } from '@/types';
-import { Save, Loader2, ListChecks, MailWarning } from 'lucide-react';
+import { Save, Loader2, ListChecks, MailWarning, KeyRound } from 'lucide-react'; // Added KeyRound
 import { useRouter } from 'next/navigation';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -27,6 +27,7 @@ const userFormSchemaBase = z.object({
   allowedCategoryIds: z.array(z.string()).optional(),
 });
 
+// Schema for creating a new user (password is required)
 const newUserFormSchema = userFormSchemaBase.extend({
   password: z.string().min(6, "Password must be at least 6 characters."),
   confirmPassword: z.string().min(6, "Please confirm your password."),
@@ -35,13 +36,29 @@ const newUserFormSchema = userFormSchemaBase.extend({
   path: ["confirmPassword"],
 });
 
-const editUserFormSchema = userFormSchemaBase; // Password fields are not part of the edit schema directly here
+// Schema for editing an existing user (password is optional)
+const editUserFormSchema = userFormSchemaBase.extend({
+  newPassword: z.string().optional(),
+  confirmNewPassword: z.string().optional(),
+}).refine(data => {
+  if (data.newPassword && data.newPassword.length > 0 && data.newPassword.length < 6) {
+    return false; // Fails if newPassword is set and less than 6 chars
+  }
+  return true;
+}, {
+  message: "New password must be at least 6 characters.",
+  path: ["newPassword"],
+}).refine(data => data.newPassword === data.confirmNewPassword, {
+  message: "New passwords do not match.",
+  path: ["confirmNewPassword"],
+});
 
-export type UserFormValues = z.infer<typeof newUserFormSchema>; // Use the most inclusive for typing
+
+export type UserFormValues = z.infer<typeof newUserFormSchema> & z.infer<typeof editUserFormSchema>;
 
 interface UserFormProps {
   initialData?: UserProfile | null;
-  onSubmit: (data: UserFormValues) => Promise<{error?: string, success?: boolean, message?: string}>; // Updated return type
+  onSubmit: (data: UserFormValues) => Promise<{error?: string, success?: boolean, message?: string}>;
   isSubmitting: boolean;
   isEditing?: boolean;
   onSendPasswordReset?: (email: string) => Promise<void>;
@@ -77,8 +94,10 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
     defaultValues: initialData ? {
       ...initialData,
       allowedCategoryIds: initialData.allowedCategoryIds || [],
-      password: '', // Not directly edited here, but part of type
-      confirmPassword: '', // Not directly edited here
+      password: '', 
+      confirmPassword: '',
+      newPassword: '',
+      confirmNewPassword: '',
     } : {
       name: '',
       email: '',
@@ -86,30 +105,45 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
       allowedCategoryIds: [],
       password: '',
       confirmPassword: '',
+      newPassword: '',
+      confirmNewPassword: '',
     },
   });
 
   const watchRole = form.watch('role');
 
   const handleFormSubmit = async (data: UserFormValues) => {
-    const dataToSubmit = {
-      ...data,
+    const dataToSubmit: any = { // Use 'any' carefully or create a more specific submit type
+      name: data.name,
+      email: data.email,
+      role: data.role,
       allowedCategoryIds: data.role === UserRole.SUB_ADMIN ? data.allowedCategoryIds || [] : [],
     };
-    // Password fields are only relevant for new user creation schema
-    // For editing, password is handled via reset, and not directly submitted through this form for changing.
+
     if (isEditing) {
-        // @ts-ignore
-        delete dataToSubmit.password; 
-        // @ts-ignore
-        delete dataToSubmit.confirmPassword;
+      if (data.newPassword && data.newPassword.length > 0) {
+        dataToSubmit.newPassword = data.newPassword;
+      }
+    } else {
+      // For new user, password is required by newUserFormSchema
+      dataToSubmit.password = data.password;
     }
+
     const result = await onSubmit(dataToSubmit);
+
     if (result.error) {
         toast({ title: "Error", description: result.error, variant: "destructive" });
     } else if (result.success) {
         toast({ title: "Success", description: result.message || `User ${isEditing ? 'updated' : 'created'} successfully.` });
-        if (!isEditing) form.reset(); // Reset only on new user creation success
+        if (!isEditing) {
+            form.reset({ // Reset for new user
+                name: '', email: '', role: UserRole.SUB_ADMIN, allowedCategoryIds: [],
+                password: '', confirmPassword: '', newPassword: '', confirmNewPassword: ''
+            });
+        } else {
+            // For editing, only clear password fields if they were submitted
+            form.reset({ ...form.getValues(), newPassword: '', confirmNewPassword: '' });
+        }
         router.push('/admin/users');
     }
   }
@@ -152,23 +186,56 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
                 </FormItem>
               )}
             />
-            {isEditing && initialData?.email && onSendPasswordReset && (
-              <FormItem>
-                <FormLabel>Нууц үг</FormLabel>
-                <div className="flex items-center space-x-2">
-                   <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => onSendPasswordReset(initialData.email)}
-                    disabled={isSubmitting}
-                  >
-                    <MailWarning className="mr-2 h-4 w-4" />
-                    Нууц үг сэргээх имэйл илгээх
-                  </Button>
-                </div>
-                <FormDescription>Энэ товчийг дарснаар "{initialData.email}" хаяг руу нууц үг сэргээх заавар бүхий имэйл илгээгдэнэ.</FormDescription>
-              </FormItem>
+            
+            {isEditing && (
+                 <>
+                    <FormField
+                        control={form.control}
+                        name="newPassword"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel className="flex items-center"><KeyRound className="mr-2 h-4 w-4 text-muted-foreground" />Шинэ нууц үг (Хоосон орхивол солихгүй)</FormLabel>
+                            <FormControl>
+                                <Input type="password" placeholder="••••••••" {...field} />
+                            </FormControl>
+                            <FormDescription>Нууц үгээ солихыг хүсвэл энд шинэ нууц үгээ оруулна уу. Дор хаяж 6 тэмдэгт.</FormDescription>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="confirmNewPassword"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Шинэ нууц үгээ баталгаажуулна уу</FormLabel>
+                            <FormControl>
+                                <Input type="password" placeholder="••••••••" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    {initialData?.email && onSendPasswordReset && (
+                        <FormItem className="pt-2">
+                            <FormLabel className="text-sm">Эсвэл</FormLabel>
+                            <div className="flex items-center space-x-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => onSendPasswordReset(initialData.email)}
+                                disabled={isSubmitting}
+                            >
+                                <MailWarning className="mr-2 h-4 w-4" />
+                                Нууц үг сэргээх имэйл илгээх
+                            </Button>
+                            </div>
+                        </FormItem>
+                    )}
+                 </>
             )}
+
             <FormField
               control={form.control}
               name="role"
@@ -183,7 +250,6 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
                       }
                     }}
                     defaultValue={field.value}
-                    // Disable role change for the super@example.com user or self
                     disabled={isEditing && (initialData?.email === 'super@example.com' || initialData?.id === form.control._options.context?.currentUser?.id)}
                   >
                     <FormControl>
@@ -319,5 +385,6 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
     </Form>
   );
 }
+    
 
     

@@ -29,6 +29,7 @@ const ADMINS_COLLECTION = "admins";
 export type AdminUserData = Partial<Omit<UserProfile, "id" | "avatar">> & {
   id?: string; // For updates
   password?: string; // Only for creation
+  newPassword?: string; // For password change during edit
 };
 
 
@@ -39,10 +40,6 @@ export async function addAdminUser(
         return { error: "Нууц үг оруулах шаардлагатай." };
     }
     try {
-        // NOTE: This creates the user in Firebase Auth *using the client SDK*.
-        // This means the current admin panel's Firebase Auth instance will be signed in as the *new user*.
-        // This is a known behavior/limitation when creating users from the client-side/Next.js server action environment
-        // without a separate admin SDK backend for user creation.
         const userCredential = await createUserWithEmailAndPassword(clientAuth, data.email, data.password);
         const firebaseUser = userCredential.user;
 
@@ -51,7 +48,7 @@ export async function addAdminUser(
 
         const adminDocRef = doc(db, ADMINS_COLLECTION, firebaseUser.uid);
         const firestoreAdminData: Omit<UserProfile, "id"> & { createdAt: any, updatedAt: any } = {
-            uid: firebaseUser.uid, // ensure uid is stored
+            uid: firebaseUser.uid, 
             email: firebaseUser.email!,
             name: data.name,
             role: data.role,
@@ -83,30 +80,43 @@ export async function addAdminUser(
 
 export async function updateAdminUser(
   userId: string,
-  data: Partial<Pick<UserProfile, "name" | "email" | "role" | "allowedCategoryIds">>
+  data: Partial<Pick<UserProfile, "name" | "email" | "role" | "allowedCategoryIds">> & { newPassword?: string }
 ): Promise<{ success?: boolean; error?: string; message?: string }> {
   try {
     const adminDocRef = doc(db, ADMINS_COLLECTION, userId);
-    const updateData: any = { ...data, updatedAt: serverTimestamp() };
+    const updateDataForFirestore: any = { updatedAt: serverTimestamp() };
 
-    if (data.role && data.role !== UserRole.SUB_ADMIN) {
-      updateData.allowedCategoryIds = []; // Clear if not Sub Admin
-    } else if (data.role === UserRole.SUB_ADMIN && !data.allowedCategoryIds) {
-      updateData.allowedCategoryIds = []; // Ensure it's an empty array if not provided for Sub Admin
-    }
+    if (data.name) updateDataForFirestore.name = data.name;
+    if (data.email) updateDataForFirestore.email = data.email;
+    if (data.role) updateDataForFirestore.role = data.role;
     
-    // Firestore document update
-    await updateDoc(adminDocRef, updateData);
-    console.log(`Firestore document for admin ${userId} updated with new details (name, role, email if changed, allowedCategoryIds).`);
+    if (data.role && data.role !== UserRole.SUB_ADMIN) {
+      updateDataForFirestore.allowedCategoryIds = []; 
+    } else if (data.role === UserRole.SUB_ADMIN) {
+      // If role is Sub Admin, update allowedCategoryIds if provided, otherwise keep existing or set to empty array
+      updateDataForFirestore.allowedCategoryIds = data.allowedCategoryIds || [];
+    } else if (data.hasOwnProperty('allowedCategoryIds')) { // Handle explicit empty array for non-SubAdmin roles too
+        updateDataForFirestore.allowedCategoryIds = data.allowedCategoryIds;
+    }
 
-    // Important Note for Auth Email Update:
+
+    await updateDoc(adminDocRef, updateDataForFirestore);
+    console.log(`Firestore document for admin ${userId} updated with new details (name, role, email, allowedCategoryIds).`);
+
+    let authUpdateMessage = "";
     const currentFirestoreUserSnap = await getDoc(adminDocRef);
     const currentFirestoreEmail = currentFirestoreUserSnap.data()?.email;
 
-    let authUpdateMessage = "";
-    if (data.email && data.email !== currentFirestoreEmail) { // Check if email was part of the update request and different from previous
-        authUpdateMessage = ` Firebase Authentication дахь имэйлийг (${data.email}) солихын тулд Cloud Function ашиглах шаардлагатай. Одоохондоо хэрэглэгч хуучин имэйлээрээ нэвтэрнэ.`;
+    if (data.email && data.email !== currentFirestoreEmail) { 
+        authUpdateMessage += ` Firebase Authentication дахь имэйлийг (${data.email}) солихын тулд Cloud Function ашиглах шаардлагатай. Одоохондоо хэрэглэгч хуучин имэйлээрээ нэвтэрнэ.`;
         console.warn(`IMPORTANT: Admin user ${userId} Firestore email updated to ${data.email}. Corresponding Firebase Authentication email update requires a Cloud Function.`);
+    }
+
+    if (data.newPassword && data.newPassword.length >= 6) {
+        authUpdateMessage += ` Firebase Authentication дахь нууц үгийг шинэчлэхийн тулд Cloud Function ашиглах шаардлагатай.`;
+        console.warn(`IMPORTANT: Admin user ${userId} requested a password change. This requires a Cloud Function to update Firebase Authentication.`);
+    } else if (data.newPassword && data.newPassword.length > 0) {
+        return { error: "New password provided is less than 6 characters. Firestore not updated with password change request." };
     }
     
     revalidatePath("/admin/users");
@@ -130,7 +140,7 @@ export async function getAdminUsers(): Promise<UserProfile[]> {
       const data = doc.data();
       users.push({
         id: doc.id,
-        uid: data.uid || doc.id, // for consistency if uid field exists
+        uid: data.uid || doc.id, 
         name: data.name || '',
         email: data.email || '',
         role: data.role || UserRole.SUB_ADMIN,
