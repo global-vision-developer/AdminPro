@@ -104,7 +104,8 @@ export const processNotificationRequest = onDocumentCreated(
     const originalTargetsArray: FunctionNotificationTarget[] =
       Array.isArray(typedTargets) ?
         typedTargets.map(
-          (t: FunctionNotificationTarget) => ({...t}) // t-г FunctionNotificationTarget гэж үзнэ
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (t: any) => ({...t} as FunctionNotificationTarget)
         ) : [];
 
 
@@ -270,7 +271,7 @@ export const updateAdminAuthDetails = functions
         .get();
       if (
         !callerAdminDoc.exists ||
-        callerAdminDoc.data()?.role !== "Super Admin" // UserRole.SUPER_ADMIN утгыг src/types-аас ашиглаж болно
+        callerAdminDoc.data()?.role !== "Super Admin"
       ) {
         throw new functions.https.HttpsError(
           "permission-denied",
@@ -303,7 +304,7 @@ export const updateAdminAuthDetails = functions
     try {
       const targetUserRecord = await admin.auth().getUser(targetUserId);
       if (
-        targetUserRecord.email === "super@example.com" && // Үндсэн админы имэйл
+        targetUserRecord.email === "super@example.com" &&
         newEmail &&
         newEmail !== "super@example.com"
       ) {
