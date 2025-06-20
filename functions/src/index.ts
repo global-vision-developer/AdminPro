@@ -8,6 +8,7 @@ import {
 } from "firebase-functions/v2/firestore";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
+import * as functions from "firebase-functions"; // Added for https.onCall
 
 // Firebase Admin SDK-г эхлүүлнэ (зөвхөн нэг удаа)
 if (admin.apps.length === 0) {
@@ -242,3 +243,155 @@ export const processNotificationRequest = onDocumentCreated(
   }
 );
 
+// --- Шинэ Cloud Function: Админ хэрэглэгчийн Auth мэдээллийг шинэчлэх ---
+const ADMINS_COLLECTION = "admins"; // Firestore дахь админуудын коллекцын нэр
+
+interface UpdateAdminAuthDetailsData {
+  targetUserId: string;
+  newEmail?: string;
+  newPassword?: string;
+}
+
+export const updateAdminAuthDetails = functions
+  .region("us-central1") // Өөрийн Firebase төслийн бүс нутгийг сонгоно уу
+  .https.onCall(async (data: UpdateAdminAuthDetailsData, context) => {
+    // 1. Дуудаж буй хэрэглэгчийн эрхийг шалгах
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "The function must be called while authenticated."
+      );
+    }
+
+    const callerUid = context.auth.uid;
+    try {
+      const callerAdminDoc = await db
+        .collection(ADMINS_COLLECTION)
+        .doc(callerUid)
+        .get();
+      if (
+        !callerAdminDoc.exists ||
+        callerAdminDoc.data()?.role !== "Super Admin" // UserRole.SUPER_ADMIN утгыг src/types-аас ашиглаж болно
+      ) {
+        throw new functions.https.HttpsError(
+          "permission-denied",
+          "Caller does not have Super Admin privileges."
+        );
+      }
+    } catch (error) {
+      logger.error("Error checking caller permissions:", error);
+      throw new functions.https.HttpsError(
+        "internal",
+        "Could not verify caller permissions."
+      );
+    }
+
+    const { targetUserId, newEmail, newPassword } = data;
+
+    if (!targetUserId) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "targetUserId is required."
+      );
+    }
+    if (!newEmail && !newPassword) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Either newEmail or newPassword must be provided."
+      );
+    }
+    
+    try {
+      const targetUserRecord = await admin.auth().getUser(targetUserId);
+      if (
+        targetUserRecord.email === "super@example.com" && // Үндсэн админы имэйл
+        newEmail &&
+        newEmail !== "super@example.com"
+      ) {
+        throw new functions.https.HttpsError(
+          "permission-denied",
+          "Cannot change the email of the primary super admin account."
+        );
+      }
+    } catch (error: any) {
+         logger.error("Error fetching target user for pre-check:", error);
+    }
+
+
+    try {
+      const updatePayloadAuth: { email?: string; password?: string } = {};
+      const updatePayloadFirestore: { email?: string; updatedAt: FirebaseFirestore.FieldValue } = {
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      };
+
+      if (newEmail) {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+            throw new functions.https.HttpsError(
+                "invalid-argument",
+                "The new email address is not valid."
+            );
+        }
+        updatePayloadAuth.email = newEmail;
+        updatePayloadFirestore.email = newEmail; 
+      }
+
+      if (newPassword) {
+        if (newPassword.length < 6) {
+          throw new functions.https.HttpsError(
+            "invalid-argument",
+            "New password must be at least 6 characters long."
+          );
+        }
+        updatePayloadAuth.password = newPassword;
+      }
+
+      if (Object.keys(updatePayloadAuth).length > 0) {
+        await admin.auth().updateUser(targetUserId, updatePayloadAuth);
+        logger.info(`Successfully updated Firebase Auth for user: ${targetUserId}`, updatePayloadAuth);
+      }
+
+      await db
+        .collection(ADMINS_COLLECTION)
+        .doc(targetUserId)
+        .update(updatePayloadFirestore);
+      logger.info(`Successfully updated Firestore for user: ${targetUserId}`, updatePayloadFirestore);
+
+
+      return {
+        success: true,
+        message: "Admin authentication and Firestore details updated successfully.",
+      };
+    } catch (error: any) {
+      logger.error("Error updating admin auth details:", error);
+      let errorCode: functions.https.FunctionsErrorCode = "unknown";
+      let errorMessage = "Failed to update admin authentication details.";
+
+      if (error.code) {
+        switch (error.code) {
+          case "auth/email-already-exists":
+            errorCode = "already-exists";
+            errorMessage =
+              "The new email address is already in use by another account.";
+            break;
+          case "auth/invalid-email":
+            errorCode = "invalid-argument";
+            errorMessage = "The new email address is not valid.";
+            break;
+          case "auth/user-not-found":
+            errorCode = "not-found";
+            errorMessage = "Target user not found in Firebase Authentication.";
+            break;
+          case "auth/weak-password":
+            errorCode = "invalid-argument";
+            errorMessage = "The new password is too weak.";
+            break;
+          default:
+            errorCode = "internal";
+            errorMessage = error.message || "An internal error occurred during auth update.";
+        }
+      }
+      throw new functions.https.HttpsError(errorCode, errorMessage, {originalCode: error.code});
+    }
+  });
+
+    
