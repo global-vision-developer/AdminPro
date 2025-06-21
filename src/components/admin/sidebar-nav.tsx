@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -48,7 +47,7 @@ const navItems: NavItem[] = [
   {
     href: "/admin/content", label: "Мэдээлэл нэмэх", icon: Library,
     subItems: [
-      { href: "/admin/categories", label: "ангилал нэмэх", icon: Library, roles: [UserRole.SUPER_ADMIN] },
+      { href: "/admin/categories", label: "Ангилал нэмэх", icon: Library, roles: [UserRole.SUPER_ADMIN] },
       { href: "/admin/entries", label: "Өгөгдөл нэмэх", icon: Newspaper, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
     ]
   },
@@ -82,14 +81,14 @@ export function SidebarNav() {
         return null;
     }
 
-    if (item.label === "ангилал нэмэх" && currentUser.role === UserRole.SUB_ADMIN) {
+    if (item.label === "Ангилал нэмэх" && currentUser.role === UserRole.SUB_ADMIN) {
         return null;
     }
 
     let itemIsActive = pathname === item.href || (item.href !== "/admin/dashboard" && pathname.startsWith(item.href));
     if (item.subItems && !itemIsActive) {
         itemIsActive = item.subItems.some(sub => {
-            if (sub.label === "ангилал нэмэх" && currentUser.role === UserRole.SUB_ADMIN) return false;
+            if (sub.label === "Ангилал нэмэх" && currentUser.role === UserRole.SUB_ADMIN) return false;
             return pathname.startsWith(sub.href);
         });
     }
@@ -101,7 +100,7 @@ export function SidebarNav() {
       const visibleSubItems = item.subItems.filter(subItem => {
         if (subItem.roles && !subItem.roles.includes(currentUser.role)) return false;
         if (subItem.hideIfSubAdmin && currentUser.role === UserRole.SUB_ADMIN) return false;
-        if (subItem.label === "ангилал нэмэх" && currentUser.role === UserRole.SUB_ADMIN) return false;
+        if (subItem.label === "Ангилал нэмэх" && currentUser.role === UserRole.SUB_ADMIN) return false;
         return true;
       });
 
