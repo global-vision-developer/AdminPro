@@ -1,42 +1,55 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { PageHeader } from '@/components/admin/page-header';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
-import type { AppUser } from '@/types';
+import type { AppUser, NotificationLog } from '@/types';
 import { getAppUsers } from '@/lib/actions/appUserActions';
 import { NotificationForm, type NotificationFormValues } from './components/notification-form';
-import { createNotificationEntry } from '@/lib/actions/notificationActions'; 
-import { MailWarning, Send, Users, Loader2, Search as SearchIcon, Info } from 'lucide-react'; // Added Info
+import { createNotificationEntry, getNotificationLogs } from '@/lib/actions/notificationActions'; 
+import { NotificationHistory } from './components/notification-history'; // Import new component
+import { MailWarning, Send, Users, Loader2, Search as SearchIcon, Info, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'; // Added Alert
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 export default function NotificationsPage() {
   const [appUsers, setAppUsers] = useState<AppUser[]>([]);
+  const [notificationLogs, setNotificationLogs] = useState<NotificationLog[]>([]); // State for history
   const [selectedUsers, setSelectedUsers] = useState<Record<string, AppUser>>({});
-  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [isSendNotificationDialogOpen, setIsSendNotificationDialogOpen] = useState(false);
   const [isSubmittingNotification, setIsSubmittingNotification] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
 
-  useEffect(() => {
-    async function fetchUsers() {
-      setIsLoadingUsers(true);
-      const users = await getAppUsers();
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const [users, logs] = await Promise.all([
+        getAppUsers(),
+        getNotificationLogs()
+      ]);
       setAppUsers(users);
-      setIsLoadingUsers(false);
+      setNotificationLogs(logs);
+    } catch (error) {
+      console.error("Failed to fetch data:", error);
+      toast({ title: "Алдаа", description: "Хэрэглэгчид эсвэл мэдэгдлийн түүхийг ачааллахад алдаа гарлаа.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
     }
-    fetchUsers();
-  }, []);
+  }, [toast]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const filteredAppUsers = useMemo(() => {
     if (!searchTerm) return appUsers;
@@ -78,7 +91,6 @@ export default function NotificationsPage() {
       toast({ title: "Хэрэглэгч сонгоогүй", description: "Мэдэгдэл илгээхийн тулд дор хаяж нэг хэрэглэгч сонгоно уу.", variant: "destructive" });
       return;
     }
-    // Check if any selected user has FCM tokens
     const usersWithTokens = Object.values(selectedUsers).filter(u => u.fcmTokens && u.fcmTokens.length > 0);
     if (usersWithTokens.length === 0) {
         toast({ title: "FCM Token байхгүй", description: "Сонгосон хэрэглэгчдийн хэн нь ч бүртгэгдсэн FCM token-гүй байна. Мэдэгдэл илгээх боломжгүй.", variant: "destructive", duration: 7000 });
@@ -104,7 +116,8 @@ export default function NotificationsPage() {
     if (result && "id" in result) {
       toast({ title: "Мэдэгдэл хүсэлт үүслээ", description: `Мэдэгдэл илгээх хүсэлт амжилттай үүсч, Firestore-д хадгалагдлаа (ID: ${result.id}). Firebase Function боловсруулахыг хүлээнэ үү.` });
       setIsSendNotificationDialogOpen(false);
-      setSelectedUsers({}); // Clear selection
+      setSelectedUsers({});
+      fetchData(); // Refresh data including logs
     } else if (result && "error" in result) {
       toast({ title: "Алдаа", description: result.error, variant: "destructive" });
     }
@@ -113,18 +126,21 @@ export default function NotificationsPage() {
   return (
     <>
       <PageHeader title="Мэдэгдэл Илгээх" description="Аппын хэрэглэгчид рүү push notification илгээнэ үү.">
-        <Button onClick={handleOpenSendDialog} disabled={selectedUserCount === 0 || isLoadingUsers}>
-          <Send className="mr-2 h-4 w-4" /> Мэдэгдэл илгээх ({selectedUserCount})
-        </Button>
+        <div className='flex items-center gap-2'>
+            <Button onClick={handleOpenSendDialog} disabled={selectedUserCount === 0 || isLoading}>
+                <Send className="mr-2 h-4 w-4" /> Мэдэгдэл илгээх ({selectedUserCount})
+            </Button>
+            <Button onClick={fetchData} variant="outline" size="icon" disabled={isLoading} aria-label="Refresh Data">
+                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            </Button>
+        </div>
       </PageHeader>
 
       <Alert variant="default" className="mb-4 border-blue-500">
         <Info className="h-5 w-5 text-blue-500" />
-        <AlertTitle className="font-semibold text-blue-700">Expo Push Tokens</AlertTitle>
+        <AlertTitle className="font-semibold text-blue-700">FCM Tokens-ийн тухай</AlertTitle>
         <AlertDescription className="text-blue-600">
-          Хэрэв таны аппликэйшн Expo ашигладаг бол, Expo-гоос авсан push token-ууд (жишээ нь, <code className="font-mono bg-blue-100 px-1 rounded text-blue-800">ExponentPushToken[...]</code>) нь FCM token-той нийцтэй ажиллана.
-          Таны клиент (Expo) аппликэйшн нь эдгээр токенуудыг Firestore-ийн <code className="font-mono bg-blue-100 px-1 rounded text-blue-800">users</code> коллекцийн <code className="font-mono bg-blue-100 px-1 rounded text-blue-800">fcmTokens</code> (массив) талбарт хадгалах ёстой.
-          Энэ админ панел нь тухайн токенуудыг ашиглан Firebase Cloud Functions (FCM) рүү мэдэгдэл илгээх хүсэлт тавина.
+          Энэ хэсэг нь Firebase Cloud Messaging (FCM) ашиглан notification илгээнэ. Таны хэрэглэгчийн аппликэйшн (React Native, Flutter, Swift, г.м) нь FCM-ээс авсан төхөөрөмжийн token-оо Firestore-ийн `users` collection доторх тухайн хэрэглэгчийн document-ийн `fcmTokens` (массивын төрөлтэй) талбарт хадгалах ёстой.
         </AlertDescription>
       </Alert>
 
@@ -143,7 +159,7 @@ export default function NotificationsPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {isLoadingUsers ? (
+          {isLoading ? (
              <div className="flex items-center justify-center py-10">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <p className="ml-2 text-muted-foreground">Хэрэглэгчдийг ачаалж байна...</p>
@@ -157,7 +173,7 @@ export default function NotificationsPage() {
               </p>
             </div>
           ) : (
-            <ScrollArea className="h-[calc(100vh-420px)]"> {/* Adjusted height for the new Alert */}
+            <ScrollArea className="h-[calc(100vh-520px)]">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -204,6 +220,10 @@ export default function NotificationsPage() {
           )}
         </CardContent>
       </Card>
+      
+      <div className='mt-8'>
+        <NotificationHistory logs={notificationLogs} isLoading={isLoading} />
+      </div>
 
       <Dialog open={isSendNotificationDialogOpen} onOpenChange={setIsSendNotificationDialogOpen}>
         <DialogContent className="sm:max-w-xl">
@@ -220,22 +240,6 @@ export default function NotificationsPage() {
           />
         </DialogContent>
       </Dialog>
-       <Card className="mt-6">
-        <CardHeader>
-            <CardTitle className="text-base font-semibold">Firebase Function Шаардлагатай</CardTitle>
-        </CardHeader>
-        <CardContent>
-            <p className="text-sm text-muted-foreground">
-                Энэ UI нь мэдэгдэл илгээх хүсэлтийг Firestore-ийн <code className="font-mono bg-muted px-1 rounded">notifications</code> collection-д хадгална. 
-                Мэдэгдлийг бодитоор хэрэглэгчид рүү FCM ашиглан илгээхийн тулд та Firebase Function (Cloud Function) үүсгэх шаардлагатай.
-            </p>
-            <p className="text-sm text-muted-foreground mt-2">
-                Firebase Function нь <code className="font-mono bg-muted px-1 rounded">notifications</code> collection-д шинэ document үүсэхэд (onCreate trigger) ажиллаж,
-                тухайн document-д заасан <code className="font-mono bg-muted px-1 rounded">targets</code> дахь FCM token-ууд руу мэдэгдэл илгээж, илгээлтийн статусыг буцааж шинэчлэх ёстой.
-                Мөн <code className="font-mono bg-muted px-1 rounded">scheduleAt</code> талбарыг шалгаж, хуваарьт мэдэгдлийг дэмжих боломжтой.
-            </p>
-        </CardContent>
-      </Card>
     </>
   );
 }

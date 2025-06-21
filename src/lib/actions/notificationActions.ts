@@ -1,9 +1,9 @@
 
 "use server";
 
-import { db, auth as adminAuth } from "@/lib/firebase"; // Using adminAuth to get current admin user
+import { db, auth as adminAuth } from "@/lib/firebase";
 import type { NotificationLog, NotificationTarget, AppUser } from "@/types";
-import { collection, addDoc, serverTimestamp, Timestamp }
+import { collection, addDoc, serverTimestamp, Timestamp, getDocs, query, orderBy, limit }
 from "firebase/firestore";
 import { revalidatePath } from "next/cache";
 
@@ -14,7 +14,7 @@ interface CreateNotificationPayload {
   body: string;
   imageUrl?: string | null;
   deepLink?: string | null;
-  scheduleAt?: Date | null; // Date object from form
+  scheduleAt?: Date | null;
   selectedUsers: Pick<AppUser, "id" | "email" | "displayName" | "fcmTokens">[];
 }
 
@@ -36,7 +36,7 @@ export async function createNotificationEntry(
             userEmail: user.email,
             userName: user.displayName || user.email?.split('@')[0],
             token: token,
-            status: 'pending', // Initial status
+            status: 'pending',
           });
         });
       }
@@ -46,7 +46,7 @@ export async function createNotificationEntry(
       return { error: "No valid FCM tokens found for the selected users. Notification not created." };
     }
 
-    const notificationData: Omit<NotificationLog, "id" | "createdAt" | "processedAt" | "processingStatus"> & { createdAt: any, scheduleAt?: any } = {
+    const notificationData: Omit<NotificationLog, "id" | "createdAt" | "processedAt" > & { createdAt: any, scheduleAt?: any } = {
       title: payload.title,
       body: payload.body,
       imageUrl: payload.imageUrl || null,
@@ -57,20 +57,18 @@ export async function createNotificationEntry(
         name: currentAdmin.displayName || currentAdmin.email?.split('@')[0] || "Admin",
       },
       createdAt: serverTimestamp(),
-      processingStatus: 'pending', // Initial processing status
+      processingStatus: 'pending',
       targets: targets,
     };
 
     if (payload.scheduleAt) {
       notificationData.scheduleAt = Timestamp.fromDate(payload.scheduleAt);
+      notificationData.processingStatus = 'scheduled';
     }
 
     const docRef = await addDoc(collection(db, NOTIFICATIONS_COLLECTION), notificationData);
     
-    // Revalidate paths related to notifications if you have a history page
     revalidatePath("/admin/notifications"); 
-    // Optionally, revalidate a specific notification log page if it exists
-    // revalidatePath(`/admin/notifications/${docRef.id}`);
 
     return { id: docRef.id };
   } catch (e: any) {
@@ -79,5 +77,30 @@ export async function createNotificationEntry(
   }
 }
 
-// Future: Action to get notification logs for display
-// export async function getNotificationLogs(): Promise<NotificationLog[]> { ... }
+export async function getNotificationLogs(): Promise<NotificationLog[]> {
+  try {
+    const logsRef = collection(db, NOTIFICATIONS_COLLECTION);
+    const q = query(logsRef, orderBy("createdAt", "desc"), limit(50));
+    const querySnapshot = await getDocs(q);
+    
+    return querySnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        title: data.title,
+        body: data.body,
+        imageUrl: data.imageUrl,
+        deepLink: data.deepLink,
+        scheduleAt: data.scheduleAt instanceof Timestamp ? data.scheduleAt.toDate().toISOString() : null,
+        adminCreator: data.adminCreator,
+        createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : new Date().toISOString(),
+        processingStatus: data.processingStatus,
+        processedAt: data.processedAt instanceof Timestamp ? data.processedAt.toDate().toISOString() : null,
+        targets: data.targets || [],
+      } as NotificationLog;
+    });
+  } catch (error: any) {
+    console.error("Error fetching notification logs:", error);
+    return [];
+  }
+}
