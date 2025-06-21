@@ -13,8 +13,6 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { getAnkets } from '@/lib/actions/anketActions'; 
 import { format } from 'date-fns';
-// Removed CreateTestAnketButton import
-
 
 export default async function AnketsPage({
   searchParams
@@ -40,9 +38,7 @@ export default async function AnketsPage({
 
   return (
     <TooltipProvider>
-      <PageHeader title="Анкет Удирдах" description="Ирүүлсэн анкетуудыг хянах, боловсруулах.">
-         {/* CreateTestAnketButton removed */}
-      </PageHeader>
+      <PageHeader title="Анкет Удирдах" description="Ирүүлсэн анкетуудыг хянах, боловсруулах." />
       
       <Card className="shadow-lg">
         <CardHeader>
@@ -117,4 +113,3 @@ export default async function AnketsPage({
     </TooltipProvider>
   );
 }
-
