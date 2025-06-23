@@ -13,10 +13,24 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import Image from "next/image";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { useToast } from "@/hooks/use-toast";
+import { sendAdminPasswordResetEmail } from "@/lib/actions/userActions";
+
 
 const loginSchema = z.object({
-  email: z.string().email({ message: "Invalid email address." }), 
-  password: z.string().min(6, { message: "Password must be at least 6 characters." }), 
+  email: z.string().email({ message: "И-мэйл хаяг буруу байна." }), 
+  password: z.string().min(6, { message: "Нууц үг дор хаяж 6 тэмдэгттэй байх ёстой." }), 
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -24,7 +38,13 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const { login, currentUser, loading } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [isSendingReset, setIsSendingReset] = useState(false);
+
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -39,6 +59,25 @@ export default function LoginPage() {
       router.push('/admin/dashboard');
     }
   }, [currentUser, loading, router]);
+
+  const handlePasswordReset = async () => {
+    if (!resetEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(resetEmail)) {
+        toast({ title: "И-мэйл хаяг буруу байна", description: "Нууц үг сэргээх и-мэйл илгээхийн тулд зөв хаяг оруулна уу.", variant: "destructive" });
+        return;
+    }
+    setIsSendingReset(true);
+    const result = await sendAdminPasswordResetEmail(resetEmail);
+    setIsSendingReset(false);
+
+    if (result.success) {
+        toast({ title: "И-мэйл илгээгдлээ", description: `Хэрэв ${resetEmail} хаяг бүртгэлтэй бол нууц үг сэргээх холбоос илгээгдсэн. Та ирсэн и-мэйлээ шалгана уу.` });
+        setIsResetDialogOpen(false);
+        setResetEmail("");
+    } else {
+        toast({ title: "Алдаа гарлаа", description: result.error, variant: "destructive" });
+    }
+  };
+
 
   if (loading || (!loading && currentUser)) {
      return (
@@ -63,20 +102,20 @@ export default function LoginPage() {
           <div className="mx-auto mb-4 flex items-center justify-center">
             <Image src="https://placehold.co/80x80.png?bg=FF5733&text=AP" alt="Admin Pro Logo" width={80} height={80} className="rounded-lg" data-ai-hint="logo abstract"/>
           </div>
-          <CardTitle className="text-3xl font-headline text-primary">Admin Pro</CardTitle> 
+          <CardTitle className="text-3xl font-headline text-primary">Админ Про</CardTitle> 
           <CardDescription className="text-muted-foreground">
-            Log in to your account to manage content
+            Контентоо удирдахын тулд бүртгэлдээ нэвтэрнэ үү
           </CardDescription> 
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
                 control={form.control}
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel htmlFor="email">Email Address</FormLabel> 
+                    <FormLabel htmlFor="email">И-мэйл хаяг</FormLabel> 
                     <FormControl>
                       <Input
                         id="email"
@@ -95,7 +134,7 @@ export default function LoginPage() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel htmlFor="password">Password</FormLabel> 
+                    <FormLabel htmlFor="password">Нууц үг</FormLabel> 
                     <FormControl>
                       <Input
                         id="password"
@@ -109,25 +148,61 @@ export default function LoginPage() {
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full h-11 text-lg" disabled={isSubmitting || loading}>
+              
+               <div className="flex justify-end pt-1">
+                  <Button type="button" variant="link" className="p-0 h-auto text-sm text-primary/90 hover:text-primary" onClick={() => setIsResetDialogOpen(true)}>
+                    Нууц үгээ мартсан уу?
+                  </Button>
+              </div>
+
+              <Button type="submit" className="w-full h-11 text-lg mt-6" disabled={isSubmitting || loading}>
                 {isSubmitting || loading ? (
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                 ) : (
                   <LogIn className="mr-2 h-5 w-5" />
                 )}
-                Log In
+                Нэвтрэх
               </Button> 
             </form>
           </Form>
         </CardContent>
-        <CardFooter className="flex flex-col items-center text-xs text-muted-foreground pt-6">
-          <p>For demo: use 'super@example.com' or 'sub@example.com'.</p> 
-          <p>Password: 'password'</p> 
+        <CardFooter className="flex flex-col items-center text-xs text-muted-foreground pt-4">
+           {/* Demo user info removed */}
         </CardFooter>
       </Card>
       <p className="mt-8 text-center text-sm text-muted-foreground">
-        © {new Date().getFullYear()} Admin Pro.
+        © {new Date().getFullYear()} Админ Про.
       </p>
+
+      <AlertDialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Нууц үг сэргээх</AlertDialogTitle>
+              <AlertDialogDescription>
+                Бүртгэлтэй и-мэйл хаягаа оруулахад бид танд нууц үг сэргээх холбоос илгээх болно.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="py-2">
+                <FormLabel htmlFor="reset-email">И-мэйл хаяг</FormLabel>
+                <Input
+                    id="reset-email"
+                    type="email"
+                    placeholder="you@example.com"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    className="mt-2"
+                />
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isSendingReset}>Цуцлах</AlertDialogCancel>
+              <AlertDialogAction onClick={handlePasswordReset} disabled={isSendingReset}>
+                {isSendingReset && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Илгээх
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+      </AlertDialog>
+
     </main>
   );
 }
