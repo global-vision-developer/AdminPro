@@ -6,10 +6,14 @@ import Image from 'next/image';
 import { UploadCloud, XCircle, Loader2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { storage } from '@/lib/firebase';
+import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+import { Progress } from '@/components/ui/progress';
 
 interface ImageUploaderProps {
   onUploadComplete: (url: string | null) => void;
   initialImageUrl?: string | null;
+  storagePath?: string;
   maxSizeMB?: number;
   label?: string;
 }
@@ -17,18 +21,16 @@ interface ImageUploaderProps {
 const ImageUploader: React.FC<ImageUploaderProps> = ({
   onUploadComplete,
   initialImageUrl: initialUrlProp,
-  maxSizeMB = 2, // Default max size 2MB for Cloudinary
+  storagePath = "images/",
+  maxSizeMB = 5,
   label = "Зураг байршуулах",
 }) => {
   const [processing, setProcessing] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(initialUrlProp || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-
-  // Cloudinary credentials from environment variables
-  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-  const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
 
   useEffect(() => {
     setPreview(initialUrlProp || null);
@@ -38,60 +40,88 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
     if (!file) return;
     setError(null);
 
-    if (!cloudName || !uploadPreset) {
-      const errorMsg = "Cloudinary тохируулагдаагүй байна. .env.local файл дотор cloud name болон upload preset-г тохируулна уу.";
+    if (!storage) {
+      const errorMsg = "Firebase Storage тохируулагдаагүй байна. `src/lib/firebase.ts` файлыг шалгана уу.";
       setError(errorMsg);
       toast({ title: "Тохиргооны Алдаа", description: errorMsg, variant: "destructive", duration: 8000 });
       return;
     }
+    
+    if (!process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET) {
+        const errorMsg = "Firebase Storage Bucket тохируулагдаагүй байна. .env.local файл дотор NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET-г тохируулна уу.";
+        setError(errorMsg);
+        toast({ title: "Тохиргооны Алдаа", description: errorMsg, variant: "destructive", duration: 8000 });
+        return;
+    }
 
     if (file.size > maxSizeMB * 1024 * 1024) {
-      const errorMsg = `Файлын хэмжээ (${(file.size / (1024*1024)).toFixed(2)}MB) хэтэрхий том байна (хязгаар: ${maxSizeMB}MB).`;
+      const errorMsg = `Файлын хэмжээ (${(file.size / (1024 * 1024)).toFixed(2)}MB) хэтэрхий том байна (хязгаар: ${maxSizeMB}MB).`;
       setError(errorMsg);
       toast({ title: "Файлын хэмжээ их байна", description: errorMsg, variant: "destructive"});
       return;
     }
 
     setProcessing(true);
-    let tempPreviewUrl = URL.createObjectURL(file);
+    setUploadProgress(0);
+    const tempPreviewUrl = URL.createObjectURL(file);
     setPreview(tempPreviewUrl);
 
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('upload_preset', uploadPreset);
+    const uniqueFileName = `${Date.now()}-${file.name.replace(/\s+/g, '_')}`;
+    const fullStoragePath = `${storagePath.endsWith('/') ? storagePath : storagePath + '/'}${uniqueFileName}`;
+    const storageRef = ref(storage, fullStoragePath);
+    
+    const uploadTask = uploadBytesResumable(storageRef, file);
 
-    try {
-      const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error.message || 'Cloudinary-д файл хуулахад алдаа гарлаа');
-      }
-
-      const data = await response.json();
-      const secureUrl = data.secure_url;
-      
-      onUploadComplete(secureUrl);
-      setPreview(secureUrl); // Update preview to the final Cloudinary URL
-      toast({ title: "Амжилттай", description: "Зураг Cloudinary-д амжилттай байршлаа." });
-
-    } catch (processError: any) {
-      console.error("Cloudinary upload error:", processError);
-      const errorMsg = `Зураг байршуулахад алдаа гарлаа: ${processError.message}`;
-      setError(errorMsg);
-      toast({ title: "Байршуулалтын Алдаа", description: errorMsg, variant: "destructive", duration: 7000 });
-      setPreview(initialUrlProp || null); // Revert preview
-      onUploadComplete(initialUrlProp || null); // Revert to initial on error
-    } finally {
-      setProcessing(false);
-       if (tempPreviewUrl && tempPreviewUrl.startsWith('blob:')) {
+    uploadTask.on('state_changed',
+      (snapshot) => {
+        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        setUploadProgress(progress);
+      },
+      (uploadError) => {
+        console.error("Firebase Storage upload error:", uploadError);
+        let errorMsg = `Зураг байршуулахад алдаа гарлаа: ${uploadError.message}`;
+        switch (uploadError.code) {
+            case 'storage/unauthorized':
+                errorMsg = "Зураг байршуулах эрх байхгүй. Firebase Storage-ийн дүрмийг шалгана уу.";
+                break;
+            case 'storage/canceled':
+                errorMsg = "Зураг байршуулахыг цуцаллаа.";
+                break;
+            case 'storage/unknown':
+                errorMsg = "Үл мэдэгдэх алдаа гарлаа. Сүлжээний холболтоо шалгаад дахин оролдоно уу.";
+                break;
+        }
+        setError(errorMsg);
+        toast({ title: "Байршуулалтын Алдаа", description: errorMsg, variant: "destructive", duration: 7000 });
+        
+        setPreview(initialUrlProp || null);
+        onUploadComplete(initialUrlProp || null);
+        setProcessing(false);
+        setUploadProgress(0);
+        if (tempPreviewUrl && tempPreviewUrl.startsWith('blob:')) {
            URL.revokeObjectURL(tempPreviewUrl);
+        }
+      },
+      () => {
+        getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
+          onUploadComplete(downloadURL);
+          setPreview(downloadURL);
+          toast({ title: "Амжилттай", description: "Зураг Firebase Storage-д амжилттай байршлаа." });
+          setProcessing(false);
+          setUploadProgress(0);
+           if (tempPreviewUrl && tempPreviewUrl.startsWith('blob:')) {
+               URL.revokeObjectURL(tempPreviewUrl);
+          }
+        }).catch(urlError => {
+            console.error("Error getting download URL:", urlError);
+            setError("Зургийн URL-г авахад алдаа гарлаа.");
+            toast({ title: "Алдаа", description: "Зургийн URL-г авахад алдаа гарлаа.", variant: "destructive"});
+            setProcessing(false);
+            setUploadProgress(0);
+        });
       }
-    }
-  }, [cloudName, uploadPreset, maxSizeMB, onUploadComplete, toast, initialUrlProp]);
+    );
+  }, [storagePath, maxSizeMB, onUploadComplete, toast, initialUrlProp]);
 
   const onFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -120,17 +150,30 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
     event.stopPropagation();
   };
 
-  const handleRemoveImage = () => {
-    setError(null);
-    if (preview && preview.startsWith('blob:')) {
+  const handleRemoveImage = async () => {
+    if (preview && preview.includes('firebasestorage.googleapis.com')) {
+      setProcessing(true);
+      try {
+        const imageRef = ref(storage, preview);
+        await deleteObject(imageRef);
+        toast({ title: "Зураг устгагдлаа", description: "Зураг Firebase Storage-оос устгагдлаа." });
+      } catch (deleteError: any) {
+        if (deleteError.code !== 'storage/object-not-found') {
+            toast({ title: "Устгах үед алдаа гарлаа", description: "Storage-оос зураг устгахад алдаа гарлаа. Гэхдээ та үргэлжлүүлж болно.", variant: "destructive"});
+        }
+      } finally {
+        setProcessing(false);
+      }
+    } else if (preview && preview.startsWith('blob:')) {
         URL.revokeObjectURL(preview);
     }
+    
+    setError(null);
     setPreview(null);
     onUploadComplete(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
-    toast({ title: "Зураг устгагдлаа", description: "Сонгосон зураг цэвэрлэгдлээ." });
   };
   
   useEffect(() => {
@@ -161,9 +204,10 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
           disabled={processing}
         />
         {processing ? (
-          <div className="flex flex-col items-center space-y-2">
+          <div className="flex flex-col items-center space-y-2 w-full">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">Зураг байршуулж байна...</p>
+            <p className="text-sm text-muted-foreground">Зураг байршуулж байна... {Math.round(uploadProgress)}%</p>
+            <Progress value={uploadProgress} className="w-full h-2 mt-2" />
           </div>
         ) : preview ? (
           <div className="relative group w-full max-w-xs mx-auto">

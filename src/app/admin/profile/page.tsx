@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { PageHeader } from '@/components/admin/page-header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useForm } from 'react-hook-form';
@@ -199,6 +199,7 @@ export default function ProfilePage() {
                         <ImageUploader
                           initialImageUrl={field.value}
                           onUploadComplete={(url) => field.onChange(url)}
+                          storagePath="avatars/"
                           label="Avatar"
                         />
                       </FormControl>

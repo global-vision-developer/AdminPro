@@ -82,13 +82,13 @@ export function NotificationForm({ onSubmit, isSubmitting, onCancel }: Notificat
               <FormLabel>Зураг (Сонголтоор)</FormLabel>
               <FormControl>
                 <ImageUploader
-                    initialImageUrl={field.value} // Can be data URI or URL
-                    onUploadComplete={(dataUri) => field.onChange(dataUri)} // Receives data URI
-                    // storagePath is not used by ImageUploader if storing as Base64
+                    initialImageUrl={field.value}
+                    onUploadComplete={(url) => field.onChange(url)}
+                    storagePath="notifications/"
                     label="Мэдэгдлийн зураг"
                 />
               </FormControl>
-               <FormDescription>Мэдэгдэлд харуулах зургийг байршуулна уу. Энэ нь Base64 хэлбэрээр хадгалагдана.</FormDescription>
+               <FormDescription>Мэдэгдэлд харуулах зургийг байршуулна уу.</FormDescription>
               <FormMessage />
             </FormItem>
           )}

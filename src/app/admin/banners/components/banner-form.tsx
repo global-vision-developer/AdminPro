@@ -105,12 +105,13 @@ export function BannerForm({ initialData, onFormSubmitSuccess }: BannerFormProps
                   <FormControl>
                     <ImageUploader
                       initialImageUrl={field.value}
-                      onUploadComplete={(dataUri) => field.onChange(dataUri)}
+                      onUploadComplete={(url) => field.onChange(url)}
+                      storagePath="banners/"
                       label="Баннерын зураг"
                     />
                   </FormControl>
                   <FormDescription>
-                    Энэ баннерт харуулах зургийг байршуулна уу. Base64 хэлбэрээр хадгалагдана.
+                    Энэ баннерт харуулах зургийг байршуулна уу.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

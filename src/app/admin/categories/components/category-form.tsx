@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription as UiCardDescription, CardFooter } from '@/components/ui/card';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogClose, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogClose, DialogFooter } from "@/components/ui/dialog";
 import type { Category, FieldDefinition } from '@/types';
 import { FieldType } from '@/types';
 import { PlusCircle, Trash2, Save, Loader2, XCircle, Edit3 } from 'lucide-react';
@@ -297,11 +297,12 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                     <FormControl>
                        <ImageUploader
                         initialImageUrl={field.value} 
-                        onUploadComplete={(dataUri) => field.onChange(dataUri)} 
+                        onUploadComplete={(url) => field.onChange(url)}
+                        storagePath="categories/"
                         label="Категорийн нүүр зураг"
                       />
                     </FormControl>
-                    <FormDescription>Энэ категорийн нүүр зургийг байршуулна уу. Энэ нь Base64 хэлбэрээр хадгалагдана.</FormDescription>
+                    <FormDescription>Энэ категорийн нүүр зургийг байршуулна уу.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

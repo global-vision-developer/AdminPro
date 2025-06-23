@@ -424,10 +424,11 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
                                   render={({ field: galleryItemField }) => (
                                     <ImageUploader
                                       initialImageUrl={galleryItemField.value}
-                                      onUploadComplete={(dataUri) => {
+                                      onUploadComplete={(url) => {
                                         const currentItem = form.getValues(`data.${catField.key}`)[index];
-                                        updateGalleryItem(index, { ...currentItem, imageUrl: dataUri });
+                                        updateGalleryItem(index, { ...currentItem, imageUrl: url });
                                       }}
+                                      storagePath="entries/"
                                       label="Image"
                                     />
                                   )}
@@ -484,7 +485,8 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
                                     <FormControl>
                                         <ImageUploader
                                             initialImageUrl={formHookField.value}
-                                            onUploadComplete={(dataUri) => formHookField.onChange(dataUri)}
+                                            onUploadComplete={(url) => formHookField.onChange(url)}
+                                            storagePath="entries/"
                                             label={catField.label}
                                         />
                                     </FormControl>
