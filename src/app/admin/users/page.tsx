@@ -19,11 +19,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { db, auth } from '@/lib/firebase'; 
-import { collection, getDocs, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
+import { getAdminUsers, deleteAdminUser } from '@/lib/actions/userActions';
 import { Skeleton } from '@/components/ui/skeleton';
-
-const ADMINS_COLLECTION = "admins"; 
 
 export default function UsersPage() {
   const { currentUser, loading: authLoading } = useAuth();
@@ -35,65 +32,31 @@ export default function UsersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
 
-  useEffect(() => {
-    if (!authLoading && currentUser && currentUser.role !== UserRole.SUPER_ADMIN) {
-      toast({ title: "Access Denied", description: "You do not have permission to manage admin users.", variant: "destructive" });
-      router.push('/admin/dashboard');
+  const fetchAdminUsers = useCallback(async () => {
+    if (!currentUser || currentUser.role !== UserRole.SUPER_ADMIN) {
       setIsLoading(false);
-    }
-  }, [currentUser, authLoading, router, toast]);
-
-  const fetchAdminUsers = useCallback(async () => { 
-    const localCurrentUser = auth.currentUser; 
-    const contextUserForLog = currentUser; 
-
-    if (!localCurrentUser || (contextUserForLog && contextUserForLog.role !== UserRole.SUPER_ADMIN)) {
-      setIsLoading(false);
-      if (!localCurrentUser) {
-          toast({title: "Authentication Error", description: "No authenticated admin found for fetching admin list. Please re-login.", variant: "destructive", duration: 10000});
-          router.push('/');
-      }
       return;
     }
-
     setIsLoading(true);
-    setAdminUsers([]);
-    try {
-      const adminsCollectionRef = collection(db, ADMINS_COLLECTION); 
-      const q = query(adminsCollectionRef, orderBy("name", "asc"));
-      const querySnapshot = await getDocs(q);
-      const fetchedAdminsData: UserProfile[] = [];
-      querySnapshot.forEach((docSnap) => {
-        fetchedAdminsData.push({ id: docSnap.id, ...docSnap.data() } as UserProfile);
-      });
-      setAdminUsers(fetchedAdminsData);
-    } catch (error: any) {
-      console.error("Error fetching admin users from Firestore:", error);
-      let errorTitle = "Error fetching admin users";
-      let errorMessage = `Failed to retrieve admin user data: ${error.message}.`;
-      if (error.code === 'permission-denied' || (error.message && error.message.toLowerCase().includes('permission-denied'))) {
-        errorTitle = "Firestore Permission Denied";
-        errorMessage = `Failed to list admin users from '${ADMINS_COLLECTION}'. UID: ${localCurrentUser.uid}. Ensure Firestore Rules grant 'list' on '/${ADMINS_COLLECTION}' FOR an admin whose document at '/${ADMINS_COLLECTION}/${localCurrentUser.uid}' has 'role: "${UserRole.SUPER_ADMIN}"'.`;
-      }
-      toast({ title: errorTitle, description: errorMessage, variant: "destructive", duration: 30000 });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [currentUser, toast, router]);
+    const fetchedAdminsData = await getAdminUsers();
+    setAdminUsers(fetchedAdminsData);
+    setIsLoading(false);
+  }, [currentUser]);
 
   useEffect(() => {
-    if (!authLoading && currentUser) {
-        if (currentUser.role === UserRole.SUPER_ADMIN) {
-            fetchAdminUsers();
-        } else {
-            setIsLoading(false);
-        }
-    } else if (!authLoading && !currentUser) {
+    if (!authLoading) {
+      if (currentUser && currentUser.role === UserRole.SUPER_ADMIN) {
+        fetchAdminUsers();
+      } else if (currentUser) {
+        toast({ title: "Access Denied", description: "You do not have permission to manage admin users.", variant: "destructive" });
+        router.push('/admin/dashboard');
         setIsLoading(false);
-    } else {
-        setIsLoading(true);
+      } else {
+        setIsLoading(false);
+        router.push('/');
+      }
     }
-  }, [currentUser, authLoading, fetchAdminUsers]);
+  }, [currentUser, authLoading, router, toast, fetchAdminUsers]);
 
 
   const filteredAdminUsers = useMemo(() => { 
@@ -111,20 +74,14 @@ export default function UsersPage() {
       toast({ title: "Error", description: "You cannot delete your own account.", variant: "destructive" });
       return;
     }
-    try {
-      await deleteDoc(doc(db, ADMINS_COLLECTION, adminId)); 
+    
+    const result = await deleteAdminUser(adminId);
+    
+    if (result.success) {
       setAdminUsers(prev => prev.filter(u => u.id !== adminId));
-      toast({ title: "Admin User Firestore Record Deleted", description: `Firestore record for admin user \"${adminName}\" has been removed.` });
-      toast({
-        title: "Important: Auth User Deletion",
-        description: `Admin record for ${adminName} removed from Firestore. For full deletion, the Firebase Authentication record (UID: ${adminId}) needs to be removed by an administrator via backend tools or a Cloud Function.`,
-        variant: "default",
-        duration: 10000,
-      });
-
-    } catch (error: any) {
-      console.error("Error deleting admin user from Firestore:", error);
-      toast({ title: "Error", description: `Failed to delete admin user ${adminName} from Firestore. Check permissions.`, variant: "destructive" });
+      toast({ title: "Admin User Firestore Record Deleted", description: result.message || `Firestore record for admin user \"${adminName}\" has been removed.` });
+    } else {
+      toast({ title: "Error", description: result.error || "Failed to delete admin user.", variant: "destructive" });
     }
   };
 
@@ -166,20 +123,12 @@ export default function UsersPage() {
     );
   }
 
-  if (!authLoading && currentUser && currentUser.role !== UserRole.SUPER_ADMIN) {
+  if (!currentUser || currentUser.role !== UserRole.SUPER_ADMIN) {
     return (
         <div className="p-4">
-            <p>Access Denied. You do not have permission to view this page.</p>
+            <p>Access Denied or Redirecting...</p>
         </div>
     );
-  }
-
-  if (!authLoading && !currentUser) {
-      return (
-        <div className="p-4">
-            <p>Admin user not authenticated. Redirecting to login might be in progress...</p>
-        </div>
-      );
   }
 
 
@@ -259,7 +208,7 @@ export default function UsersPage() {
                             </TooltipTrigger>
                             <TooltipContent>Админ эрх засах / хандах эрх өөрчлөх</TooltipContent> 
                           </Tooltip>
-                          {user.id !== currentUser?.id && (
+                          {user.id !== currentUser?.id && user.email !== 'super@example.com' && (
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                  <Tooltip>
@@ -303,7 +252,7 @@ export default function UsersPage() {
               <UsersIcon className="mx-auto h-12 w-12 text-muted-foreground" />
               <h3 className="mt-4 text-lg font-semibold">No admin users found</h3> 
               <p className="mt-1 text-sm text-muted-foreground">
-                {adminUsers.length === 0 && !isLoading && !authLoading && !searchTerm && roleFilter === 'all' ? `No admin users exist in the '${ADMINS_COLLECTION}' collection, or access was denied. Ensure Firestore rules grant 'list' access to your Super Admin user AND your Super Admin user's document in Firestore has 'role: "${UserRole.SUPER_ADMIN}"'.` :
+                {adminUsers.length === 0 && !isLoading && !authLoading && !searchTerm && roleFilter === 'all' ? `No admin users exist in the '${'admins'}' collection.` :
                 (searchTerm || roleFilter !== 'all' ? "Try adjusting your search or filter." : "Get started by adding a new admin user.")} 
               </p>
               {!(searchTerm || roleFilter !== 'all') && adminUsers.length === 0 && !isLoading && !authLoading && (

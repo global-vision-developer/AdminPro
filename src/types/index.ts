@@ -11,6 +11,8 @@ export interface UserProfile {
   role: UserRole;
   avatar?: string;
   allowedCategoryIds?: string[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export enum FieldType {

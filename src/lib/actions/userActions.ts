@@ -59,7 +59,6 @@ export async function addAdminUser(
             return { error: result.data.error || "Cloud Function-оос тодорхойгүй алдаа гарлаа." };
         }
     } catch (error: any) {
-        console.error("Error calling 'createAdminUser' Cloud Function:", error);
         let errorMessage = error.message || "Админ хэрэглэгч нэмэхэд алдаа гарлаа.";
         if (error.code === 'unavailable' || error.code === 'not-found') {
             errorMessage = "Cloud Function-тэй холбогдож чадсангүй (not-found). Та Firebase төлөвлөгөөгөө шалгаж, функцүүдээ deploy хийсэн эсэхээ нягтална уу.";
@@ -71,7 +70,7 @@ export async function addAdminUser(
 
 export async function updateAdminUser(
   userId: string,
-  data: Partial<Pick<UserProfile, "name" | "email" | "role" | "allowedCategoryIds">> & { newPassword?: string }
+  data: Partial<Pick<UserProfile, "name" | "email" | "role" | "allowedCategoryIds" | "avatar">> & { newPassword?: string }
 ): Promise<{ success?: boolean; error?: string; message?: string }> {
   try {
     const adminDocRef = doc(db, ADMINS_COLLECTION, userId);
@@ -87,6 +86,8 @@ export async function updateAdminUser(
     if (data.name && data.name !== currentFirestoreData?.name) updateDataForFirestore.name = data.name;
     if (data.email && data.email !== currentFirestoreEmail) updateDataForFirestore.email = data.email;
     if (data.role && data.role !== currentFirestoreData?.role) updateDataForFirestore.role = data.role;
+    if (data.avatar !== undefined && data.avatar !== currentFirestoreData?.avatar) updateDataForFirestore.avatar = data.avatar;
+
     
     if (data.role && data.role !== UserRole.SUB_ADMIN) {
       updateDataForFirestore.allowedCategoryIds = []; 
@@ -118,6 +119,10 @@ export async function updateAdminUser(
         payloadToCloudFunction.newPassword = data.newPassword;
         needsCloudFunctionCall = true;
     }
+    if (data.avatar !== undefined && data.avatar !== currentFirestoreData?.avatar) {
+        payloadToCloudFunction.newAvatarUrl = data.avatar;
+        needsCloudFunctionCall = true;
+    }
     
     if (needsCloudFunctionCall) {
         authUpdateAttempted = true;
@@ -133,13 +138,14 @@ export async function updateAdminUser(
                 authUpdateError += ` Cloud Function алдаа: ${resultFromCF.data.message || resultFromCF.data.error || "Cloud Function-оос тодорхойгүй алдаа."}`;
             }
         } catch (cfError: any) {
-            console.error(`Error calling Cloud Function 'updateAdminAuthDetails' for user ${userId}:`, cfError);
             authUpdateError += ` Firebase Authentication шинэчлэхэд алдаа гарлаа: ${cfError.message} (Код: ${cfError.code || 'N/A'}).`;
         }
     }
     
     revalidatePath("/admin/users");
     revalidatePath(`/admin/users/${userId}/edit`);
+    revalidatePath(`/admin/profile`);
+
 
     let finalMessage = "Админ хэрэглэгчийн мэдээлэл шинэчлэгдлээ.";
     if (Object.keys(updateDataForFirestore).length > 1) { // Firestore was updated
@@ -169,7 +175,6 @@ export async function updateAdminUser(
     };
 
   } catch (error: any) {
-    console.error("Error in updateAdminUser outer try-catch:", error);
     return { error: error.message || "Админ хэрэглэгчийн мэдээллийг шинэчлэхэд ерөнхий алдаа гарлаа." };
   }
 }
@@ -185,7 +190,6 @@ export async function getAdminUsers(): Promise<UserProfile[]> {
       const data = docSnap.data();
       users.push({
         id: docSnap.id,
-        uid: data.uid || docSnap.id, 
         name: data.name || '',
         email: data.email || '',
         role: data.role || UserRole.SUB_ADMIN,
@@ -210,7 +214,6 @@ export async function getAdminUser(id: string): Promise<UserProfile | null> {
       const data = docSnap.data();
       return {
         id: docSnap.id,
-        uid: data.uid || docSnap.id,
         name: data.name || '',
         email: data.email || '',
         role: data.role || UserRole.SUB_ADMIN,
@@ -229,9 +232,6 @@ export async function getAdminUser(id: string): Promise<UserProfile | null> {
 
 export async function deleteAdminUser(id: string): Promise<{ success?: boolean; error?: string, message?: string }> {
     try {
-        // Firebase Admin SDK ашиглан Auth хэрэглэгчийг устгах шаардлагатай.
-        // Энэ Server Action нь зөвхөн Firestore-оос устгана.
-        // Ирээдүйд Cloud Function дуудаж Auth-оос устгаж болно.
         const adminDocRef = doc(db, ADMINS_COLLECTION, id);
         await deleteDoc(adminDocRef);
         revalidatePath("/admin/users");
@@ -240,7 +240,6 @@ export async function deleteAdminUser(id: string): Promise<{ success?: boolean; 
             message: "Админ хэрэглэгчийн Firestore дахь бичлэг устгагдлаа. Firebase Authentication дахь бүртгэлийг устгахын тулд Admin SDK (Cloud Function) ашиглах эсвэл Firebase console-оос гараар устгах шаардлагатай." 
         };
     } catch (error: any) {
-        console.error("Error deleting admin user from Firestore:", error);
         return { error: error.message || "Админ хэрэглэгчийн Firestore бичлэгийг устгахад алдаа гарлаа." };
     }
 }
@@ -250,7 +249,6 @@ export async function sendAdminPasswordResetEmail(email: string): Promise<{ succ
     await sendPasswordResetEmail(clientAuth, email);
     return { success: true };
   } catch (error: any) {
-    console.error("Error sending password reset email:", error);
     let friendlyMessage = error.message || "Нууц үг сэргээх имэйл илгээхэд алдаа гарлаа.";
     if (error.code === 'auth/user-not-found') {
         friendlyMessage = "Энэ имэйл хаягтай хэрэглэгч Firebase Authentication-д олдсонгүй.";

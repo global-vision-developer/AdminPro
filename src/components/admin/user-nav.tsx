@@ -15,6 +15,7 @@ import {
 import { useAuth } from "@/hooks/use-auth";
 import { LogOut, UserCircle } from "lucide-react";
 import { UserRole } from "@/types"; // Import UserRole
+import Link from "next/link";
 
 export function UserNav() {
   const { currentUser, logout } = useAuth();
@@ -62,9 +63,11 @@ export function UserNav() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem disabled>
-            <UserCircle className="mr-2 h-4 w-4" />
-            <span>Профайл</span>
+           <DropdownMenuItem asChild>
+              <Link href="/admin/profile">
+                <UserCircle className="mr-2 h-4 w-4" />
+                <span>Профайл</span>
+              </Link>
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
