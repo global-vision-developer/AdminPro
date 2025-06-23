@@ -14,6 +14,12 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
+        hostname: 'res.cloudinary.com', // Added Cloudinary hostname
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
         hostname: 'placehold.co',
         port: '',
         pathname: '/**',
@@ -86,13 +92,13 @@ const nextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'firebasestorage.googleapis.com', // Added Firebase Storage
+        hostname: 'firebasestorage.googleapis.com',
         port: '',
         pathname: '/**',
       },
       {
         protocol: 'https',
-        hostname: 'manuals.plus', // Added new hostname
+        hostname: 'manuals.plus',
         port: '',
         pathname: '/**',
       }
