@@ -22,10 +22,10 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast";
 import { sendAdminPasswordResetEmail } from "@/lib/actions/userActions";
+import { Label } from "@/components/ui/label";
 
 
 const loginSchema = z.object({
@@ -183,7 +183,7 @@ export default function LoginPage() {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <div className="py-2">
-                <FormLabel htmlFor="reset-email">И-мэйл хаяг</FormLabel>
+                <Label htmlFor="reset-email">И-мэйл хаяг</Label>
                 <Input
                     id="reset-email"
                     type="email"
