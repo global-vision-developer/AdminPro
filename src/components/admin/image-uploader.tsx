@@ -7,7 +7,7 @@ import { UploadCloud, XCircle, Loader2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { storage } from '@/lib/firebase';
-import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+import { ref, uploadBytesResumable, getDownloadURL, deleteObject, type UploadTask } from "firebase/storage";
 import { Progress } from '@/components/ui/progress';
 
 interface ImageUploaderProps {
@@ -39,6 +39,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
   const handleFileSelected = useCallback(async (file: File) => {
     if (!file) return;
     setError(null);
+    let tempPreviewUrl = '';
 
     if (!storage) {
       const errorMsg = "Firebase Storage тохируулагдаагүй байна. `src/lib/firebase.ts` файлыг шалгана уу.";
@@ -63,21 +64,31 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
 
     setProcessing(true);
     setUploadProgress(0);
-    const tempPreviewUrl = URL.createObjectURL(file);
+    tempPreviewUrl = URL.createObjectURL(file);
     setPreview(tempPreviewUrl);
 
     const uniqueFileName = `${Date.now()}-${file.name.replace(/\s+/g, '_')}`;
     const fullStoragePath = `${storagePath.endsWith('/') ? storagePath : storagePath + '/'}${uniqueFileName}`;
     const storageRef = ref(storage, fullStoragePath);
     
-    const uploadTask = uploadBytesResumable(storageRef, file);
+    const uploadTask: UploadTask = uploadBytesResumable(storageRef, file);
 
     uploadTask.on('state_changed',
       (snapshot) => {
         const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
         setUploadProgress(progress);
-      },
-      (uploadError) => {
+      }
+    );
+
+    try {
+      await uploadTask;
+      const downloadURL = await getDownloadURL(storageRef);
+
+      onUploadComplete(downloadURL);
+      setPreview(downloadURL);
+      toast({ title: "Амжилттай", description: "Зураг Firebase Storage-д амжилттай байршлаа." });
+
+    } catch (uploadError: any) {
         console.error("Firebase Storage upload error:", uploadError);
         let errorMsg = `Зураг байршуулахад алдаа гарлаа: ${uploadError.message}`;
         switch (uploadError.code) {
@@ -96,31 +107,13 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
         
         setPreview(initialUrlProp || null);
         onUploadComplete(initialUrlProp || null);
+    } finally {
         setProcessing(false);
         setUploadProgress(0);
         if (tempPreviewUrl && tempPreviewUrl.startsWith('blob:')) {
            URL.revokeObjectURL(tempPreviewUrl);
         }
-      },
-      () => {
-        getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
-          onUploadComplete(downloadURL);
-          setPreview(downloadURL);
-          toast({ title: "Амжилттай", description: "Зураг Firebase Storage-д амжилттай байршлаа." });
-          setProcessing(false);
-          setUploadProgress(0);
-           if (tempPreviewUrl && tempPreviewUrl.startsWith('blob:')) {
-               URL.revokeObjectURL(tempPreviewUrl);
-          }
-        }).catch(urlError => {
-            console.error("Error getting download URL:", urlError);
-            setError("Зургийн URL-г авахад алдаа гарлаа.");
-            toast({ title: "Алдаа", description: "Зургийн URL-г авахад алдаа гарлаа.", variant: "destructive"});
-            setProcessing(false);
-            setUploadProgress(0);
-        });
-      }
-    );
+    }
   }, [storagePath, maxSizeMB, onUploadComplete, toast, initialUrlProp]);
 
   const onFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
