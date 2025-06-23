@@ -3,7 +3,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-// Removed unused getStorage import
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -25,6 +24,5 @@ if (!getApps().length) {
 
 const auth = getAuth(app);
 const db = getFirestore(app);
-// const storage = getStorage(app); // Removed unused storage initialization
 
-export { app, auth, db }; // Removed storage from exports
+export { app, auth, db };
