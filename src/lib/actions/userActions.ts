@@ -1,7 +1,7 @@
 
 "use server";
 
-import { db, auth as clientAuth, app as clientApp } from "@/lib/firebase"; // Added clientApp
+import { db, auth as clientAuth, app as clientApp } from "@/lib/firebase";
 import type { UserProfile } from "@/types";
 import { UserRole } from "@/types";
 import {
@@ -15,14 +15,12 @@ import {
   query,
   getDocs,
   orderBy,
-  Timestamp // Added Timestamp
+  Timestamp
 } from "firebase/firestore";
 import { 
-  createUserWithEmailAndPassword, 
-  updateProfile as updateAuthProfile,
   sendPasswordResetEmail
 } from "firebase/auth";
-import { getFunctions, httpsCallable, type HttpsCallableResult } from 'firebase/functions'; // Added for CF call
+import { getFunctions, httpsCallable, type HttpsCallableResult } from 'firebase/functions';
 import { revalidatePath } from "next/cache";
 
 const ADMINS_COLLECTION = "admins";
@@ -33,46 +31,40 @@ export type AdminUserData = Partial<Omit<UserProfile, "id" | "avatar">> & {
   newPassword?: string; 
 };
 
-
+// This function now calls a Cloud Function to securely add a new admin user.
 export async function addAdminUser(
   data: Required<Pick<UserProfile, "name" | "email" | "role">> & { password?: string; allowedCategoryIds?: string[] }
-): Promise<{ user?: UserProfile; error?: string; message?: string }> {
+): Promise<{ success?: boolean; error?: string; message?: string }> {
     if (!data.password) {
         return { error: "Нууц үг оруулах шаардлагатай." };
     }
     try {
-        const userCredential = await createUserWithEmailAndPassword(clientAuth, data.email, data.password);
-        const firebaseUser = userCredential.user;
-
-        const photoURL = `https://placehold.co/100x100.png?text=${data.name.substring(0,2).toUpperCase()}&bg=FF5733&txt=FFFFFF`;
-        await updateAuthProfile(firebaseUser, { displayName: data.name, photoURL });
-
-        const adminDocRef = doc(db, ADMINS_COLLECTION, firebaseUser.uid);
-        const firestoreAdminData: Omit<UserProfile, "id"> & { createdAt: any, updatedAt: any } = {
-            uid: firebaseUser.uid, 
-            email: firebaseUser.email!,
+        const functions = getFunctions(clientApp, 'us-central1');
+        const callCreateAdmin = httpsCallable(functions, 'createAdminUser');
+        
+        const payload = {
+            email: data.email,
+            password: data.password,
             name: data.name,
             role: data.role,
-            avatar: photoURL,
             allowedCategoryIds: data.role === UserRole.SUB_ADMIN ? data.allowedCategoryIds || [] : [],
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
         };
-
-        await setDoc(adminDocRef, firestoreAdminData);
         
-        revalidatePath("/admin/users");
-        return { 
-            user: { id: firebaseUser.uid, ...firestoreAdminData, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, 
-            message: `Админ хэрэглэгч "${data.name}" амжилттай үүслээ. Одоо таны session энэ шинэ хэрэглэгчийнх болсон тул, дахин нэвтэрч Супер Админ эрхээ сэргээнэ үү.`
-        };
+        console.log("Calling 'createAdminUser' Cloud Function with payload:", payload);
+        const result = await callCreateAdmin(payload) as HttpsCallableResult<{success?: boolean; message?: string; error?: string; userId?: string}>;
+        console.log("Cloud Function 'createAdminUser' responded:", result.data);
+
+        if (result.data.success) {
+            revalidatePath("/admin/users");
+            return { success: true, message: result.data.message || `Admin user "${data.name}" created successfully.` };
+        } else {
+            return { error: result.data.error || "Cloud Function-оос тодорхойгүй алдаа гарлаа." };
+        }
     } catch (error: any) {
-        console.error("Error adding admin user:", error);
+        console.error("Error calling 'createAdminUser' Cloud Function:", error);
         let errorMessage = error.message || "Админ хэрэглэгч нэмэхэд алдаа гарлаа.";
-        if (error.code === 'auth/email-already-in-use') {
-            errorMessage = "Энэ имэйл хаяг бүртгэлтэй байна.";
-        } else if (error.code === 'auth/weak-password') {
-            errorMessage = "Нууц үг сул байна. Илүү хүчтэй нууц үг сонгоно уу.";
+        if (error.code === 'unavailable') {
+            errorMessage = "Cloud Function-тэй холбогдож чадсангүй. Сүлжээгээ шалгаад дахин оролдоно уу.";
         }
         return { error: errorMessage };
     }
@@ -278,4 +270,3 @@ export async function sendAdminPasswordResetEmail(email: string): Promise<{ succ
     return { error: friendlyMessage };
   }
 }
-    

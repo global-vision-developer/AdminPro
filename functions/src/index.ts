@@ -4,15 +4,15 @@
 import {
   onDocumentCreated,
   type FirestoreEvent,
-  // DocumentSnapshot, // Not directly used from here in v2
 } from "firebase-functions/v2/firestore";
 import {
   onCall,
   type CallableRequest,
   HttpsError,
-} from "firebase-functions/v2/https"; // Import for v2 HTTPS functions
+} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
+import { UserRole } from "./types"; // Assuming types are defined locally
 
 // Firebase Admin SDK-г эхлүүлнэ (зөвхөн нэг удаа)
 if (admin.apps.length === 0) {
@@ -21,6 +21,7 @@ if (admin.apps.length === 0) {
 
 const db = admin.firestore();
 const messaging = admin.messaging();
+const fAuth = admin.auth(); // Firebase Admin Auth instance
 
 // NotificationTarget-ийн орон нутгийн тодорхойлолт
 interface FunctionNotificationTarget {
@@ -38,13 +39,13 @@ interface FunctionNotificationTarget {
 export const processNotificationRequest = onDocumentCreated(
   {
     document: "notifications/{notificationId}",
-    region: "us-central1", // Таны Firebase project-ийн бүс нутаг
+    region: "us-central1",
   },
   async (
     event: FirestoreEvent<FirebaseFirestore.DocumentSnapshot | undefined>
   ) => {
     const notificationId = event.params.notificationId;
-    const snapshot = event.data; // DocumentSnapshot
+    const snapshot = event.data;
 
     if (!snapshot) {
       logger.error(`No data for event. ID: ${notificationId}`);
@@ -67,8 +68,8 @@ export const processNotificationRequest = onDocumentCreated(
       body,
       imageUrl,
       deepLink,
-      targets, // Энэ нь {userId, token, status, ...} объектуудын массив байна
-      scheduleAt, // Энэ нь Firestore Timestamp байх ёстой
+      targets,
+      scheduleAt,
     } = notificationData;
 
     // Хуваарьт илгээлт
@@ -103,8 +104,6 @@ export const processNotificationRequest = onDocumentCreated(
     }
 
     const tokensToSend: string[] = [];
-    // `targets` нь DocumentData-аас ирж байгаа тул `any[]` байж болзошгүй.
-    // `FunctionNotificationTarget` рүү cast хийж байна.
     const typedTargets = targets as unknown as (FunctionNotificationTarget[] | undefined);
 
     const originalTargetsArray: FunctionNotificationTarget[] =
@@ -164,20 +163,16 @@ export const processNotificationRequest = onDocumentCreated(
       }
 
       let allSentSuccessfully = response.failureCount === 0;
-      // Firestore-д хадгалах хуулбар
       const updatedTargetsFirestore = [...originalTargetsArray];
       const currentTimestamp = admin.firestore.FieldValue.serverTimestamp();
 
       response.responses.forEach((result, index) => {
         const token = tokensToSend[index];
-        // Зөвхөн энэ илгээлтэд хамаарах 'pending' статустай,
-        // ижил token-той анхны target-г олох
         const originalTargetIndex = originalTargetsArray.findIndex(
           (t) => t.token === token && t.status === "pending"
         );
 
         if (originalTargetIndex !== -1) {
-          // Type assertion to ensure we are working with the correct type
           const targetToUpdateInFirestore: FunctionNotificationTarget =
             updatedTargetsFirestore[originalTargetIndex];
           if (result.success) {
@@ -199,7 +194,6 @@ export const processNotificationRequest = onDocumentCreated(
         }
       });
 
-      // Notification document-ийн ерөнхий статус болон targets-г шинэчлэх
       const finalProcessingStatus = allSentSuccessfully ?
         "completed" :
         "partially_completed";
@@ -207,7 +201,7 @@ export const processNotificationRequest = onDocumentCreated(
       await db.doc(`notifications/${notificationId}`).update({
         targets: updatedTargetsFirestore,
         processingStatus: finalProcessingStatus,
-        processedAt: currentTimestamp, // Эцсийн боловсруулсан цаг
+        processedAt: currentTimestamp,
       });
 
       logger.info(
@@ -219,8 +213,6 @@ export const processNotificationRequest = onDocumentCreated(
         `Critical error sending multicast for ID: ${notificationId}:`,
         error
       );
-      // Ерөнхий алдаа гарсан тохиолдолд
-      // бүх pending target-уудын статусыг 'failed' болгох
       const errorTimestamp = admin.firestore.FieldValue.serverTimestamp();
       const updatedTargetsOnError = originalTargetsArray.map((t) => {
         if (t.status === "pending") {
@@ -250,20 +242,18 @@ export const processNotificationRequest = onDocumentCreated(
 );
 /* eslint-enable indent */
 
-// --- Шинэ Cloud Function: Админ хэрэглэгчийн Auth мэдээллийг шинэчлэх ---
-const ADMINS_COLLECTION = "admins"; // Firestore дахь админуудын коллекцын нэр
+const ADMINS_COLLECTION = "admins";
 
+// --- V2 Callable Function: Update Admin Auth Details ---
 interface UpdateAdminAuthDetailsData {
   targetUserId: string;
   newEmail?: string;
   newPassword?: string;
 }
 
-// V2 onCall syntax
 export const updateAdminAuthDetails = onCall(
-  {region: "us-central1"}, // Region configuration for v2
+  {region: "us-central1"},
   async (request: CallableRequest<UpdateAdminAuthDetailsData>) => {
-    // 1. Дуудаж буй хэрэглэгчийн эрхийг шалгах
     if (!request.auth) {
       throw new HttpsError(
         "unauthenticated",
@@ -279,14 +269,14 @@ export const updateAdminAuthDetails = onCall(
         .get();
       if (
         !callerAdminDoc.exists ||
-        callerAdminDoc.data()?.role !== "Super Admin"
+        callerAdminDoc.data()?.role !== UserRole.SUPER_ADMIN
       ) {
         throw new HttpsError(
           "permission-denied",
           "Caller does not have Super Admin privileges."
         );
       }
-    } catch (error) { // Line 327: This catch error parameter will have 'any' type
+    } catch (error) {
       logger.error("Error checking caller permissions:", error);
       if (error instanceof HttpsError) throw error;
       throw new HttpsError(
@@ -296,38 +286,25 @@ export const updateAdminAuthDetails = onCall(
     }
 
     const {targetUserId, newEmail, newPassword} = request.data;
-
     if (!targetUserId) {
-      throw new HttpsError(
-        "invalid-argument",
-        "targetUserId is required."
-      );
+      throw new HttpsError("invalid-argument", "targetUserId is required.");
     }
     if (!newEmail && !newPassword) {
-      throw new HttpsError(
-        "invalid-argument",
-        "Either newEmail or newPassword must be provided."
-      );
+      throw new HttpsError("invalid-argument", "Either newEmail or newPassword must be provided.");
     }
 
     try {
-      const targetUserRecord = await admin.auth().getUser(targetUserId);
+      const targetUserRecord = await fAuth.getUser(targetUserId);
       if (
         targetUserRecord.email === "super@example.com" &&
         newEmail &&
         newEmail !== "super@example.com"
       ) {
-        throw new HttpsError(
-          "permission-denied",
-          "Cannot change the email of the primary super admin account."
-        );
+        throw new HttpsError("permission-denied", "Cannot change the email of the primary super admin account.");
       }
     } catch (error: any) {
       logger.error("Error fetching target user for pre-check:", error);
-      // If user not found, it's fine for now, main update will catch it
-      // If other error, log and proceed, update might still work or fail more clearly
     }
-
 
     try {
       const updatePayloadAuth: {email?: string; password?: string} = {};
@@ -337,27 +314,20 @@ export const updateAdminAuthDetails = onCall(
 
       if (newEmail) {
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
-          throw new HttpsError(
-            "invalid-argument",
-            "The new email address is not valid."
-          );
+          throw new HttpsError("invalid-argument", "The new email address is not valid.");
         }
         updatePayloadAuth.email = newEmail;
         updatePayloadFirestore.email = newEmail;
       }
-
       if (newPassword) {
         if (newPassword.length < 6) {
-          throw new HttpsError(
-            "invalid-argument",
-            "New password must be at least 6 characters long."
-          );
+          throw new HttpsError("invalid-argument", "New password must be at least 6 characters long.");
         }
         updatePayloadAuth.password = newPassword;
       }
 
       if (Object.keys(updatePayloadAuth).length > 0) {
-        await admin.auth().updateUser(targetUserId, updatePayloadAuth);
+        await fAuth.updateUser(targetUserId, updatePayloadAuth);
         logger.info(`Successfully updated Firebase Auth for user: ${targetUserId}`, updatePayloadAuth);
       }
 
@@ -367,28 +337,20 @@ export const updateAdminAuthDetails = onCall(
         .update(updatePayloadFirestore);
       logger.info(`Successfully updated Firestore for user: ${targetUserId}`, updatePayloadFirestore);
 
-
       return {
         success: true,
         message: "Admin authentication and Firestore details updated successfully.",
       };
-    /* eslint-disable @typescript-eslint/no-explicit-any */
-    } catch (error: any) { // This is where the other 'any' warning likely is
-    /* eslint-enable @typescript-eslint/no-explicit-any */
+    } catch (error: any) {
       logger.error("Error updating admin auth details:", error);
       let errorCode: HttpsError["code"] = "unknown";
       let errorMessage = "Failed to update admin authentication details.";
-
-      // Check if error has a 'code' property (typical for Firebase errors)
       if (error && typeof error === "object" && "code" in error) {
         const firebaseErrorCode = (error as {code: string}).code;
-        /* eslint-disable indent */
-        // Starting ESLint disable for indent rule in this switch block
         switch (firebaseErrorCode) {
           case "auth/email-already-exists":
             errorCode = "already-exists";
-            errorMessage =
-              "The new email address is already in use by another account.";
+            errorMessage = "The new email address is already in use by another account.";
             break;
           case "auth/invalid-email":
             errorCode = "invalid-argument";
@@ -406,14 +368,103 @@ export const updateAdminAuthDetails = onCall(
             errorCode = "internal";
             errorMessage = (error as Error).message || "An internal error occurred during auth update.";
         }
-        // Ending ESLint disable for indent rule
-        /* eslint-enable indent */
         throw new HttpsError(errorCode, errorMessage, {originalCode: firebaseErrorCode});
       } else {
-        // Handle non-Firebase errors or errors without a specific code
         errorMessage = (error as Error).message || "An unknown error occurred.";
         throw new HttpsError("internal", errorMessage);
       }
+    }
+  }
+);
+
+
+// --- V2 Callable Function: Create a new Admin User ---
+interface CreateAdminUserData {
+    email: string;
+    password?: string;
+    name: string;
+    role: UserRole;
+    allowedCategoryIds?: string[];
+}
+export const createAdminUser = onCall(
+  {region: "us-central1"},
+  async (request: CallableRequest<CreateAdminUserData>) => {
+    if (!request.auth) {
+        throw new HttpsError("unauthenticated", "The function must be called while authenticated.");
+    }
+    const callerUid = request.auth.uid;
+    try {
+      const callerAdminDoc = await db.collection(ADMINS_COLLECTION).doc(callerUid).get();
+      if (!callerAdminDoc.exists || callerAdminDoc.data()?.role !== UserRole.SUPER_ADMIN) {
+        throw new HttpsError("permission-denied", "Caller does not have Super Admin privileges to create users.");
+      }
+    } catch (error) {
+      logger.error("Error checking caller permissions for user creation:", error);
+      if (error instanceof HttpsError) throw error;
+      throw new HttpsError("internal", "Could not verify caller permissions.");
+    }
+
+    const {email, password, name, role, allowedCategoryIds = []} = request.data;
+    if (!email || !password || !name || !role) {
+      throw new HttpsError("invalid-argument", "Missing required fields: email, password, name, role.");
+    }
+    if (password.length < 6) {
+        throw new HttpsError("invalid-argument", "Password must be at least 6 characters long.");
+    }
+
+    try {
+      const photoURL = `https://placehold.co/100x100.png?text=${name.substring(0, 2).toUpperCase()}&bg=FF5733&txt=FFFFFF`;
+      const userRecord = await fAuth.createUser({
+          email: email,
+          password: password,
+          displayName: name,
+          photoURL: photoURL,
+      });
+
+      logger.info("Successfully created new user in Firebase Auth:", userRecord.uid);
+      
+      const adminDocRef = db.collection(ADMINS_COLLECTION).doc(userRecord.uid);
+      const firestoreAdminData = {
+          uid: userRecord.uid,
+          email: userRecord.email,
+          name: name,
+          role: role,
+          avatar: photoURL,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          allowedCategoryIds: role === UserRole.SUB_ADMIN ? allowedCategoryIds : [],
+      };
+      
+      await adminDocRef.set(firestoreAdminData);
+      logger.info("Successfully created Firestore admin document for:", userRecord.uid);
+
+      return {success: true, message: `Admin user ${name} created successfully.`, userId: userRecord.uid};
+    } catch (error: any) {
+      logger.error("Error creating new admin user:", error);
+      let errorCode: HttpsError["code"] = "unknown";
+      let errorMessage = "Failed to create new admin user.";
+      if (error && typeof error === "object" && "code" in error) {
+          const firebaseErrorCode = (error as {code: string}).code;
+          switch (firebaseErrorCode) {
+            case "auth/email-already-exists":
+                errorCode = "already-exists";
+                errorMessage = "The email address is already in use by another account.";
+                break;
+            case "auth/invalid-email":
+                errorCode = "invalid-argument";
+                errorMessage = "The email address is not valid.";
+                break;
+             case "auth/weak-password":
+                errorCode = "invalid-argument";
+                errorMessage = "The new password is too weak.";
+                break;
+            default:
+                errorCode = "internal";
+                errorMessage = (error as Error).message || "An internal error occurred during auth user creation.";
+          }
+           throw new HttpsError(errorCode, errorMessage, {originalCode: firebaseErrorCode});
+      }
+      throw new HttpsError("internal", errorMessage);
     }
   }
 );
