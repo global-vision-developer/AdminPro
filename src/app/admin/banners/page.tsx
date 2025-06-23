@@ -32,9 +32,6 @@ export default async function BannersPage() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle>Баннерын Жагсаалт</CardTitle>
-          <CardDescription>
-            Одоо байгаа бүх баннерууд. Зургийг Base64 хэлбэрээр Firestore-д хадгалсан.
-          </CardDescription>
         </CardHeader>
         <CardContent>
           {banners.length > 0 ? (
@@ -128,4 +125,3 @@ export default async function BannersPage() {
 export const metadata = {
   title: "Banners | Admin Pro",
 };
-
