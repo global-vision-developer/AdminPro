@@ -63,8 +63,8 @@ export async function addAdminUser(
     } catch (error: any) {
         console.error("Error calling 'createAdminUser' Cloud Function:", error);
         let errorMessage = error.message || "Админ хэрэглэгч нэмэхэд алдаа гарлаа.";
-        if (error.code === 'unavailable') {
-            errorMessage = "Cloud Function-тэй холбогдож чадсангүй. Сүлжээгээ шалгаад дахин оролдоно уу.";
+        if (error.code === 'unavailable' || error.code === 'not-found') {
+            errorMessage = "Cloud Function-тэй холбогдож чадсангүй (not-found). Та Firebase төлөвлөгөөгөө шалгаж, функцүүдээ deploy хийсэн эсэхээ нягтална уу.";
         }
         return { error: errorMessage };
     }
