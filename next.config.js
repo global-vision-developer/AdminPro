@@ -20,6 +20,12 @@ const nextConfig = {
       },
       {
         protocol: 'https',
+        hostname: 'wallpapers.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
         hostname: 'placehold.co',
         port: '',
         pathname: '/**',
