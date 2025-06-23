@@ -44,19 +44,14 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { href: "/admin/dashboard", label: "Хяналтын самбар", icon: LayoutDashboard },
-  {
-    href: "/admin/content", label: "Мэдээлэл нэмэх", icon: Library,
-    subItems: [
-      { href: "/admin/categories", label: "Ангилал нэмэх", icon: Library, roles: [UserRole.SUPER_ADMIN] },
-      { href: "/admin/entries", label: "Өгөгдөл нэмэх", icon: Newspaper, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
-    ]
-  },
+  { href: "/admin/categories", label: "Ангилал", icon: Library, roles: [UserRole.SUPER_ADMIN] },
+  { href: "/admin/entries", label: "Өгөгдөл", icon: Newspaper, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
   { href: "/admin/banners", label: "Баннер", icon: ImageIcon, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
-  { href: "/admin/cities", label: "Хотууд", icon: MapPin, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] }, // Added Cities
+  { href: "/admin/cities", label: "Хотууд", icon: MapPin, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
   { href: "/admin/anket", label: "Анкет", icon: FileText, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
   { href: "/admin/notifications", label: "Мэдэгдэл", icon: Bell, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
   { href: "/admin/users", label: "Хэрэглэгчид", icon: Users, roles: [UserRole.SUPER_ADMIN] },
-  { href: "/admin/help", label: "Тусламж", icon: LifeBuoy }, 
+  { href: "/admin/help", label: "Тусламж", icon: LifeBuoy },
   // { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
@@ -81,14 +76,9 @@ export function SidebarNav() {
         return null;
     }
 
-    if (item.label === "Ангилал нэмэх" && currentUser.role === UserRole.SUB_ADMIN) {
-        return null;
-    }
-
     let itemIsActive = pathname === item.href || (item.href !== "/admin/dashboard" && pathname.startsWith(item.href));
     if (item.subItems && !itemIsActive) {
         itemIsActive = item.subItems.some(sub => {
-            if (sub.label === "Ангилал нэмэх" && currentUser.role === UserRole.SUB_ADMIN) return false;
             return pathname.startsWith(sub.href);
         });
     }
@@ -100,7 +90,6 @@ export function SidebarNav() {
       const visibleSubItems = item.subItems.filter(subItem => {
         if (subItem.roles && !subItem.roles.includes(currentUser.role)) return false;
         if (subItem.hideIfSubAdmin && currentUser.role === UserRole.SUB_ADMIN) return false;
-        if (subItem.label === "Ангилал нэмэх" && currentUser.role === UserRole.SUB_ADMIN) return false;
         return true;
       });
 
