@@ -34,30 +34,20 @@ export default function UsersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
-  const [debugMessages, setDebugMessages] = useState<string[]>([]);
-
-  const addDebugMessage = useCallback((message: string) => {
-    console.log("DEBUG (AdminUsersPage):", message);
-    setDebugMessages(prev => [...prev.slice(-15), `${new Date().toLocaleTimeString()}: ${message}`]);
-  }, []);
 
   useEffect(() => {
     if (!authLoading && currentUser && currentUser.role !== UserRole.SUPER_ADMIN) {
-      addDebugMessage(`useEffect[currentUser access check]: Access Denied. Current admin: ${currentUser.email} (Role: ${currentUser.role}, ID: ${currentUser.id}). Redirecting to dashboard.`);
       toast({ title: "Access Denied", description: "You do not have permission to manage admin users.", variant: "destructive" });
       router.push('/admin/dashboard');
       setIsLoading(false);
     }
-  }, [currentUser, authLoading, router, toast, addDebugMessage]);
+  }, [currentUser, authLoading, router, toast]);
 
   const fetchAdminUsers = useCallback(async () => { 
     const localCurrentUser = auth.currentUser; 
     const contextUserForLog = currentUser; 
 
-    addDebugMessage(`fetchAdminUsers called. AuthContext currentUser: ${contextUserForLog ? `${contextUserForLog.email} (Role: ${contextUserForLog.role}, ID: ${contextUserForLog.id})` : 'null'}. Actual Firebase Auth UID for op: ${localCurrentUser ? localCurrentUser.uid : 'null (Firebase Auth)'}`);
-
     if (!localCurrentUser || (contextUserForLog && contextUserForLog.role !== UserRole.SUPER_ADMIN)) {
-      addDebugMessage(`fetchAdminUsers: Pre-condition failed. Firebase Auth UID: ${localCurrentUser?.uid}. AuthContext Role: ${contextUserForLog?.role}. Aborting fetch.`);
       setIsLoading(false);
       if (!localCurrentUser) {
           toast({title: "Authentication Error", description: "No authenticated admin found for fetching admin list. Please re-login.", variant: "destructive", duration: 10000});
@@ -68,7 +58,6 @@ export default function UsersPage() {
 
     setIsLoading(true);
     setAdminUsers([]);
-    addDebugMessage(`fetchAdminUsers: Attempting to fetch admin users from Firestore collection '${ADMINS_COLLECTION}' as Super Admin (UID: ${localCurrentUser.uid})...`);
     try {
       const adminsCollectionRef = collection(db, ADMINS_COLLECTION); 
       const q = query(adminsCollectionRef, orderBy("name", "asc"));
@@ -78,13 +67,8 @@ export default function UsersPage() {
         fetchedAdminsData.push({ id: docSnap.id, ...docSnap.data() } as UserProfile);
       });
       setAdminUsers(fetchedAdminsData);
-      addDebugMessage(`fetchAdminUsers: Success. Fetched ${fetchedAdminsData.length} admin users.`);
-      if (fetchedAdminsData.length === 0) {
-        addDebugMessage(`fetchAdminUsers: No admin users returned from Firestore query. Check collection content and Firestore Rules for 'list' on '/${ADMINS_COLLECTION}' collection, ensuring it allows access for the Super Admin.`);
-      }
     } catch (error: any) {
       console.error("Error fetching admin users from Firestore:", error);
-      addDebugMessage(`fetchAdminUsers: Firestore Error - UID performing op: ${localCurrentUser.uid}, Code: ${error.code}, Message: ${error.message}`);
       let errorTitle = "Error fetching admin users";
       let errorMessage = `Failed to retrieve admin user data: ${error.message}.`;
       if (error.code === 'permission-denied' || (error.message && error.message.toLowerCase().includes('permission-denied'))) {
@@ -94,27 +78,22 @@ export default function UsersPage() {
       toast({ title: errorTitle, description: errorMessage, variant: "destructive", duration: 30000 });
     } finally {
       setIsLoading(false);
-      addDebugMessage("fetchAdminUsers: Fetch attempt finished.");
     }
-  }, [currentUser, toast, addDebugMessage, router]);
+  }, [currentUser, toast, router]);
 
   useEffect(() => {
     if (!authLoading && currentUser) {
         if (currentUser.role === UserRole.SUPER_ADMIN) {
-            addDebugMessage(`useEffect[currentUser, fetchAdminUsers]: AuthContext currentUser is Super Admin (ID: ${currentUser.id}). Calling fetchAdminUsers.`);
             fetchAdminUsers();
         } else {
-            addDebugMessage(`useEffect[currentUser, fetchAdminUsers]: AuthContext currentUser (ID: ${currentUser.id}) is NOT Super Admin (role: ${currentUser.role}). Not fetching admin users. isLoading set to false.`);
             setIsLoading(false);
         }
     } else if (!authLoading && !currentUser) {
-        addDebugMessage("useEffect[currentUser, fetchAdminUsers]: AuthContext currentUser is null and auth is not loading. Redirecting to / might be handled by AdminLayout.");
         setIsLoading(false);
     } else {
-        addDebugMessage("useEffect[currentUser, fetchAdminUsers]: authLoading is true. Waiting for auth state...");
         setIsLoading(true);
     }
-  }, [currentUser, authLoading, fetchAdminUsers, addDebugMessage]);
+  }, [currentUser, authLoading, fetchAdminUsers]);
 
 
   const filteredAdminUsers = useMemo(() => { 
@@ -132,7 +111,6 @@ export default function UsersPage() {
       toast({ title: "Error", description: "You cannot delete your own account.", variant: "destructive" });
       return;
     }
-    addDebugMessage(`Attempting to delete admin user: ${adminId} (${adminName}) by admin: ${currentUser?.id}`);
     try {
       await deleteDoc(doc(db, ADMINS_COLLECTION, adminId)); 
       setAdminUsers(prev => prev.filter(u => u.id !== adminId));
@@ -146,7 +124,6 @@ export default function UsersPage() {
 
     } catch (error: any) {
       console.error("Error deleting admin user from Firestore:", error);
-      addDebugMessage(`Error deleting admin user ${adminId} from Firestore: ${error.code} - ${error.message}`);
       toast({ title: "Error", description: `Failed to delete admin user ${adminName} from Firestore. Check permissions.`, variant: "destructive" });
     }
   };
@@ -183,10 +160,6 @@ export default function UsersPage() {
               <Skeleton className="h-12 w-full" />
               <Skeleton className="h-12 w-full" />
             </div>
-            <div className="mt-4 p-2 border rounded bg-muted/50">
-                <p className="text-xs font-semibold">Debug Log (Loading State):</p>
-                <pre className="text-xs max-h-40 overflow-auto whitespace-pre-wrap break-all">{debugMessages.join("\n")}</pre>
-            </div>
           </CardContent>
         </Card>
       </>
@@ -197,10 +170,6 @@ export default function UsersPage() {
     return (
         <div className="p-4">
             <p>Access Denied. You do not have permission to view this page.</p>
-            <Card className="mt-4">
-                <CardHeader><CardTitle className="text-sm font-headline">Debug Information (Access Denied State)</CardTitle></CardHeader>
-                <CardContent><pre className="text-xs bg-muted p-2 rounded max-h-60 overflow-auto whitespace-pre-wrap break-all">{debugMessages.join("\n")}</pre></CardContent>
-            </Card>
         </div>
     );
   }
@@ -209,10 +178,6 @@ export default function UsersPage() {
       return (
         <div className="p-4">
             <p>Admin user not authenticated. Redirecting to login might be in progress...</p>
-             <Card className="mt-4">
-                <CardHeader><CardTitle className="text-sm font-headline">Debug Information (No Current User State)</CardTitle></CardHeader>
-                <CardContent><pre className="text-xs bg-muted p-2 rounded max-h-60 overflow-auto whitespace-pre-wrap break-all">{debugMessages.join("\n")}</pre></CardContent>
-            </Card>
         </div>
       );
   }
@@ -352,12 +317,6 @@ export default function UsersPage() {
           )}
         </CardContent>
       </Card>
-        <Card className="mt-4">
-            <CardHeader><CardTitle className="text-sm font-headline">Debug Information (Admin Users Page)</CardTitle></CardHeader>
-            <CardContent>
-                <pre className="text-xs bg-muted p-2 rounded max-h-60 overflow-auto whitespace-pre-wrap break-all">{debugMessages.join("\n")}</pre>
-            </CardContent>
-        </Card>
     </TooltipProvider>
   );
 }

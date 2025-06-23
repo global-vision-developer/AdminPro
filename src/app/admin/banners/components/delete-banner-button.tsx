@@ -21,17 +21,12 @@ export function DeleteBannerButton({ bannerId, bannerDescription }: DeleteBanner
   const [isOpen, setIsOpen] = React.useState(false);
   const { toast } = useToast();
 
-  console.log("[DeleteBannerButton] Rendering. bannerId:", bannerId, "bannerDescription:", bannerDescription);
-
   const handleTriggerClick = () => {
-    console.log("[DeleteBannerButton] AlertDialogTrigger (Trash Icon) clicked. Setting isOpen to true via onClick.");
     setIsOpen(true);
   };
 
   const handleDelete = async () => {
-    console.log("[DeleteBannerButton] handleDelete triggered. bannerId:", bannerId);
     if (!bannerId) {
-      console.error("[DeleteBannerButton] bannerId is missing!");
       toast({
         title: "Алдаа",
         description: "Баннерын ID олдсонгүй. Устгах боломжгүй.",
@@ -43,27 +38,22 @@ export function DeleteBannerButton({ bannerId, bannerDescription }: DeleteBanner
     }
 
     setIsDeleting(true);
-    console.log("[DeleteBannerButton] Calling deleteBanner server action...");
     try {
       const result = await deleteBanner(bannerId);
-      console.log("[DeleteBannerButton] Server action result:", result);
       
       if (result && result.success) {
-        console.log("[DeleteBannerButton] Deletion successful. Toasting and refreshing.");
         toast({
           title: "Баннер устгагдлаа",
           description: `"${bannerDescription}" тайлбартай баннер амжилттай устгагдлаа.`,
         });
         router.refresh();
       } else if (result && result.error) {
-        console.error("[DeleteBannerButton] Deletion failed. Error:", result.error);
         toast({
           title: "Баннер устгахад алдаа гарлаа",
           description: result.error,
           variant: "destructive",
         });
       } else {
-        console.error("[DeleteBannerButton] Unknown result from server action:", result);
         toast({
           title: "Үл мэдэгдэх алдаа",
           description: "Баннер устгахад үл мэдэгдэх алдаа гарлаа.",
@@ -71,29 +61,19 @@ export function DeleteBannerButton({ bannerId, bannerDescription }: DeleteBanner
         });
       }
     } catch (error) {
-        console.error("[DeleteBannerButton] Exception during deleteBanner call or subsequent logic:", error);
         toast({
           title: "Гэнэтийн алдаа",
           description: "Баннер устгах явцад гэнэтийн алдаа гарлаа.",
           variant: "destructive",
         });
     } finally {
-        console.log("[DeleteBannerButton] handleDelete finally block. Setting isDeleting=false, setIsOpen=false.");
         setIsDeleting(false);
         setIsOpen(false); 
     }
   };
 
   return (
-    <AlertDialog open={isOpen} onOpenChange={(openState) => {
-      console.log("[DeleteBannerButton] AlertDialog onOpenChange. New state:", openState, "Current isOpen state:", isOpen);
-      // We manage isOpen explicitly via button clicks to avoid issues with onOpenChange firing unexpectedly
-      // if the trigger method also changes it.
-      // If !openState (dialog is closing), ensure our local state reflects that.
-      if (!openState && isOpen) {
-          setIsOpen(false);
-      }
-    }}>
+    <AlertDialog open={isOpen} onOpenChange={setIsOpen}>
       <AlertDialogTrigger asChild>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -119,19 +99,13 @@ export function DeleteBannerButton({ bannerId, bannerDescription }: DeleteBanner
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel 
-            onClick={() => {
-              console.log("[DeleteBannerButton] AlertDialogCancel clicked. Setting isOpen to false.");
-              setIsOpen(false);
-            }} 
+            onClick={() => setIsOpen(false)} 
             disabled={isDeleting}
           >
             Цуцлах
           </AlertDialogCancel>
           <AlertDialogAction
-            onClick={() => {
-              console.log("[DeleteBannerButton] AlertDialogAction (Confirm Delete) clicked. Attempting to call handleDelete.");
-              handleDelete();
-            }}
+            onClick={handleDelete}
             className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
             disabled={isDeleting}
           >

@@ -50,9 +50,7 @@ export async function addAdminUser(
             allowedCategoryIds: data.role === UserRole.SUB_ADMIN ? data.allowedCategoryIds || [] : [],
         };
         
-        console.log("Calling 'createAdminUser' Cloud Function with payload:", payload);
         const result = await callCreateAdmin(payload) as HttpsCallableResult<{success?: boolean; message?: string; error?: string; userId?: string}>;
-        console.log("Cloud Function 'createAdminUser' responded:", result.data);
 
         if (result.data.success) {
             revalidatePath("/admin/users");
@@ -100,11 +98,7 @@ export async function updateAdminUser(
 
     if (Object.keys(updateDataForFirestore).length > 1) { // if more than just updatedAt
         await updateDoc(adminDocRef, updateDataForFirestore);
-        console.log(`Firestore document for admin ${userId} updated with new details.`);
-    } else {
-        console.log(`No changes to Firestore document for admin ${userId} other than potentially Auth updates.`);
     }
-
 
     let authUpdateAttempted = false;
     let authUpdateMessage = "";
@@ -116,7 +110,6 @@ export async function updateAdminUser(
     if (data.email && data.email !== currentFirestoreEmail) {
         payloadToCloudFunction.newEmail = data.email;
         needsCloudFunctionCall = true;
-        console.log(`Email change detected for ${userId}. Old: ${currentFirestoreEmail}, New: ${data.email}. Will call Cloud Function.`);
     }
     if (data.newPassword) {
         if (data.newPassword.length < 6) {
@@ -124,12 +117,10 @@ export async function updateAdminUser(
         }
         payloadToCloudFunction.newPassword = data.newPassword;
         needsCloudFunctionCall = true;
-        console.log(`New password provided for ${userId}. Will call Cloud Function.`);
     }
     
     if (needsCloudFunctionCall) {
         authUpdateAttempted = true;
-        console.log(`Attempting to call Cloud Function 'updateAdminAuthDetails' for user ${userId} with payload:`, JSON.stringify(payloadToCloudFunction));
         try {
             const functions = getFunctions(clientApp, 'us-central1'); 
             const callUpdateAuth = httpsCallable(functions, 'updateAdminAuthDetails');
@@ -138,10 +129,8 @@ export async function updateAdminUser(
             
             if (resultFromCF.data.success) {
                 authUpdateMessage += ` ${resultFromCF.data.message || "Firebase Authentication амжилттай шинэчлэгдлээ."}`;
-                console.log(`Cloud Function 'updateAdminAuthDetails' successful for user ${userId}. Response:`, resultFromCF.data);
             } else {
                 authUpdateError += ` Cloud Function алдаа: ${resultFromCF.data.message || resultFromCF.data.error || "Cloud Function-оос тодорхойгүй алдаа."}`;
-                console.warn(`Cloud Function 'updateAdminAuthDetails' for user ${userId} reported an issue:`, resultFromCF.data);
             }
         } catch (cfError: any) {
             console.error(`Error calling Cloud Function 'updateAdminAuthDetails' for user ${userId}:`, cfError);
@@ -246,7 +235,6 @@ export async function deleteAdminUser(id: string): Promise<{ success?: boolean; 
         const adminDocRef = doc(db, ADMINS_COLLECTION, id);
         await deleteDoc(adminDocRef);
         revalidatePath("/admin/users");
-        console.log(`Admin user record ${id} deleted from Firestore. Auth record needs manual deletion or via Admin SDK.`);
         return { 
             success: true, 
             message: "Админ хэрэглэгчийн Firestore дахь бичлэг устгагдлаа. Firebase Authentication дахь бүртгэлийг устгахын тулд Admin SDK (Cloud Function) ашиглах эсвэл Firebase console-оос гараар устгах шаардлагатай." 

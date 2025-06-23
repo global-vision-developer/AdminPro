@@ -1,2 +1,2 @@
-// This file is no longer used and can be deleted.
-// The logic has been moved back to Cloud Functions for better security.
+// This file is from an old, insecure setup and is no longer needed.
+// Firebase Admin SDK logic is correctly handled within secure Cloud Functions now.
