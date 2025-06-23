@@ -413,6 +413,7 @@ export const createAdminUser = onCall(
     }
 
     try {
+      logger.info(`'createAdminUser' called by ${callerUid} for new user ${email}.`);
       const photoURL = `https://placehold.co/100x100.png?text=${name.substring(0, 2).toUpperCase()}&bg=FF5733&txt=FFFFFF`;
       const userRecord = await fAuth.createUser({
           email: email,
@@ -468,3 +469,5 @@ export const createAdminUser = onCall(
     }
   }
 );
+
+    
