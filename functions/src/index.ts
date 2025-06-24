@@ -110,7 +110,7 @@ export const processNotificationRequest = onDocumentCreated(
     const originalTargetsArray: FunctionNotificationTarget[] =
       Array.isArray(typedTargets) ?
         typedTargets.map(
-          (t: any) => ({...t})
+          (t: FunctionNotificationTarget) => ({...t})
         ) : [];
 
 
@@ -472,5 +472,3 @@ export const createAdminUser = onCall(
     }
   }
 );
-
-    
