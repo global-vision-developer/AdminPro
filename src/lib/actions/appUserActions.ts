@@ -17,11 +17,21 @@ export async function getAppUsers(): Promise<AppUser[]> {
 
     const users: AppUser[] = querySnapshot.docs.map((doc) => {
       const data = doc.data();
+
+      // Handle both singular 'fcmToken' (string) and plural 'fcmTokens' (array)
+      const tokens: string[] = [];
+      if (Array.isArray(data.fcmTokens)) {
+        // Filter for valid, non-empty strings
+        tokens.push(...data.fcmTokens.filter((t: any) => typeof t === 'string' && t));
+      } else if (typeof data.fcmToken === 'string' && data.fcmToken) {
+        tokens.push(data.fcmToken);
+      }
+
       return {
         id: doc.id,
         email: data.email || "",
         displayName: data.displayName || data.email?.split('@')[0] || "N/A", // Fallback for displayName
-        fcmTokens: Array.isArray(data.fcmTokens) ? data.fcmTokens : [],
+        fcmTokens: tokens,
         // Add other fields from your AppUser type if they exist in Firestore
         // e.g., createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : undefined,
       } as AppUser;
