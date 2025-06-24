@@ -47,7 +47,7 @@ export async function createNotificationEntry(
       return { error: "No valid FCM tokens found for the selected users. Notification not created." };
     }
 
-    const notificationData: Omit<NotificationLog, "id" | "createdAt" | "processedAt" > & { createdAt: any, scheduleAt?: any } = {
+    const notificationData: Omit<NotificationLog, "id" | "createdAt" | "processedAt" > & { createdAt: any, scheduleAt?: any, processingStatus: string } = {
       title: payload.title,
       body: payload.body,
       imageUrl: payload.imageUrl || null,
@@ -58,13 +58,16 @@ export async function createNotificationEntry(
         name: adminCreator.name || adminCreator.email?.split('@')[0] || "Admin",
       },
       createdAt: serverTimestamp(),
-      processingStatus: 'pending',
       targets: targets,
+      processingStatus: 'pending', // Default status
     };
 
     if (payload.scheduleAt) {
       notificationData.scheduleAt = Timestamp.fromDate(payload.scheduleAt);
       notificationData.processingStatus = 'scheduled';
+    } else {
+      // For immediate sends, set status to 'processing' right away for better UX.
+      notificationData.processingStatus = 'processing';
     }
 
     const docRef = await addDoc(collection(db, NOTIFICATIONS_COLLECTION), notificationData);
