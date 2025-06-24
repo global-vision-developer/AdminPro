@@ -54,15 +54,15 @@ interface NotificationTargetForLog {
 }
 
 interface NotificationLog {
-    title: string;
-    body: string;
-    imageUrl: string | null;
-    deepLink: string | null;
-    adminCreator: Pick<UserProfile, "uid" | "name" | "email">;
-    createdAt: FirebaseFirestore.FieldValue;
-    targets: NotificationTargetForLog[];
-    processingStatus: "completed" | "partially_completed" | "scheduled" | "completed_no_targets";
-    scheduleAt: FirebaseFirestore.Timestamp | null;
+  title: string;
+  body: string;
+  imageUrl: string | null;
+  deepLink: string | null;
+  adminCreator: Pick<UserProfile, "uid" | "name" | "email">;
+  createdAt: FirebaseFirestore.FieldValue;
+  targets: NotificationTargetForLog[];
+  processingStatus: "completed" | "partially_completed" | "scheduled" | "completed_no_targets";
+  scheduleAt: FirebaseFirestore.Timestamp | null;
 }
 
 
@@ -72,10 +72,10 @@ export const sendNotification = onCall(
     if (!request.auth) {
       throw new HttpsError(
         "unauthenticated",
-        "The function must be called while authenticated."
+        "The function must be called while authenticated.",
       );
     }
-    
+
     try {
       const {
         title,
@@ -96,7 +96,7 @@ export const sendNotification = onCall(
       ) {
         throw new HttpsError(
           "invalid-argument",
-          "Missing required fields: title, body, and selectedUsers."
+          "Missing required fields: title, body, and selectedUsers.",
         );
       }
 
@@ -213,10 +213,10 @@ export const sendNotification = onCall(
         throw error;
       }
       throw new HttpsError("internal", "An unexpected error occurred while sending the notification.", {
-          originalErrorMessage: (error as Error).message
+        originalErrorMessage: (error as Error).message,
       });
     }
-  }
+  },
 );
 
 
@@ -235,7 +235,7 @@ export const updateAdminAuthDetails = onCall(
     if (!request.auth) {
       throw new HttpsError(
         "unauthenticated",
-        "The function must be called while authenticated."
+        "The function must be called while authenticated.",
       );
     }
 
@@ -251,7 +251,7 @@ export const updateAdminAuthDetails = onCall(
       ) {
         throw new HttpsError(
           "permission-denied",
-          "Caller does not have Super Admin privileges."
+          "Caller does not have Super Admin privileges.",
         );
       }
     } catch (error) {
@@ -261,7 +261,7 @@ export const updateAdminAuthDetails = onCall(
       }
       throw new HttpsError(
         "internal",
-        "Could not verify caller permissions."
+        "Could not verify caller permissions.",
       );
     }
 
@@ -272,7 +272,7 @@ export const updateAdminAuthDetails = onCall(
     if (!newEmail && !newPassword) {
       throw new HttpsError(
         "invalid-argument",
-        "Either newEmail or newPassword must be provided."
+        "Either newEmail or newPassword must be provided.",
       );
     }
 
@@ -285,7 +285,7 @@ export const updateAdminAuthDetails = onCall(
       ) {
         throw new HttpsError(
           "permission-denied",
-          "Cannot change the email of the primary super admin account."
+          "Cannot change the email of the primary super admin account.",
         );
       }
     } catch (error: unknown) {
@@ -305,7 +305,7 @@ export const updateAdminAuthDetails = onCall(
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
           throw new HttpsError(
             "invalid-argument",
-            "The new email address is not valid."
+            "The new email address is not valid.",
           );
         }
         updatePayloadAuth.email = newEmail;
@@ -315,7 +315,7 @@ export const updateAdminAuthDetails = onCall(
         if (newPassword.length < 6) {
           throw new HttpsError(
             "invalid-argument",
-            "New password must be at least 6 characters long."
+            "New password must be at least 6 characters long.",
           );
         }
         updatePayloadAuth.password = newPassword;
@@ -325,7 +325,7 @@ export const updateAdminAuthDetails = onCall(
         await fAuth.updateUser(targetUserId, updatePayloadAuth);
         logger.info(
           `Successfully updated Firebase Auth for user: ${targetUserId}`,
-          updatePayloadAuth
+          updatePayloadAuth,
         );
       }
 
@@ -335,7 +335,7 @@ export const updateAdminAuthDetails = onCall(
         .update(updatePayloadFirestore);
       logger.info(
         `Successfully updated Firestore for user: ${targetUserId}`,
-        updatePayloadFirestore
+        updatePayloadFirestore,
       );
 
       return {
@@ -352,7 +352,7 @@ export const updateAdminAuthDetails = onCall(
           case "auth/email-already-exists":
             errorCode = "already-exists";
             errorMessage =
-                "The new email address is already in use by another account.";
+              "The new email address is already in use by another account.";
             break;
           case "auth/invalid-email":
             errorCode = "invalid-argument";
@@ -369,8 +369,8 @@ export const updateAdminAuthDetails = onCall(
           default:
             errorCode = "internal";
             errorMessage =
-                (error as unknown as Error).message ||
-                "An internal error occurred during auth update.";
+              (error as unknown as Error).message ||
+              "An internal error occurred during auth update.";
         }
         throw new HttpsError(errorCode, errorMessage, {
           originalCode: firebaseErrorCode,
@@ -381,7 +381,7 @@ export const updateAdminAuthDetails = onCall(
         throw new HttpsError("internal", errorMessage);
       }
     }
-  }
+  },
 );
 
 // --- V2 Callable Function: Create a new Admin User ---
@@ -398,7 +398,7 @@ export const createAdminUser = onCall(
     if (!request.auth) {
       throw new HttpsError(
         "unauthenticated",
-        "The function must be called while authenticated."
+        "The function must be called while authenticated.",
       );
     }
     const callerUid = request.auth.uid;
@@ -413,7 +413,7 @@ export const createAdminUser = onCall(
       ) {
         throw new HttpsError(
           "permission-denied",
-          "Caller does not have Super Admin privileges to create users."
+          "Caller does not have Super Admin privileges to create users.",
         );
       }
     } catch (error) {
@@ -423,7 +423,7 @@ export const createAdminUser = onCall(
       }
       throw new HttpsError(
         "internal",
-        "Could not verify caller permissions."
+        "Could not verify caller permissions.",
       );
     }
 
@@ -431,13 +431,13 @@ export const createAdminUser = onCall(
     if (!email || !password || !name || !role) {
       throw new HttpsError(
         "invalid-argument",
-        "Missing required fields: email, password, name, role."
+        "Missing required fields: email, password, name, role.",
       );
     }
     if (password.length < 6) {
       throw new HttpsError(
         "invalid-argument",
-        "Password must be at least 6 characters long."
+        "Password must be at least 6 characters long.",
       );
     }
 
@@ -455,7 +455,7 @@ export const createAdminUser = onCall(
 
       logger.info(
         "Successfully created new user in Firebase Auth:",
-        userRecord.uid
+        userRecord.uid,
       );
 
       const adminDocRef = db.collection(ADMINS_COLLECTION).doc(userRecord.uid);
@@ -474,7 +474,7 @@ export const createAdminUser = onCall(
       await adminDocRef.set(firestoreAdminData);
       logger.info(
         "Successfully created Firestore admin document for:",
-        userRecord.uid
+        userRecord.uid,
       );
 
       return {
@@ -492,7 +492,7 @@ export const createAdminUser = onCall(
           case "auth/email-already-exists":
             errorCode = "already-exists";
             errorMessage =
-                "The email address is already in use by another account.";
+              "The email address is already in use by another account.";
             break;
           case "auth/invalid-email":
             errorCode = "invalid-argument";
@@ -505,8 +505,8 @@ export const createAdminUser = onCall(
           default:
             errorCode = "internal";
             errorMessage =
-                (error as unknown as Error).message ||
-                "An internal error occurred during auth user creation.";
+              (error as unknown as Error).message ||
+              "An internal error occurred during auth user creation.";
         }
         throw new HttpsError(errorCode, errorMessage, {
           originalCode: firebaseErrorCode,
@@ -514,8 +514,8 @@ export const createAdminUser = onCall(
       }
       throw new HttpsError(
         "internal",
-        (error as unknown as Error).message || "An unknown error occurred."
+        (error as unknown as Error).message || "An unknown error occurred.",
       );
     }
-  }
+  },
 );
