@@ -1,4 +1,3 @@
-
 // functions/src/index.ts
 
 import {
@@ -57,6 +56,21 @@ interface SendNotificationPayload {
   adminCreator: Pick<UserProfile, "id" | "name" | "email">;
 }
 
+// Firestore-д хадгалах мэдэгдлийн бичлэгийн төрөл
+interface NotificationLogPayload {
+  title: string;
+  body: string;
+  imageUrl: string | null;
+  deepLink: string | null;
+  adminCreator: Pick<UserProfile, "id" | "name" | "email">;
+  createdAt: FirebaseFirestore.FieldValue;
+  targets: FunctionNotificationTarget[];
+  processingStatus: "pending" | "scheduled" | "processing";
+  scheduleAt?: FirebaseFirestore.Timestamp;
+  processedAt?: FirebaseFirestore.FieldValue;
+  error?: string;
+}
+
 export const sendNotification = onCall(
   {region: "us-central1"},
   async (request: CallableRequest<SendNotificationPayload>) => {
@@ -91,7 +105,7 @@ export const sendNotification = onCall(
       return {success: false, message: "Сонгосон хэрэглэгчдэд идэвхтэй FCM token олдсонгүй."};
     }
 
-    const notificationLog: any = {
+    const notificationLog: NotificationLogPayload = {
       title,
       body,
       imageUrl: imageUrl || null,
@@ -161,10 +175,11 @@ export const sendNotification = onCall(
 
       logger.info(`ID: ${notificationId} processing finished. Status: ${finalProcessingStatus}`);
       return {success: true, message: `Мэдэгдэл илгээгдлээ. Амжилттай: ${response.successCount}, Амжилтгүй: ${response.failureCount}`};
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error(`Critical error sending multicast for ID: ${notificationId}:`, error);
-      await db.doc(`notifications/${notificationId}`).update({processingStatus: "error", error: error.message});
-      throw new HttpsError("internal", "Мэдэгдэл илгээхэд алдаа гарлаа.", {details: error.message});
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+      await db.doc(`notifications/${notificationId}`).update({processingStatus: "error", error: errorMessage});
+      throw new HttpsError("internal", "Мэдэгдэл илгээхэд алдаа гарлаа.", {details: errorMessage});
     }
   }
 );
@@ -194,12 +209,11 @@ export const processNotificationRequest = onDocumentCreated(
     }
 
     // This trigger should only process scheduled notifications
-    // Real-time notifications are handled by the 'sendNotification' callable function
-    if (notificationData.processingStatus !== 'scheduled') {
-        logger.info(`Skipping notification ${notificationId} with status ${notificationData.processingStatus}. Only 'scheduled' status is processed by this trigger.`);
-        return null;
+    if (notificationData.processingStatus !== "scheduled") {
+      logger.info(`Skipping notification ${notificationId} with status ${notificationData.processingStatus}. Only "scheduled" status is processed by this trigger.`);
+      return null;
     }
-    
+
     const {
       title,
       body,
@@ -211,8 +225,8 @@ export const processNotificationRequest = onDocumentCreated(
 
     // Double check if it's time to send
     if (scheduleAt && scheduleAt.toMillis() > Date.now()) {
-        logger.info(`Notification ${notificationId} is scheduled for a later time, not processing now.`);
-        return null;
+      logger.info(`Notification ${notificationId} is scheduled for a later time, not processing now.`);
+      return null;
     }
 
     logger.info(`Processing scheduled notification. ID: ${notificationId}`);
@@ -222,7 +236,7 @@ export const processNotificationRequest = onDocumentCreated(
         processingStatus: "processing",
         processedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
-    } catch (updateError) {
+    } catch (updateError: unknown) {
       logger.error(
         `Err upd status to processing. ID: ${notificationId}:`,
         updateError
@@ -240,7 +254,6 @@ export const processNotificationRequest = onDocumentCreated(
 
 
     originalTargetsArray.forEach((target) => {
-      // For scheduled, we might need to re-check if the token is still valid if it was pending for a long time
       if (target && target.token) {
         tokensToSend.push(target.token);
       }
@@ -280,7 +293,7 @@ export const processNotificationRequest = onDocumentCreated(
         `Sent ${response.successCount} successful msgs for ID: ` +
         notificationId
       );
-     
+
       let allSentSuccessfully = response.failureCount === 0;
       const updatedTargetsFirestore = [...originalTargetsArray];
       const currentTimestamp = admin.firestore.FieldValue.serverTimestamp();
@@ -300,7 +313,7 @@ export const processNotificationRequest = onDocumentCreated(
             delete targetToUpdateInFirestore.error;
           } else {
             allSentSuccessfully = false;
-            targetToUpdateInFirestore.status = "failed" as const;
+            targetToUpdateInFirestore.status = "failed";
             targetToUpdateInFirestore.error =
               result.error?.message || "Unknown FCM error";
             logger.error(
@@ -327,17 +340,17 @@ export const processNotificationRequest = onDocumentCreated(
         `ID: ${notificationId} scheduled processing finished. ` +
         `Status: ${finalProcessingStatus}`
       );
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error(
         `Critical error sending multicast for scheduled ID: ${notificationId}:`,
         error
       );
-       await db
-          .doc(`notifications/${notificationId}`)
-          .update({
-            processingStatus: "error",
-            error: (error as Error).message,
-          });
+      await db
+        .doc(`notifications/${notificationId}`)
+        .update({
+          processingStatus: "error",
+          error: (error as Error).message,
+        });
     }
     return null;
   }
@@ -451,29 +464,29 @@ export const updateAdminAuthDetails = onCall(
       if (error && typeof error === "object" && "code" in error) {
         const firebaseErrorCode = (error as {code: string}).code;
         switch (firebaseErrorCode) {
-        case "auth/email-already-exists":
-          errorCode = "already-exists";
-          errorMessage = "The new email address is already in use by another account.";
-          break;
-        case "auth/invalid-email":
-          errorCode = "invalid-argument";
-          errorMessage = "The new email address is not valid.";
-          break;
-        case "auth/user-not-found":
-          errorCode = "not-found";
-          errorMessage = "Target user not found in Firebase Authentication.";
-          break;
-        case "auth/weak-password":
-          errorCode = "invalid-argument";
-          errorMessage = "The new password is too weak.";
-          break;
-        default:
-          errorCode = "internal";
-          errorMessage = (error as unknown as Error).message || "An internal error occurred during auth update.";
+          case "auth/email-already-exists":
+            errorCode = "already-exists";
+            errorMessage = "The new email address is already in use by another account.";
+            break;
+          case "auth/invalid-email":
+            errorCode = "invalid-argument";
+            errorMessage = "The new email address is not valid.";
+            break;
+          case "auth/user-not-found":
+            errorCode = "not-found";
+            errorMessage = "Target user not found in Firebase Authentication.";
+            break;
+          case "auth/weak-password":
+            errorCode = "invalid-argument";
+            errorMessage = "The new password is too weak.";
+            break;
+          default:
+            errorCode = "internal";
+            errorMessage = (error as Error).message || "An internal error occurred during auth update.";
         }
         throw new HttpsError(errorCode, errorMessage, {originalCode: firebaseErrorCode});
       } else {
-        errorMessage = (error as unknown as Error).message || "An unknown error occurred.";
+        errorMessage = (error as Error).message || "An unknown error occurred.";
         throw new HttpsError("internal", errorMessage);
       }
     }
@@ -552,25 +565,25 @@ export const createAdminUser = onCall(
       if (error && typeof error === "object" && "code" in error) {
         const firebaseErrorCode = (error as {code: string}).code;
         switch (firebaseErrorCode) {
-        case "auth/email-already-exists":
-          errorCode = "already-exists";
-          errorMessage = "The email address is already in use by another account.";
-          break;
-        case "auth/invalid-email":
-          errorCode = "invalid-argument";
-          errorMessage = "The email address is not valid.";
-          break;
-        case "auth/weak-password":
-          errorCode = "invalid-argument";
-          errorMessage = "The new password is too weak.";
-          break;
-        default:
-          errorCode = "internal";
-          errorMessage = (error as unknown as Error).message || "An internal error occurred during auth user creation.";
+          case "auth/email-already-exists":
+            errorCode = "already-exists";
+            errorMessage = "The email address is already in use by another account.";
+            break;
+          case "auth/invalid-email":
+            errorCode = "invalid-argument";
+            errorMessage = "The email address is not valid.";
+            break;
+          case "auth/weak-password":
+            errorCode = "invalid-argument";
+            errorMessage = "The new password is too weak.";
+            break;
+          default:
+            errorCode = "internal";
+            errorMessage = (error as Error).message || "An internal error occurred during auth user creation.";
         }
         throw new HttpsError(errorCode, errorMessage, {originalCode: firebaseErrorCode});
       }
-      throw new HttpsError("internal", (error as unknown as Error).message || "An unknown error occurred.");
+      throw new HttpsError("internal", (error as Error).message || "An unknown error occurred.");
     }
   }
 );
