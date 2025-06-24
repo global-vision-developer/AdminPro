@@ -136,13 +136,13 @@ export default function NewEntryPage() {
         <Card className="mt-6">
           <CardContent className="py-10 text-center">
              <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
-            <h3 className="text-xl font-semibold mb-2">No Categories Available</h3>
+            <h3 className="text-xl font-semibold mb-2">Категори олдсонгүй</h3>
             <p className="text-muted-foreground mb-4">
-              To add an entry, a category must be created first. This action can only be performed by a Super Admin.
+              Бүртгэл нэмэхийн тулд эхлээд категори үүсгэх шаардлагатай. Зөвхөн Сүпер Админ категори үүсгэх боломжтой.
             </p>
             {currentUser.role === UserRole.SUPER_ADMIN && (
                 <Button asChild>
-                <Link href="/admin/categories/new">Create Category</Link>
+                <Link href="/admin/categories/new">Категори үүсгэх</Link>
                 </Button>
             )}
           </CardContent>

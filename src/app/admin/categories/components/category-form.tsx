@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -25,8 +24,8 @@ import ImageUploader from '@/components/admin/image-uploader';
 
 const fieldDefinitionClientSchema = z.object({
   id: z.string().default(() => uuidv4()),
-  label: z.string().min(1, "Field label is required."),
-  key: z.string().min(1, "Field key is required (auto-generated from label).").regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Key must contain only lowercase letters, numbers, and hyphens."),
+  label: z.string().min(1, "Талбарын шошго хоосон байж болохгүй."),
+  key: z.string().min(1, "Талбарын түлхүүр хоосон байж болохгүй (шошгоноос автоматаар үүсгэгдэнэ).").regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Түлхүүр зөвхөн жижиг үсэг, тоо, зураас агуулна."),
   type: z.nativeEnum(FieldType),
   required: z.boolean().default(false),
   placeholder: z.string().transform(val => val === '' ? undefined : val).optional(),
@@ -34,11 +33,11 @@ const fieldDefinitionClientSchema = z.object({
 });
 
 const categoryFormSchema = z.object({
-  name: z.string(),
-  slug: z.string().min(1, "Slug is required.").regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug must contain only lowercase letters, numbers, and hyphens."),
+  name: z.string().min(1, "Категорийн нэр хоосон байж болохгүй."),
+  slug: z.string().min(1, "Slug заавал оруулна уу.").regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug зөвхөн жижиг үсэг, тоо, зураас агуулна."),
   description: z.string().optional().default(''),
   coverImageUrl: z.string().nullable().optional(), 
-  fields: z.array(fieldDefinitionClientSchema).min(0, "You can save a category without fields initially."),
+  fields: z.array(fieldDefinitionClientSchema).min(0, "Та эхэндээ талбаргүйгээр категори хадгалах боломжтой."),
 });
 
 export type CategoryFormValues = z.infer<typeof categoryFormSchema>;
@@ -134,11 +133,11 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
     const otherFields = fields.filter((_, idx) => idx !== editingFieldIndex);
     if (otherFields.some(f => f.key === finalFieldData.key)) {
       toast({
-        title: "Error: Duplicate Field Key",
-        description: `The key "${finalFieldData.key}" generated from field label "${finalFieldData.label}" already exists in this category. Please use a different label.`,
+        title: "Алдаа: Талбарын түлхүүр давхардсан байна",
+        description: `"${finalFieldData.label}" шошгоноос үүссэн "${finalFieldData.key}" түлхүүр энэ категорид аль хэдийн байна. Өөр шошго ашиглана уу.`,
         variant: "destructive",
       });
-      fieldFormMethods.setError("label", {type: "manual", message: "This label generates a duplicate key."})
+      fieldFormMethods.setError("label", {type: "manual", message: "Энэ шошго давхардсан түлхүүр үүсгэж байна."})
       return; 
     }
 
@@ -161,22 +160,12 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
   };
 
   const handleFormSubmit = async (data: CategoryFormValues) => {
-    if (data.name.trim() === "") {
-        form.setError("name", { type: "manual", message: "Category name cannot be empty." });
-        toast({
-            title: "Validation Error",
-            description: "Category name is required and cannot be empty.",
-            variant: "destructive",
-        });
-        return;
-    }
-
     const fieldKeys = new Set<string>();
     for (const f of data.fields) {
       if (fieldKeys.has(f.key)) {
         toast({
-          title: "Error: Duplicate Field Keys",
-          description: `The key "${f.key}" generated from field label "${f.label}" is duplicated. Please ensure all field labels generate unique keys.`,
+          title: "Алдаа: Талбарын түлхүүр давхардсан байна",
+          description: `"${f.label}" шошгоноос үүссэн "${f.key}" түлхүүр давхардсан байна. Бүх талбарын шошго давтагдашгүй түлхүүр үүсгэдэг эсэхийг шалгана уу.`,
           variant: "destructive",
         });
         return;
@@ -188,14 +177,14 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
 
     if (result && "error" in result && result.error) {
       toast({
-        title: "Operation Failed",
+        title: "Үйлдэл амжилтгүй боллоо",
         description: result.error,
         variant: "destructive",
       });
     } else if (result && (("id" in result && result.id) || ("success" in result && result.success))) {
        toast({
-        title: "Success",
-        description: `Категори ${initialData ? "updated" : "created"}.`,
+        title: "Амжилттай",
+        description: `Категори ${initialData ? "шинэчлэгдлээ" : "үүслээ"}.`,
       });
       if (onFormSuccess) onFormSuccess();
       form.reset(initialData ? { 

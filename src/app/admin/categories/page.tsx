@@ -1,4 +1,3 @@
-
 // "use client"; // Removed as data fetching will be server-side now
 import React from 'react'; // Suspense can be used if needed for parts of page
 import Link from 'next/link';
@@ -103,7 +102,7 @@ export default async function CategoriesPage({
                         <p className="text-xs text-muted-foreground md:hidden mt-1">{category.description?.substring(0,50)}...</p>
                       </TableCell>
                       <TableCell className="hidden md:table-cell max-w-sm truncate">
-                        {category.description || <span className="text-muted-foreground italic">No description</span>}
+                        {category.description || <span className="text-muted-foreground italic">Тайлбаргүй</span>}
                         <p className="text-xs text-muted-foreground mt-1">Slug: {category.slug}</p>
                       </TableCell>
                       <TableCell className="text-center hidden sm:table-cell">
@@ -135,14 +134,14 @@ export default async function CategoriesPage({
           ) : (
             <div className="text-center py-12">
               <Library className="mx-auto h-12 w-12 text-muted-foreground" />
-              <h3 className="mt-4 text-lg font-semibold">No categories found</h3>
+              <h3 className="mt-4 text-lg font-semibold">Категори олдсонгүй</h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                {searchTerm ? "Try modifying your search." : "Get started by creating a new category."}
+                {searchTerm ? "Хайлтаа өөрчилж үзнэ үү." : "Шинэ категори үүсгэж эхэлнэ үү."}
               </p>
               {!searchTerm && (
                 <Button asChild className="mt-4">
                   <Link href="/admin/categories/new">
-                    <PlusCircle className="mr-2 h-4 w-4" /> Create Category
+                    <PlusCircle className="mr-2 h-4 w-4" /> Категори үүсгэх
                   </Link>
                 </Button>
               )}
@@ -157,4 +156,3 @@ export default async function CategoriesPage({
 export const metadata = {
   title: "Categories | Admin Pro",
 };
-
