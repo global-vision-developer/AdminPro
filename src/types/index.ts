@@ -6,7 +6,7 @@ export enum UserRole {
 
 export interface UserProfile {
   id: string;
-  uid?: string; // Added from userActions
+  uid?: string;
   name: string;
   email: string;
   role: UserRole;

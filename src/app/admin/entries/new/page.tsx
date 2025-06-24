@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -64,7 +65,7 @@ export default function NewEntryPage() {
 
       } catch (error) {
         console.error("Failed to load categories or cities:", error);
-        toast({ title: "Error", description: "Failed to load categories or cities.", variant: "destructive" });
+        toast({ title: "Алдаа", description: "Категори эсвэл хотын мэдээлэл ачааллахад алдаа гарлаа.", variant: "destructive" });
         setAllCategories([]);
         setAllCities([]); // Reset cities on error
         setSelectableCategories([]);
@@ -124,7 +125,7 @@ export default function NewEntryPage() {
   if (!currentUser) { 
     return (
         <div className="p-4">
-            <p>Verifying user authentication...</p> 
+            <p>Хэрэглэгчийн нэвтрэлтийг шалгаж байна...</p> 
         </div>
     );
   }
@@ -157,10 +158,10 @@ export default function NewEntryPage() {
         <PageHeader title="Шинэ Бүртгэл Үүсгэх" /> 
         <Alert variant="default" className="mt-6 border-primary/50">
             <Info className="h-5 w-5 text-primary" />
-            <AlertTitle className="font-semibold text-primary">No Assigned Categories</AlertTitle>
+            <AlertTitle className="font-semibold text-primary">Оноосон категори байхгүй</AlertTitle>
             <AlertDescription>
-                You are currently not assigned any categories to manage entries. 
-                Please contact a Super Admin to assign categories to your account.
+                Танд одоогоор бүртгэл удирдах категори оноогоогүй байна. 
+                Сүпер Админаас категори оноох хүсэлт гаргана уу.
             </AlertDescription>
         </Alert>
       </>

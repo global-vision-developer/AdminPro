@@ -100,11 +100,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           const userProfile: UserProfile = {
             id: firebaseUser.uid,
+            uid: firebaseUser.uid,
             name: profileName,
             email: firebaseUser.email || '',
             role: userRoleFromFirestore, 
             avatar: profileAvatar,
-            ...(userRoleFromFirestore === UserRole.SUB_ADMIN && { allowedCategoryIds: allowedCategoryIdsFromFirestore }),
+            allowedCategoryIds: allowedCategoryIdsFromFirestore,
           };
           setCurrentUserLocal(userProfile);
 
@@ -148,7 +149,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else if (error.message) {
         friendlyMessage = `Error: ${error.message} (Code: ${error.code})`;
       }
-      toast({ title: "Login Failed", description: friendlyMessage, variant: "destructive", duration: 10000 });
+      toast({ title: "Нэвтрэлт амжилтгүй", description: friendlyMessage, variant: "destructive", duration: 10000 });
       setLoading(false); 
     }
   }, [toast]);
@@ -158,10 +159,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await firebaseSignOut(auth);
       router.push('/'); 
-      toast({ title: "Logged Out", description: "You have been successfully logged out.", duration: 3000});
+      toast({ title: "Системээс гарлаа", description: "Та системээс амжилттай гарлаа.", duration: 3000});
     } catch (error: any) {
       console.error("AuthContext: Firebase logout error:", error);
-      toast({ title: "Logout Error", description: error.message, variant: "destructive" });
+      toast({ title: "Гарах үед алдаа гарлаа", description: error.message, variant: "destructive" });
     }
   }, [router, toast]);
 

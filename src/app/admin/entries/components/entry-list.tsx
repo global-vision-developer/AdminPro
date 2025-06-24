@@ -61,14 +61,14 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
     const result = await deleteEntry(entryToDelete.id);
     if (result.error) {
       toast({
-        title: "Error",
+        title: "Алдаа",
         description: result.error,
         variant: "destructive",
       });
     } else {
       toast({
-        title: "Success",
-        description: `Entry "${entryToDelete.title || 'Untitled Entry'}" deleted.`,
+        title: "Амжилттай",
+        description: `Бүртгэл "${entryToDelete.title || 'Гарчиггүй бүртгэл'}" устгагдлаа.`,
       });
       // Revalidation is handled by the server action
     }
@@ -90,7 +90,7 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
                 return String(value); 
             }
         case FieldType.BOOLEAN:
-            return value ? "Yes" : "No";
+            return value ? "Тийм" : "Үгүй";
         case FieldType.NUMBER:
             return value.toLocaleString();
         case FieldType.IMAGE:
@@ -107,12 +107,12 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                     />
                     <a href={value} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline truncate" title={value}>
-                        Link
+                        Линк
                     </a>
                 </div>
                 );
             }
-            return <span className="text-xs text-muted-foreground italic">No image</span>;
+            return <span className="text-xs text-muted-foreground italic">Зураггүй</span>;
         case FieldType.IMAGE_GALLERY:
             if (Array.isArray(value) && value.length > 0) {
                 const galleryValue = value as ImageGalleryItemStored[];
@@ -120,7 +120,7 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
                 return (
                     <div className="flex items-center space-x-1 text-xs">
                         <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span>{galleryValue.length} {galleryValue.length === 1 ? "image" : "images"}</span>
+                        <span>{galleryValue.length} {galleryValue.length === 1 ? "зураг" : "зураг"}</span>
                         {firstImage?.imageUrl && (
                              <Image 
                                 data-ai-hint="gallery preview"
@@ -135,7 +135,7 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
                     </div>
                 );
             }
-            return <span className="text-xs text-muted-foreground italic">Empty gallery</span>;
+            return <span className="text-xs text-muted-foreground italic">Хоосон галлери</span>;
         case FieldType.TEXT:
         case FieldType.TEXTAREA:
             const stringValue = String(value);
@@ -151,9 +151,9 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
       case 'published':
         return <Badge variant="default" className="bg-green-500 hover:bg-green-600 text-white"><CheckCircle className="mr-1 h-3 w-3" />Нийтлэгдсэн</Badge>;
       case 'draft':
-        return <Badge variant="secondary"><Edit3 className="mr-1 h-3 w-3" />Draft</Badge>; 
+        return <Badge variant="secondary"><Edit3 className="mr-1 h-3 w-3" />Ноорог</Badge>; 
       case 'scheduled':
-        return <Badge variant="outline" className="border-blue-500 text-blue-500"><CalendarClock className="mr-1 h-3 w-3" />Scheduled</Badge>; 
+        return <Badge variant="outline" className="border-blue-500 text-blue-500"><CalendarClock className="mr-1 h-3 w-3" />Хуваарьт</Badge>; 
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -164,9 +164,9 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
        <Card className="mt-8 shadow-lg">
         <CardContent className="py-12 text-center">
             <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
-            <h3 className="text-xl font-semibold font-headline">No categories exist</h3>
+            <h3 className="text-xl font-semibold font-headline">Категори үүсээгүй байна</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-                Please create a category first.
+                Эхлээд категори үүсгэнэ үү.
             </p>
         </CardContent>
        </Card>
@@ -177,10 +177,10 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
     return (
         <Alert variant="default" className="mt-6 border-primary/50">
             <Info className="h-5 w-5 text-primary" />
-            <AlertTitle className="font-semibold text-primary">No Assigned Categories</AlertTitle>
+            <AlertTitle className="font-semibold text-primary">Оноосон категори байхгүй</AlertTitle>
             <AlertDescription>
-                You have not been assigned any categories to manage entries. 
-                Please request category assignment from a Super Admin.
+                Танд бүртгэл удирдах категори оноогоогүй байна. 
+                Сүпер Админаас категори оноох хүсэлт гаргана уу.
             </AlertDescription>
         </Alert>
     );
@@ -191,9 +191,9 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
        <Card className="mt-8 shadow-lg">
         <CardContent className="py-12 text-center">
             <Newspaper className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-xl font-semibold font-headline">No Entries Found</h3> 
+            <h3 className="text-xl font-semibold font-headline">Бүртгэл олдсонгүй</h3> 
             <p className="mt-1 text-sm text-muted-foreground">
-            No entries found in the selected (or your permitted) category, or no entries have been created yet.
+            Сонгосон (эсвэл танд зөвшөөрөгдсөн) категорид бүртгэл олдсонгүй, эсвэл хараахан бүртгэл үүсгээгүй байна.
             </p>
         </CardContent>
        </Card>
@@ -228,7 +228,7 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
                     <TableRow key={entry.id}>
                       <TableCell className="font-medium">
                         <Link href={`/admin/entries/${entry.id}/edit`} className="hover:underline text-primary">
-                          {entry.title || 'Untitled Entry'} 
+                          {entry.title || 'Гарчиггүй бүртгэл'} 
                         </Link>
                         <p className="text-xs text-muted-foreground md:hidden mt-1">{entry.categoryName || categoriesMap[entry.categoryId]?.name || 'N/A'}</p>
                       </TableCell>
@@ -238,7 +238,7 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
                           <div key={pf.key} className="text-xs mb-1 last:mb-0 overflow-hidden whitespace-nowrap">
                             <span className="font-semibold">{pf.label}:</span> {getDisplayValue(entry.data[pf.key], pf)}
                           </div>
-                        )) : <span className="text-xs text-muted-foreground italic">No preview fields.</span>} 
+                        )) : <span className="text-xs text-muted-foreground italic">Урьдчилж харах талбар алга.</span>} 
                       </TableCell>
                       <TableCell className="text-center hidden sm:table-cell">{getStatusBadge(entry.status)}</TableCell>
                       <TableCell className="text-center hidden md:table-cell">
@@ -248,44 +248,44 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
                         <div className="flex justify-end gap-1">
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Button variant="ghost" size="icon" aria-label="View entry" disabled> 
+                              <Button variant="ghost" size="icon" aria-label="Бүртгэл үзэх" disabled> 
                                 <Eye className="h-4 w-4" />
                               </Button>
                             </TooltipTrigger>
-                            <TooltipContent>View (coming soon)</TooltipContent> 
+                            <TooltipContent>Харах (удахгүй)</TooltipContent> 
                           </Tooltip>
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Link href={`/admin/entries/${entry.id}/edit`} passHref>
-                                <Button variant="ghost" size="icon" aria-label="Edit entry"> 
+                                <Button variant="ghost" size="icon" aria-label="Бүртгэл засах"> 
                                   <Edit3 className="h-4 w-4" />
                                 </Button>
                               </Link>
                             </TooltipTrigger>
-                            <TooltipContent>Edit entry</TooltipContent> 
+                            <TooltipContent>Бүртгэл засах</TooltipContent> 
                           </Tooltip>
                           <AlertDialog open={entryToDelete?.id === entry.id} onOpenChange={(open) => !open && setEntryToDelete(null)}>
                             <AlertDialogTrigger asChild>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/90" onClick={() => handleDeleteConfirm(entry)} aria-label="Delete entry"> 
+                                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/90" onClick={() => handleDeleteConfirm(entry)} aria-label="Бүртгэл устгах"> 
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
                                 </TooltipTrigger>
-                                <TooltipContent>Delete entry</TooltipContent> 
+                                <TooltipContent>Бүртгэл устгах</TooltipContent> 
                               </Tooltip>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>Are you sure?</AlertDialogTitle> 
+                                <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle> 
                                 <AlertDialogDescription>
-                                  This action cannot be undone. This will permanently delete the entry titled "{entryToDelete?.title || 'Untitled Entry'}".
+                                  Энэ үйлдлийг буцаах боломжгүй. Энэ нь "{entryToDelete?.title || 'Гарчиггүй бүртгэл'}" нэртэй бүртгэлийг бүрмөсөн устгах болно.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel> 
+                                <AlertDialogCancel>Цуцлах</AlertDialogCancel> 
                                 <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
-                                  Delete
+                                  Устгах
                                 </AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>

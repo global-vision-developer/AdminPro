@@ -57,7 +57,7 @@ export function CategorySelector({ allCategories, selectedCategoryIdForUrl }: Ca
                 категориор нь шүүх
             </Label>
             <p className="text-sm text-muted-foreground p-2 border rounded-md bg-muted/50">
-                No categories assigned for managing entries.
+                Танд бүртгэл удирдах категори оноогоогүй байна.
             </p>
         </div>
     );
@@ -88,4 +88,3 @@ export function CategorySelector({ allCategories, selectedCategoryIdForUrl }: Ca
     </div>
   );
 }
-

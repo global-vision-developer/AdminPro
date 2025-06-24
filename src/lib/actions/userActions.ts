@@ -74,7 +74,14 @@ export async function updateAdminUser(
     if (data.email !== undefined) updatePayloadFirestore.email = data.email;
     if (data.role !== undefined) updatePayloadFirestore.role = data.role;
     if (data.avatar !== undefined) updatePayloadFirestore.avatar = data.avatar;
-    if (data.allowedCategoryIds !== undefined) updatePayloadFirestore.allowedCategoryIds = data.allowedCategoryIds;
+
+    if (data.role === UserRole.SUB_ADMIN) {
+      updatePayloadFirestore.allowedCategoryIds = data.allowedCategoryIds || [];
+    } else if (data.role === UserRole.SUPER_ADMIN) {
+      updatePayloadFirestore.allowedCategoryIds = [];
+    } else if (data.allowedCategoryIds !== undefined) {
+      updatePayloadFirestore.allowedCategoryIds = data.allowedCategoryIds;
+    }
     
     const currentDoc = await getDoc(adminDocRef);
     const currentEmail = currentDoc.data()?.email;
@@ -136,6 +143,7 @@ export async function getAdminUsers(): Promise<UserProfile[]> {
       const data = docSnap.data();
       return {
         id: docSnap.id,
+        uid: data.uid || docSnap.id,
         name: data.name || '',
         email: data.email || '',
         role: data.role || UserRole.SUB_ADMIN,
@@ -159,6 +167,7 @@ export async function getAdminUser(id: string): Promise<UserProfile | null> {
       const data = docSnap.data();
       return {
         id: docSnap.id,
+        uid: data.uid || docSnap.id,
         name: data.name || '',
         email: data.email || '',
         role: data.role || UserRole.SUB_ADMIN,
