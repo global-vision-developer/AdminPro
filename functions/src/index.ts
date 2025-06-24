@@ -74,137 +74,147 @@ export const sendNotification = onCall(
         "The function must be called while authenticated."
       );
     }
+    
+    try {
+      const {
+        title,
+        body,
+        imageUrl,
+        deepLink,
+        scheduleAt,
+        selectedUsers,
+        adminCreator,
+      } = request.data;
 
-    const {
-      title,
-      body,
-      imageUrl,
-      deepLink,
-      scheduleAt,
-      selectedUsers,
-      adminCreator,
-    } = request.data;
+      if (
+        !title ||
+        !body ||
+        !selectedUsers ||
+        !Array.isArray(selectedUsers) ||
+        selectedUsers.length === 0
+      ) {
+        throw new HttpsError(
+          "invalid-argument",
+          "Missing required fields: title, body, and selectedUsers."
+        );
+      }
 
-    if (
-      !title ||
-      !body ||
-      !selectedUsers ||
-      !Array.isArray(selectedUsers) ||
-      selectedUsers.length === 0
-    ) {
-      throw new HttpsError(
-        "invalid-argument",
-        "Missing required fields: title, body, and selectedUsers."
-      );
-    }
+      // Scheduling logic
+      if (scheduleAt && new Date(scheduleAt).getTime() > Date.now()) {
+        const scheduledLog: NotificationLog = {
+          title,
+          body,
+          imageUrl: imageUrl || null,
+          deepLink: deepLink || null,
+          adminCreator,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          targets: [], // Targets will be processed by a separate scheduled function
+          processingStatus: "scheduled",
+          scheduleAt: admin.firestore.Timestamp.fromDate(new Date(scheduleAt)),
+        };
+        const docRef = await db.collection("notifications").add(scheduledLog);
+        logger.info(`Notification ${docRef.id} has been scheduled for later.`);
+        return {
+          success: true,
+          message: `Мэдэгдэл хуваарьт амжилттай орлоо (ID: ${docRef.id}).`,
+        };
+      }
 
-    // Scheduling logic
-    if (scheduleAt && new Date(scheduleAt).getTime() > Date.now()) {
-      const scheduledLog: NotificationLog = {
+      const tokensToSend: string[] = [];
+      const targetsForLog: NotificationTargetForLog[] = [];
+      const tokenToUserMap = new Map<string, AppUser>();
+
+      selectedUsers.forEach((user) => {
+        if (user.fcmTokens && user.fcmTokens.length > 0) {
+          user.fcmTokens.forEach((token: string) => {
+            if (token && !tokenToUserMap.has(token)) {
+              tokensToSend.push(token);
+              tokenToUserMap.set(token, user);
+            }
+          });
+        }
+      });
+
+      if (tokensToSend.length === 0) {
+        const noTokenLog: Partial<NotificationLog> = {
+          title,
+          body,
+          adminCreator,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          processingStatus: "completed_no_targets",
+          targets: [],
+        };
+        await db.collection("notifications").add(noTokenLog);
+        return {
+          success: false,
+          message: "Сонгосон хэрэглэгчдэд идэвхтэй FCM token олдсонгүй.",
+        };
+      }
+
+      const messagePayload: admin.messaging.MulticastMessage = {
+        notification: {
+          title: title,
+          body: body,
+          ...(imageUrl && {imageUrl: imageUrl}),
+        },
+        tokens: tokensToSend,
+        data: {
+          ...(deepLink && {deepLink: deepLink}),
+        },
+      };
+
+      logger.info(`Sending ${tokensToSend.length} messages.`);
+      const response = await messaging.sendEachForMulticast(messagePayload);
+      const currentTimestamp = admin.firestore.Timestamp.now();
+
+      response.responses.forEach((result, index) => {
+        const token = tokensToSend[index];
+        const user = tokenToUserMap.get(token);
+        targetsForLog.push({
+          userId: user?.id || "unknown",
+          userEmail: user?.email,
+          userName: user?.displayName,
+          token: token,
+          status: result.success ? "success" : "failed",
+          messageId: result.success ? result.messageId : undefined,
+          error: result.success ? undefined : result.error?.message,
+          attemptedAt: currentTimestamp,
+        });
+      });
+
+      const finalProcessingStatus =
+        response.failureCount === 0 ? "completed" : "partially_completed";
+
+      const finalLog: NotificationLog = {
         title,
         body,
         imageUrl: imageUrl || null,
         deepLink: deepLink || null,
         adminCreator,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        targets: [], // Targets will be processed by a separate scheduled function
-        processingStatus: "scheduled",
-        scheduleAt: admin.firestore.Timestamp.fromDate(new Date(scheduleAt)),
+        targets: targetsForLog,
+        processingStatus: finalProcessingStatus,
+        scheduleAt: scheduleAt ?
+          admin.firestore.Timestamp.fromDate(new Date(scheduleAt)) :
+          null,
       };
-      const docRef = await db.collection("notifications").add(scheduledLog);
-      logger.info(`Notification ${docRef.id} has been scheduled for later.`);
+
+      const docRef = await db.collection("notifications").add(finalLog);
+      logger.info(`Notification sent and log ${docRef.id} created.`);
+
       return {
         success: true,
-        message: `Мэдэгдэл хуваарьт амжилттай орлоо (ID: ${docRef.id}).`,
+        message: `Мэдэгдэл илгээгдлээ. ${response.successCount} амжилттай, ${response.failureCount} амжилтгүй.`,
       };
-    }
-
-    const tokensToSend: string[] = [];
-    const targetsForLog: NotificationTargetForLog[] = [];
-    const tokenToUserMap = new Map<string, AppUser>();
-
-    selectedUsers.forEach((user) => {
-      if (user.fcmTokens && user.fcmTokens.length > 0) {
-        user.fcmTokens.forEach((token: string) => {
-          if (token && !tokenToUserMap.has(token)) {
-            tokensToSend.push(token);
-            tokenToUserMap.set(token, user);
-          }
-        });
+    } catch (error) {
+      logger.error("Error in sendNotification function:", error);
+      if (error instanceof HttpsError) {
+        throw error;
       }
-    });
-
-    if (tokensToSend.length === 0) {
-      const noTokenLog: Partial<NotificationLog> = {
-        title,
-        body,
-        adminCreator,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        processingStatus: "completed_no_targets",
-        targets: [],
-      };
-      await db.collection("notifications").add(noTokenLog);
-      return {
-        success: false,
-        message: "Сонгосон хэрэглэгчдэд идэвхтэй FCM token олдсонгүй.",
-      };
-    }
-
-    const messagePayload: admin.messaging.MulticastMessage = {
-      notification: {
-        title: title,
-        body: body,
-        ...(imageUrl && {imageUrl: imageUrl}),
-      },
-      tokens: tokensToSend,
-      data: {
-        ...(deepLink && {deepLink: deepLink}),
-      },
-    };
-
-    logger.info(`Sending ${tokensToSend.length} messages.`);
-    const response = await messaging.sendEachForMulticast(messagePayload);
-    const currentTimestamp = admin.firestore.Timestamp.now();
-
-    response.responses.forEach((result, index) => {
-      const token = tokensToSend[index];
-      const user = tokenToUserMap.get(token);
-      targetsForLog.push({
-        userId: user?.id || "unknown",
-        userEmail: user?.email,
-        userName: user?.displayName,
-        token: token,
-        status: result.success ? "success" : "failed",
-        messageId: result.success ? result.messageId : undefined,
-        error: result.success ? undefined : result.error?.message,
-        attemptedAt: currentTimestamp,
+      throw new HttpsError("internal", "An unexpected error occurred while sending the notification.", {
+          originalErrorMessage: (error as Error).message
       });
-    });
-
-    const finalProcessingStatus =
-      response.failureCount === 0 ? "completed" : "partially_completed";
-
-    const finalLog: NotificationLog = {
-      title,
-      body,
-      imageUrl: imageUrl || null,
-      deepLink: deepLink || null,
-      adminCreator,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      targets: targetsForLog,
-      processingStatus: finalProcessingStatus,
-      scheduleAt: scheduleAt ?
-        admin.firestore.Timestamp.fromDate(new Date(scheduleAt)) :
-        null,
-    };
-
-    const docRef = await db.collection("notifications").add(finalLog);
-    logger.info(`Notification sent and log ${docRef.id} created.`);
-
-    return {
-      success: true,
-      message: `Мэдэгдэл илгээгдлээ. ${response.successCount} амжилттай, ${response.failureCount} амжилтгүй.`,
-    };
+    }
   }
 );
 
@@ -338,28 +348,28 @@ export const updateAdminAuthDetails = onCall(
       if (error && typeof error === "object" && "code" in error) {
         const firebaseErrorCode = (error as {code: string}).code;
         switch (firebaseErrorCode) {
-        case "auth/email-already-exists":
-          errorCode = "already-exists";
-          errorMessage =
-              "The new email address is already in use by another account.";
-          break;
-        case "auth/invalid-email":
-          errorCode = "invalid-argument";
-          errorMessage = "The new email address is not valid.";
-          break;
-        case "auth/user-not-found":
-          errorCode = "not-found";
-          errorMessage = "Target user not found in Firebase Authentication.";
-          break;
-        case "auth/weak-password":
-          errorCode = "invalid-argument";
-          errorMessage = "The new password is too weak.";
-          break;
-        default:
-          errorCode = "internal";
-          errorMessage =
-              (error as unknown as Error).message ||
-              "An internal error occurred during auth update.";
+          case "auth/email-already-exists":
+            errorCode = "already-exists";
+            errorMessage =
+                "The new email address is already in use by another account.";
+            break;
+          case "auth/invalid-email":
+            errorCode = "invalid-argument";
+            errorMessage = "The new email address is not valid.";
+            break;
+          case "auth/user-not-found":
+            errorCode = "not-found";
+            errorMessage = "Target user not found in Firebase Authentication.";
+            break;
+          case "auth/weak-password":
+            errorCode = "invalid-argument";
+            errorMessage = "The new password is too weak.";
+            break;
+          default:
+            errorCode = "internal";
+            errorMessage =
+                (error as unknown as Error).message ||
+                "An internal error occurred during auth update.";
         }
         throw new HttpsError(errorCode, errorMessage, {
           originalCode: firebaseErrorCode,
@@ -478,24 +488,24 @@ export const createAdminUser = onCall(
       if (error && typeof error === "object" && "code" in error) {
         const firebaseErrorCode = (error as {code: string}).code;
         switch (firebaseErrorCode) {
-        case "auth/email-already-exists":
-          errorCode = "already-exists";
-          errorMessage =
-              "The email address is already in use by another account.";
-          break;
-        case "auth/invalid-email":
-          errorCode = "invalid-argument";
-          errorMessage = "The email address is not valid.";
-          break;
-        case "auth/weak-password":
-          errorCode = "invalid-argument";
-          errorMessage = "The new password is too weak.";
-          break;
-        default:
-          errorCode = "internal";
-          errorMessage =
-              (error as unknown as Error).message ||
-              "An internal error occurred during auth user creation.";
+          case "auth/email-already-exists":
+            errorCode = "already-exists";
+            errorMessage =
+                "The email address is already in use by another account.";
+            break;
+          case "auth/invalid-email":
+            errorCode = "invalid-argument";
+            errorMessage = "The email address is not valid.";
+            break;
+          case "auth/weak-password":
+            errorCode = "invalid-argument";
+            errorMessage = "The new password is too weak.";
+            break;
+          default:
+            errorCode = "internal";
+            errorMessage =
+                (error as unknown as Error).message ||
+                "An internal error occurred during auth user creation.";
         }
         throw new HttpsError(errorCode, errorMessage, {
           originalCode: firebaseErrorCode,

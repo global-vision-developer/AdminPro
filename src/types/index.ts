@@ -99,7 +99,7 @@ export interface NotificationLog {
   deepLink?: string | null;
   scheduleAt?: string | null;
   adminCreator: {
-    uid: string;
+    id: string;
     name?: string;
     email: string;
   };
