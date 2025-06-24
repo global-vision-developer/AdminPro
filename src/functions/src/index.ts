@@ -247,7 +247,6 @@ interface UpdateAdminAuthDetailsData {
   targetUserId: string;
   newEmail?: string;
   newPassword?: string;
-  newAvatarUrl?: string;
 }
 
 export const updateAdminAuthDetails = onCall(
@@ -266,15 +265,13 @@ export const updateAdminAuthDetails = onCall(
         .collection(ADMINS_COLLECTION)
         .doc(callerUid)
         .get();
-      // Allow user to edit their own profile, or a Super Admin to edit any profile.
       if (
-        callerUid !== request.data.targetUserId &&
-        (!callerAdminDoc.exists ||
-        callerAdminDoc.data()?.role !== UserRole.SUPER_ADMIN)
+        !callerAdminDoc.exists ||
+        callerAdminDoc.data()?.role !== UserRole.SUPER_ADMIN
       ) {
         throw new HttpsError(
           "permission-denied",
-          "Caller does not have Super Admin privileges to edit other users."
+          "Caller does not have Super Admin privileges."
         );
       }
     } catch (error) {
@@ -286,12 +283,12 @@ export const updateAdminAuthDetails = onCall(
       );
     }
 
-    const {targetUserId, newEmail, newPassword, newAvatarUrl} = request.data;
+    const {targetUserId, newEmail, newPassword} = request.data;
     if (!targetUserId) {
       throw new HttpsError("invalid-argument", "targetUserId is required.");
     }
-    if (!newEmail && !newPassword && !newAvatarUrl) {
-      throw new HttpsError("invalid-argument", "Either newEmail, newPassword, or newAvatarUrl must be provided.");
+    if (!newEmail && !newPassword) {
+      throw new HttpsError("invalid-argument", "Either newEmail or newPassword must be provided.");
     }
 
     try {
@@ -308,8 +305,8 @@ export const updateAdminAuthDetails = onCall(
     }
 
     try {
-      const updatePayloadAuth: {email?: string; password?: string, photoURL?: string} = {};
-      const updatePayloadFirestore: {email?: string; avatar?: string; updatedAt: FirebaseFirestore.FieldValue} = {
+      const updatePayloadAuth: {email?: string; password?: string} = {};
+      const updatePayloadFirestore: {email?: string; updatedAt: FirebaseFirestore.FieldValue} = {
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       };
 
@@ -326,25 +323,17 @@ export const updateAdminAuthDetails = onCall(
         }
         updatePayloadAuth.password = newPassword;
       }
-      if (newAvatarUrl !== undefined) {
-          updatePayloadAuth.photoURL = newAvatarUrl;
-          updatePayloadFirestore.avatar = newAvatarUrl;
-      }
 
       if (Object.keys(updatePayloadAuth).length > 0) {
         await fAuth.updateUser(targetUserId, updatePayloadAuth);
-        logger.info(`Successfully updated Firebase Auth for user: ${targetUserId}`, { ...updatePayloadAuth, password: 'REDACTED' });
-      }
-      
-      const firestoreUpdateKeys = Object.keys(updatePayloadFirestore);
-      if(firestoreUpdateKeys.length > 1 || (firestoreUpdateKeys.length === 1 && !firestoreUpdateKeys.includes('updatedAt'))){
-          await db
-            .collection(ADMINS_COLLECTION)
-            .doc(targetUserId)
-            .update(updatePayloadFirestore);
-          logger.info(`Successfully updated Firestore for user: ${targetUserId}`, updatePayloadFirestore);
+        logger.info(`Successfully updated Firebase Auth for user: ${targetUserId}`, updatePayloadAuth);
       }
 
+      await db
+        .collection(ADMINS_COLLECTION)
+        .doc(targetUserId)
+        .update(updatePayloadFirestore);
+      logger.info(`Successfully updated Firestore for user: ${targetUserId}`, updatePayloadFirestore);
 
       return {
         success: true,
@@ -422,6 +411,7 @@ export const createAdminUser = onCall(
     }
 
     try {
+      logger.info(`'createAdminUser' called by ${callerUid} for new user ${email}.`);
       const photoURL = `https://placehold.co/100x100.png?text=${name.substring(0, 2).toUpperCase()}&bg=FF5733&txt=FFFFFF`;
       const userRecord = await fAuth.createUser({
           email: email,
@@ -430,6 +420,7 @@ export const createAdminUser = onCall(
           photoURL: photoURL,
       });
 
+      logger.info("Successfully created new user in Firebase Auth:", userRecord.uid);
       
       const adminDocRef = db.collection(ADMINS_COLLECTION).doc(userRecord.uid);
       const firestoreAdminData = {
@@ -444,6 +435,7 @@ export const createAdminUser = onCall(
       };
       
       await adminDocRef.set(firestoreAdminData);
+      logger.info("Successfully created Firestore admin document for:", userRecord.uid);
 
       return {success: true, message: `Admin user ${name} created successfully.`, userId: userRecord.uid};
     } catch (error: any) {

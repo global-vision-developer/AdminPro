@@ -22,7 +22,6 @@ export enum FieldType {
   DATE = 'Date',
   BOOLEAN = 'Boolean',
   IMAGE_GALLERY = 'Image Gallery',
-  CITY_PICKER = 'City Picker', // New Field Type for City Selection
 }
 
 export interface ImageGalleryItemForm {
@@ -105,91 +104,4 @@ export interface NotificationLog {
   processingStatus: 'pending' | 'processing' | 'completed' | 'partially_completed' | 'error' | 'scheduled' | 'completed_no_targets';
   processedAt?: string | null;
   targets: NotificationTarget[];
-}
-
-export interface Banner {
-  id: string;
-  imageUrl: string | null;
-  description: string;
-  link?: string | null;
-  isActive: boolean;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-export enum AnketStatus {
-  PENDING = 'pending',
-  APPROVED = 'approved',
-  REJECTED = 'rejected',
-}
-
-export interface Anket {
-  id: string;
-  name: string;
-  email: string;
-  phoneNumber?: string;
-  cvLink?: string;
-  message?: string;
-  submittedAt: string;
-  status: AnketStatus;
-  processedBy?: string;
-  processedAt?: string;
-}
-
-
-export enum HelpTopic {
-  APPLICATION_GUIDE = "Аппликэйшн ашиглах заавар",
-  TRAVEL_TIPS = "Хэрхэн хямд аялах вэ?",
-}
-
-export const HELP_TOPIC_DISPLAY_NAMES: Record<HelpTopic | string, string> = {
-  [HelpTopic.APPLICATION_GUIDE]: "Аппликэйшн ашиглах заавар",
-  [HelpTopic.TRAVEL_TIPS]: "Хэрхэн хямд аялах вэ?",
-  "all_topics": "Бүх Сэдэв",
-};
-
-
-export interface HelpItem {
-  id: string;
-  topic: HelpTopic;
-  question: string;
-  answer: string;
-  isPredefined: boolean;
-  createdAt?: string;
-  updatedAt?: string;
-  createdBy?: string;
-}
-
-
-export interface HelpRequest {
-  id?: string;
-  topic: HelpTopic;
-  question: string;
-  userId?: string;
-  userEmail?: string;
-  status: 'pending' | 'answered' | 'archived';
-  createdAt: string;
-  answeredAt?: string;
-  adminNotes?: string;
-}
-
-export enum CityType {
-  MAJOR = 'major',
-  OTHER = 'other',
-}
-
-export const CITY_TYPE_DISPLAY_NAMES: Record<CityType, string> = {
-  [CityType.MAJOR]: 'Том хотууд',
-  [CityType.OTHER]: 'Бусад',
-};
-
-export interface City {
-  id: string;
-  name: string; // Mongolian name
-  nameCN: string; // Chinese name
-  order: number; // For sorting
-  cityType: CityType; // New field for city type
-  iataCode?: string; // New field for IATA code
-  createdAt?: string;
-  updatedAt?: string;
 }

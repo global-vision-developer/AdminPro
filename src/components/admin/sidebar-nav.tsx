@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -11,10 +12,7 @@ import {
   ChevronDown,
   ChevronRight,
   Bell,
-  Image as ImageIcon,
-  FileText, 
-  LifeBuoy,
-  MapPin // Icon for Cities
+  Image as ImageIcon 
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -47,11 +45,8 @@ const navItems: NavItem[] = [
   { href: "/admin/categories", label: "Ангилал", icon: Library, roles: [UserRole.SUPER_ADMIN] },
   { href: "/admin/entries", label: "Өгөгдөл", icon: Newspaper, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
   { href: "/admin/banners", label: "Баннер", icon: ImageIcon, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
-  { href: "/admin/cities", label: "Хотууд", icon: MapPin, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
-  { href: "/admin/anket", label: "Анкет", icon: FileText, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
   { href: "/admin/notifications", label: "Мэдэгдэл", icon: Bell, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
   { href: "/admin/users", label: "Хэрэглэгчид", icon: Users, roles: [UserRole.SUPER_ADMIN] },
-  { href: "/admin/help", label: "Тусламж", icon: LifeBuoy },
   // { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
