@@ -198,9 +198,9 @@ export const sendNotification = onCall(
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         targets: targetsForLog,
         processingStatus: finalProcessingStatus,
-        scheduleAt: scheduleAt
-          ? admin.firestore.Timestamp.fromDate(new Date(scheduleAt))
-          : null,
+        scheduleAt: scheduleAt ?
+          admin.firestore.Timestamp.fromDate(new Date(scheduleAt)) :
+          null,
       };
 
       const docRef = await db.collection("notifications").add(finalLog);
@@ -355,28 +355,28 @@ export const updateAdminAuthDetails = onCall(
       if (error && typeof error === "object" && "code" in error) {
         const firebaseErrorCode = (error as {code: string}).code;
         switch (firebaseErrorCode) {
-          case "auth/email-already-exists":
-            errorCode = "already-exists";
-            errorMessage =
-              "The new email address is already in use by another account.";
-            break;
-          case "auth/invalid-email":
-            errorCode = "invalid-argument";
-            errorMessage = "The new email address is not valid.";
-            break;
-          case "auth/user-not-found":
-            errorCode = "not-found";
-            errorMessage = "Target user not found in Firebase Authentication.";
-            break;
-          case "auth/weak-password":
-            errorCode = "invalid-argument";
-            errorMessage = "The new password is too weak.";
-            break;
-          default:
-            errorCode = "internal";
-            errorMessage =
-              (error as unknown as Error).message ||
-              "An internal error occurred during auth update.";
+        case "auth/email-already-exists":
+          errorCode = "already-exists";
+          errorMessage =
+            "The new email address is already in use by another account.";
+          break;
+        case "auth/invalid-email":
+          errorCode = "invalid-argument";
+          errorMessage = "The new email address is not valid.";
+          break;
+        case "auth/user-not-found":
+          errorCode = "not-found";
+          errorMessage = "Target user not found in Firebase Authentication.";
+          break;
+        case "auth/weak-password":
+          errorCode = "invalid-argument";
+          errorMessage = "The new password is too weak.";
+          break;
+        default:
+          errorCode = "internal";
+          errorMessage =
+            (error as unknown as Error).message ||
+            "An internal error occurred during auth update.";
         }
         throw new HttpsError(errorCode, errorMessage, {
           originalCode: firebaseErrorCode,
@@ -497,22 +497,22 @@ export const createAdminUser = onCall(
       if (error && typeof error === "object" && "code" in error) {
         const firebaseErrorCode = (error as {code: string}).code;
         switch (firebaseErrorCode) {
-          case "auth/email-already-exists":
-            errorCode = "already-exists";
-            errorMessage =
+        case "auth/email-already-exists":
+          errorCode = "already-exists";
+          errorMessage =
               "The email address is already in use by another account.";
-            break;
-          case "auth/invalid-email":
-            errorCode = "invalid-argument";
-            errorMessage = "The email address is not valid.";
-            break;
-          case "auth/weak-password":
-            errorCode = "invalid-argument";
-            errorMessage = "The new password is too weak.";
-            break;
-          default:
-            errorCode = "internal";
-            errorMessage =
+          break;
+        case "auth/invalid-email":
+          errorCode = "invalid-argument";
+          errorMessage = "The email address is not valid.";
+          break;
+        case "auth/weak-password":
+          errorCode = "invalid-argument";
+          errorMessage = "The new password is too weak.";
+          break;
+        default:
+          errorCode = "internal";
+          errorMessage =
               (error as unknown as Error).message ||
               "An internal error occurred during auth user creation.";
         }
@@ -527,3 +527,5 @@ export const createAdminUser = onCall(
     }
   }
 );
+
+    
