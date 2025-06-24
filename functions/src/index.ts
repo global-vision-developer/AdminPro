@@ -187,7 +187,9 @@ export const sendNotification = onCall(
       });
 
       const finalProcessingStatus =
-        response.failureCount === 0 ? "completed" : "partially_completed";
+        response.failureCount === 0 ?
+        "completed" :
+        "partially_completed";
 
       const finalLog: NotificationLog = {
         title,
@@ -423,7 +425,10 @@ export const createAdminUser = onCall(
         );
       }
     } catch (error) {
-      logger.error("Error checking caller permissions for user creation:", error);
+      logger.error(
+        "Error checking caller permissions for user creation:",
+        error
+      );
       if (error instanceof HttpsError) {
         throw error;
       }
@@ -527,5 +532,3 @@ export const createAdminUser = onCall(
     }
   }
 );
-
-    
