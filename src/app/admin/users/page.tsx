@@ -31,6 +31,7 @@ export default function UsersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
+  const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
 
   const fetchAdminUsers = useCallback(async () => {
     if (!currentUser || currentUser.role !== UserRole.SUPER_ADMIN) {
@@ -48,7 +49,7 @@ export default function UsersPage() {
       if (currentUser && currentUser.role === UserRole.SUPER_ADMIN) {
         fetchAdminUsers();
       } else if (currentUser) {
-        toast({ title: "Access Denied", description: "You do not have permission to manage admin users.", variant: "destructive" });
+        toast({ title: "Хандалт хориглогдсон", description: "Та админ хэрэглэгчдийг удирдах эрхгүй байна.", variant: "destructive" });
         router.push('/admin/dashboard');
         setIsLoading(false);
       } else {
@@ -69,20 +70,29 @@ export default function UsersPage() {
     });
   }, [adminUsers, searchTerm, roleFilter]);
 
-  const handleDeleteAdminUser = async (adminId: string, adminName: string) => { 
-    if (adminId === currentUser?.id) {
-      toast({ title: "Error", description: "You cannot delete your own account.", variant: "destructive" });
+  const handleDeleteConfirm = async () => {
+    if (!userToDelete || !currentUser) return;
+    
+    if (userToDelete.id === currentUser.id) {
+      toast({ title: "Алдаа", description: "Та өөрийн бүртгэлийг устгах боломжгүй.", variant: "destructive" });
+      setUserToDelete(null);
+      return;
+    }
+     if (userToDelete.email === "super@example.com") {
+      toast({ title: "Алдаа", description: "Үндсэн сүпер админыг устгах боломжгүй.", variant: "destructive" });
+      setUserToDelete(null);
       return;
     }
     
-    const result = await deleteAdminUser(adminId);
+    const result = await deleteAdminUser(userToDelete.id);
     
     if (result.success) {
-      setAdminUsers(prev => prev.filter(u => u.id !== adminId));
-      toast({ title: "Admin User Firestore Record Deleted", description: result.message || `Firestore record for admin user \"${adminName}\" has been removed.` });
+      setAdminUsers(prev => prev.filter(u => u.id !== userToDelete.id));
+      toast({ title: "Админ устгагдлаа", description: result.message || `Админ хэрэглэгч "${userToDelete.name}" амжилттай устгагдлаа.` });
     } else {
-      toast({ title: "Error", description: result.error || "Failed to delete admin user.", variant: "destructive" });
+      toast({ title: "Алдаа", description: result.error || "Админ хэрэглэгчийг устгахад алдаа гарлаа.", variant: "destructive" });
     }
+    setUserToDelete(null);
   };
 
   const getRoleBadge = (role: UserRole) => {
@@ -126,7 +136,7 @@ export default function UsersPage() {
   if (!currentUser || currentUser.role !== UserRole.SUPER_ADMIN) {
     return (
         <div className="p-4">
-            <p>Access Denied or Redirecting...</p>
+            <p>Хандалт хориглогдсон эсвэл нүүр хуудас руу шилжиж байна...</p>
         </div>
     );
   }
@@ -156,10 +166,10 @@ export default function UsersPage() {
             </div>
             <Select value={roleFilter} onValueChange={(value) => setRoleFilter(value as UserRole | 'all')}>
               <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue placeholder="Filter by Role" /> 
+                <SelectValue placeholder="Эрхээр шүүх" /> 
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Хандах Эрхүүд</SelectItem> 
+                <SelectItem value="all">Бүх эрх</SelectItem> 
                 <SelectItem value={UserRole.SUPER_ADMIN}>Сүпер Админ</SelectItem>
                 <SelectItem value={UserRole.SUB_ADMIN}>Дэд Админ</SelectItem>
               </SelectContent>
@@ -176,7 +186,7 @@ export default function UsersPage() {
                     <TableHead>Нэр</TableHead> 
                     <TableHead className="hidden md:table-cell">Имейл</TableHead> 
                     <TableHead className="text-center">Хандах эрх</TableHead> 
-                    <TableHead className="text-right">Өөрчлөх</TableHead> 
+                    <TableHead className="text-right">Үйлдэл</TableHead> 
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -201,40 +211,39 @@ export default function UsersPage() {
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Link href={`/admin/users/${user.id}/edit`} passHref>
-                                <Button variant="ghost" size="icon" aria-label="Edit admin user"> 
+                                <Button variant="ghost" size="icon" aria-label="Админ засах"> 
                                   <UserCog className="h-4 w-4" />
                                 </Button>
                               </Link>
                             </TooltipTrigger>
-                            <TooltipContent>Админ эрх засах / хандах эрх өөрчлөх</TooltipContent> 
+                            <TooltipContent>Админ засах / эрх өөрчлөх</TooltipContent> 
                           </Tooltip>
                           {user.id !== currentUser?.id && user.email !== 'super@example.com' && (
-                            <AlertDialog>
+                            <AlertDialog open={userToDelete?.id === user.id} onOpenChange={(open) => !open && setUserToDelete(null)}>
                               <AlertDialogTrigger asChild>
                                  <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/90" aria-label="Delete admin user"> 
+                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/90" aria-label="Админ устгах" onClick={() => setUserToDelete(user)}> 
                                       <Trash2 className="h-4 w-4" />
                                     </Button>
                                   </TooltipTrigger>
-                                  <TooltipContent>Админ хэрэглэгч устгах (Firestore рекорд)</TooltipContent> 
+                                  <TooltipContent>Админ хэрэглэгчийг устгах</TooltipContent> 
                                 </Tooltip>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
-                                  <AlertDialogTitle>Are you sure?</AlertDialogTitle> 
+                                  <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle> 
                                   <AlertDialogDescription>
-                                    This action will delete the admin user record for "{user.name}" from the database.
-                                    Deleting the authentication record requires backend action.
+                                    Энэ үйлдлийг буцаах боломжгүй. Энэ нь "{userToDelete?.name}" админыг Firebase Auth болон Firestore-оос бүрмөсөн устгах болно.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel> 
+                                  <AlertDialogCancel>Цуцлах</AlertDialogCancel> 
                                   <AlertDialogAction
-                                    onClick={() => handleDeleteAdminUser(user.id, user.name)}
+                                    onClick={handleDeleteConfirm}
                                     className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                                   >
-                                    Delete Firestore Record
+                                    Устгах
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>
@@ -250,15 +259,15 @@ export default function UsersPage() {
           ) : (
              <div className="text-center py-12">
               <UsersIcon className="mx-auto h-12 w-12 text-muted-foreground" />
-              <h3 className="mt-4 text-lg font-semibold">No admin users found</h3> 
+              <h3 className="mt-4 text-lg font-semibold">Админ хэрэглэгч олдсонгүй</h3> 
               <p className="mt-1 text-sm text-muted-foreground">
-                {adminUsers.length === 0 && !isLoading && !authLoading && !searchTerm && roleFilter === 'all' ? `No admin users exist in the '${'admins'}' collection.` :
-                (searchTerm || roleFilter !== 'all' ? "Try adjusting your search or filter." : "Get started by adding a new admin user.")} 
+                {adminUsers.length === 0 && !isLoading && !authLoading && !searchTerm && roleFilter === 'all' ? `'admins' коллекцид админ хэрэглэгч алга.` :
+                (searchTerm || roleFilter !== 'all' ? "Хайлт эсвэл шүүлтүүрээ тохируулна уу." : "Эхлэхийн тулд шинэ админ хэрэглэгч нэмнэ үү.")} 
               </p>
               {!(searchTerm || roleFilter !== 'all') && adminUsers.length === 0 && !isLoading && !authLoading && (
                 <Button asChild className="mt-4">
                   <Link href="/admin/users/new">
-                    <PlusCircle className="mr-2 h-4 w-4" /> Add Admin User
+                    <PlusCircle className="mr-2 h-4 w-4" /> Админ нэмэх
                   </Link>
                 </Button>
               )}

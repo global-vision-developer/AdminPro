@@ -72,22 +72,22 @@ export default function ProfilePage() {
 
       if (result.success) {
         toast({
-          title: "Profile Updated",
-          description: result.message || "Your profile has been successfully updated.",
+          title: "Профайл Шинэчлэгдлээ",
+          description: result.message || "Таны профайл амжилттай шинэчлэгдлээ.",
         });
         setIsEditing(false);
       } else {
          toast({
-          title: "Firestore Update Failed",
-          description: result.error || "Could not update profile details in the database.",
+          title: "Firestore Шинэчлэлт Амжилтгүй",
+          description: result.error || "Профайлын мэдээллийг мэдээллийн санд шинэчилж чадсангүй.",
           variant: "destructive",
         });
       }
 
     } catch (error: any) {
        toast({
-        title: "Auth Update Failed",
-        description: error.message || "Could not update your authentication profile.",
+        title: "Auth Шинэчлэлт Амжилтгүй",
+        description: error.message || "Таны authentication профайлыг шинэчилж чадсангүй.",
         variant: "destructive",
       });
     } finally {
@@ -97,20 +97,20 @@ export default function ProfilePage() {
 
   const handlePasswordReset = async () => {
     if (!currentUser?.email) {
-      toast({ title: "Error", description: "Email address is missing.", variant: "destructive"});
+      toast({ title: "Алдаа", description: "И-мэйл хаяг олдсонгүй.", variant: "destructive"});
       return;
     }
     setIsSubmitting(true);
     const result = await sendAdminPasswordResetEmail(currentUser.email);
     if (result.success) {
         toast({
-            title: "Password Reset Email Sent",
-            description: `A password reset email has been sent to ${currentUser.email}. Please check your inbox.`,
+            title: "Нууц үг сэргээх и-мэйл илгээлээ",
+            description: `${currentUser.email} хаяг руу нууц үг сэргээх и-мэйл илгээлээ. Ирсэн и-мэйлээ шалгана уу.`,
         });
     } else {
         toast({
-            title: "Error Sending Reset Email",
-            description: result.error || "Failed to send password reset email. Please try again.",
+            title: "И-мэйл илгээхэд алдаа гарлаа",
+            description: result.error || "Нууц үг сэргээх и-мэйл илгээхэд алдаа гарлаа. Дахин оролдоно уу.",
             variant: "destructive",
         });
     }

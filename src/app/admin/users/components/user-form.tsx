@@ -12,44 +12,43 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription as UiCardDesc
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import type { UserProfile, Category } from '@/types';
 import { UserRole } from '@/types';
-import { Save, Loader2, ListChecks, MailWarning, KeyRound } from 'lucide-react'; // Added KeyRound
+import { Save, Loader2, ListChecks, MailWarning, KeyRound } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { getCategories } from '@/lib/actions/categoryActions';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/use-auth';
 
 
 const userFormSchemaBase = z.object({
-  name: z.string().min(1, "User name is required."),
-  email: z.string().email("Invalid email address."),
+  name: z.string().min(1, "Хэрэглэгчийн нэр хоосон байж болохгүй."),
+  email: z.string().email("И-мэйл хаяг буруу байна."),
   role: z.nativeEnum(UserRole),
   allowedCategoryIds: z.array(z.string()).optional(),
 });
 
-// Schema for creating a new user (password is required)
 const newUserFormSchema = userFormSchemaBase.extend({
-  password: z.string().min(6, "Password must be at least 6 characters."),
-  confirmPassword: z.string().min(6, "Please confirm your password."),
+  password: z.string().min(6, "Нууц үг дор хаяж 6 тэмдэгттэй байх ёстой."),
+  confirmPassword: z.string(),
 }).refine(data => data.password === data.confirmPassword, {
-  message: "Passwords do not match.",
+  message: "Нууц үгнүүд таарахгүй байна.",
   path: ["confirmPassword"],
 });
 
-// Schema for editing an existing user (password is optional)
 const editUserFormSchema = userFormSchemaBase.extend({
   newPassword: z.string().optional(),
   confirmNewPassword: z.string().optional(),
 }).refine(data => {
   if (data.newPassword && data.newPassword.length > 0 && data.newPassword.length < 6) {
-    return false; // Fails if newPassword is set and less than 6 chars
+    return false;
   }
   return true;
 }, {
-  message: "New password must be at least 6 characters.",
+  message: "Шинэ нууц үг дор хаяж 6 тэмдэгттэй байх ёстой.",
   path: ["newPassword"],
 }).refine(data => data.newPassword === data.confirmNewPassword, {
-  message: "New passwords do not match.",
+  message: "Шинэ нууц үгнүүд таарахгүй байна.",
   path: ["confirmNewPassword"],
 });
 
@@ -67,6 +66,7 @@ interface UserFormProps {
 export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = false, onSendPasswordReset }: UserFormProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const { currentUser } = useAuth();
   const currentSchema = isEditing ? editUserFormSchema : newUserFormSchema;
   const [allCategories, setAllCategories] = useState<Category[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
@@ -79,7 +79,7 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
         setAllCategories(cats);
       } catch (error) {
         console.error("Failed to fetch categories for UserForm:", error);
-        toast({ title: "Error", description: "Failed to load categories for selection.", variant: "destructive" });
+        toast({ title: "Алдаа", description: "Сонголт хийх категориудыг ачааллахад алдаа гарлаа.", variant: "destructive" });
         setAllCategories([]);
       } finally {
         setLoadingCategories(false);
@@ -113,38 +113,17 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
   const watchRole = form.watch('role');
 
   const handleFormSubmit = async (data: UserFormValues) => {
-    const dataToSubmit: any = { // Use 'any' carefully or create a more specific submit type
-      name: data.name,
-      email: data.email,
-      role: data.role,
-      allowedCategoryIds: data.role === UserRole.SUB_ADMIN ? data.allowedCategoryIds || [] : [],
-    };
-
-    if (isEditing) {
-      if (data.newPassword && data.newPassword.length > 0) {
-        dataToSubmit.newPassword = data.newPassword;
-      }
-    } else {
-      // For new user, password is required by newUserFormSchema
-      dataToSubmit.password = data.password;
-    }
-
-    const result = await onSubmit(dataToSubmit);
+    const result = await onSubmit(data);
 
     if (result.error) {
-        toast({ title: "Error", description: result.error, variant: "destructive" });
+        toast({ title: "Алдаа", description: result.error, variant: "destructive" });
     } else if (result.success) {
-        toast({ title: "Success", description: result.message || `User ${isEditing ? 'updated' : 'created'} successfully.` });
+        toast({ title: "Амжилттай", description: result.message || `Хэрэглэгч ${isEditing ? 'шинэчлэгдлээ' : 'үүслээ'}.` });
         if (!isEditing) {
-            form.reset({ // Reset for new user
-                name: '', email: '', role: UserRole.SUB_ADMIN, allowedCategoryIds: [],
-                password: '', confirmPassword: '', newPassword: '', confirmNewPassword: ''
-            });
-        } else {
-            // For editing, only clear password fields if they were submitted
-            form.reset({ ...form.getValues(), newPassword: '', confirmNewPassword: '' });
+            form.reset();
         }
         router.push('/admin/users');
+        router.refresh();
     }
   }
 
@@ -177,17 +156,17 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Имейл Хаяг</FormLabel>
+                  <FormLabel>И-мэйл Хаяг</FormLabel>
                   <FormControl>
                     <Input type="email" placeholder="user@example.com" {...field} disabled={isEditing && initialData?.email === 'super@example.com'} />
                   </FormControl>
-                  {isEditing && <FormDescription>Firestore дахь имэйлийг шинэчилнэ. Firebase Authentication дахь имэйлийг Cloud Function ашиглан солих шаардлагатай.</FormDescription>}
+                   {isEditing && <FormDescription>Энэ и-мэйлийг солих нь Firebase Authentication болон Firestore-г хоёуланг нь шинэчилнэ.</FormDescription>}
                   <FormMessage />
                 </FormItem>
               )}
             />
             
-            {isEditing && (
+            {isEditing ? (
                  <>
                     <FormField
                         control={form.control}
@@ -216,24 +195,36 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
                             </FormItem>
                         )}
                     />
-                    {initialData?.email && onSendPasswordReset && (
-                        <FormItem className="pt-2">
-                            <FormLabel className="text-sm">Эсвэл</FormLabel>
-                            <div className="flex items-center space-x-2">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => onSendPasswordReset(initialData.email)}
-                                disabled={isSubmitting}
-                            >
-                                <MailWarning className="mr-2 h-4 w-4" />
-                                Нууц үг сэргээх имэйл илгээх
-                            </Button>
-                            </div>
-                        </FormItem>
-                    )}
                  </>
+            ): (
+              <>
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Нууц үг</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="••••••••" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="confirmPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Нууц үг баталгаажуулах</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="••••••••" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
             )}
 
             <FormField
@@ -250,7 +241,7 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
                       }
                     }}
                     defaultValue={field.value}
-                    disabled={isEditing && (initialData?.email === 'super@example.com' || initialData?.id === form.control._options.context?.currentUser?.id)}
+                    disabled={isEditing && (initialData?.email === 'super@example.com' || initialData?.id === currentUser?.id)}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -269,7 +260,7 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
                       })}
                     </SelectContent>
                   </Select>
-                   {(isEditing && (initialData?.email === 'super@example.com' || initialData?.id === form.control._options.context?.currentUser?.id)) && (
+                   {(isEditing && (initialData?.email === 'super@example.com' || initialData?.id === currentUser?.id)) && (
                     <FormDescription>Өөрийн болон үндсэн сүпер админы эрхийг өөрчлөх боломжгүй.</FormDescription>
                   )}
                   <FormMessage />
@@ -336,37 +327,6 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
                 )}
               />
             )}
-
-            {!isEditing && (
-              <>
-                <FormField
-                  control={form.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Нууц үг</FormLabel>
-                      <FormControl>
-                        <Input type="password" placeholder="••••••••" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="confirmPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Нууц үг баталгаажуулах</FormLabel>
-                      <FormControl>
-                        <Input type="password" placeholder="••••••••" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </>
-            )}
           </CardContent>
         </Card>
 
@@ -385,6 +345,3 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
     </Form>
   );
 }
-    
-
-    

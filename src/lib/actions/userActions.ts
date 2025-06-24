@@ -25,13 +25,6 @@ import { revalidatePath } from "next/cache";
 
 const ADMINS_COLLECTION = "admins";
 
-export type AdminUserData = Partial<Omit<UserProfile, "id" | "avatar">> & {
-  id?: string;
-  password?: string; 
-  newPassword?: string; 
-};
-
-// This function now calls a Cloud Function to securely add a new admin user.
 export async function addAdminUser(
   data: Required<Pick<UserProfile, "name" | "email" | "role">> & { password?: string; allowedCategoryIds?: string[] }
 ): Promise<{ success?: boolean; error?: string; message?: string }> {
@@ -54,14 +47,14 @@ export async function addAdminUser(
 
         if (result.data.success) {
             revalidatePath("/admin/users");
-            return { success: true, message: result.data.message || `Admin user "${data.name}" created successfully.` };
+            return { success: true, message: result.data.message || `Админ хэрэглэгч "${data.name}" амжилттай үүслээ.` };
         } else {
             return { error: result.data.error || "Cloud Function-оос тодорхойгүй алдаа гарлаа." };
         }
     } catch (error: any) {
         let errorMessage = error.message || "Админ хэрэглэгч нэмэхэд алдаа гарлаа.";
         if (error.code === 'unavailable' || error.code === 'not-found') {
-            errorMessage = "Cloud Function-тэй холбогдож чадсангүй (not-found). Та Firebase төлөвлөгөөгөө шалгаж, функцүүдээ deploy хийсэн эсэхээ нягтална уу.";
+            errorMessage = "Cloud Function-тэй холбогдож чадсангүй. Firebase төлөвлөгөө болон функцээ deploy хийсэн эсэхээ шалгана уу.";
         }
         return { error: errorMessage };
     }
@@ -75,32 +68,26 @@ export async function updateAdminUser(
   try {
     const adminDocRef = doc(db, ADMINS_COLLECTION, userId);
     
-    // This action can be called from the main user list (Super Admin) or the profile page (self-update).
-    // We create a flexible payload.
-    const updatePayload: Record<string, any> = { updatedAt: serverTimestamp() };
+    const updatePayloadFirestore: Record<string, any> = { updatedAt: serverTimestamp() };
     
-    // Add fields to payload only if they are provided in the data object
-    if (data.name !== undefined) updatePayload.name = data.name;
-    if (data.email !== undefined) updatePayload.email = data.email;
-    if (data.role !== undefined) updatePayload.role = data.role;
-    if (data.avatar !== undefined) updatePayload.avatar = data.avatar;
-    if (data.allowedCategoryIds !== undefined) updatePayload.allowedCategoryIds = data.allowedCategoryIds;
+    if (data.name !== undefined) updatePayloadFirestore.name = data.name;
+    if (data.email !== undefined) updatePayloadFirestore.email = data.email;
+    if (data.role !== undefined) updatePayloadFirestore.role = data.role;
+    if (data.avatar !== undefined) updatePayloadFirestore.avatar = data.avatar;
+    if (data.allowedCategoryIds !== undefined) updatePayloadFirestore.allowedCategoryIds = data.allowedCategoryIds;
     
-    // When updating from the profile page, we might only update name/avatar in Firestore.
-    // When a Super Admin updates a user, it might involve Cloud Function calls for auth changes.
-    // The logic below handles the more complex Super Admin case. The profile page logic is simpler and mostly client-side.
-    if (data.email || data.newPassword) {
+    const currentDoc = await getDoc(adminDocRef);
+    const currentEmail = currentDoc.data()?.email;
+
+    if ((data.email && data.email !== currentEmail) || data.newPassword) {
       const payloadToCloudFunction: any = { targetUserId: userId };
       let needsCloudFunctionCall = false;
-      
-      if (data.email) {
+
+      if (data.email && data.email !== currentEmail) {
           payloadToCloudFunction.newEmail = data.email;
           needsCloudFunctionCall = true;
       }
       if (data.newPassword) {
-           if (data.newPassword.length < 6) {
-            return { error: "Шинэ нууц үг дор хаяж 6 тэмдэгттэй байх ёстой." };
-          }
           payloadToCloudFunction.newPassword = data.newPassword;
           needsCloudFunctionCall = true;
       }
@@ -113,17 +100,16 @@ export async function updateAdminUser(
 
               if (!resultFromCF.data.success) {
                   const cfError = resultFromCF.data.message || resultFromCF.data.error || "Cloud Function-оос тодорхойгүй алдаа.";
-                  return { error: `Auth update failed: ${cfError}` };
+                  return { error: `Auth шинэчлэлт амжилтгүй: ${cfError}` };
               }
           } catch (cfError: any) {
-              return { error: `Calling Cloud Function failed: ${cfError.message}` };
+              return { error: `Cloud Function дуудахад алдаа гарлаа: ${cfError.message}` };
           }
       }
     }
 
-    // Update Firestore document with any changed data
-    if (Object.keys(updatePayload).length > 1) {
-        await updateDoc(adminDocRef, updatePayload);
+    if (Object.keys(updatePayloadFirestore).length > 1) {
+        await updateDoc(adminDocRef, updatePayloadFirestore);
     }
 
     revalidatePath("/admin/users");
@@ -132,7 +118,7 @@ export async function updateAdminUser(
 
     return { 
         success: true, 
-        message: "Profile details updated successfully in Firestore." 
+        message: "Хэрэглэгчийн мэдээлэл амжилттай шинэчлэгдлээ." 
     };
 
   } catch (error: any) {
@@ -146,10 +132,9 @@ export async function getAdminUsers(): Promise<UserProfile[]> {
     const adminsRef = collection(db, ADMINS_COLLECTION);
     const q = query(adminsRef, orderBy("name", "asc"));
     const querySnapshot = await getDocs(q);
-    const users: UserProfile[] = [];
-    querySnapshot.forEach((docSnap) => {
+    return querySnapshot.docs.map((docSnap) => {
       const data = docSnap.data();
-      users.push({
+      return {
         id: docSnap.id,
         name: data.name || '',
         email: data.email || '',
@@ -158,9 +143,8 @@ export async function getAdminUsers(): Promise<UserProfile[]> {
         allowedCategoryIds: data.allowedCategoryIds || [],
         createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : undefined,
         updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().toISOString() : undefined,
-      });
+      };
     });
-    return users;
   } catch (error) {
     console.error("Error fetching admin users:", error);
     return [];
@@ -193,15 +177,20 @@ export async function getAdminUser(id: string): Promise<UserProfile | null> {
 
 export async function deleteAdminUser(id: string): Promise<{ success?: boolean; error?: string, message?: string }> {
     try {
-        const adminDocRef = doc(db, ADMINS_COLLECTION, id);
-        await deleteDoc(adminDocRef);
-        revalidatePath("/admin/users");
-        return { 
-            success: true, 
-            message: "Админ хэрэглэгчийн Firestore дахь бичлэг устгагдлаа. Firebase Authentication дахь бүртгэлийг устгахын тулд Admin SDK (Cloud Function) ашиглах эсвэл Firebase console-оос гараар устгах шаардлагатай." 
-        };
+        const functions = getFunctions(clientApp, 'us-central1');
+        const callDeleteAdmin = httpsCallable(functions, 'deleteAdminUser');
+        
+        const result = await callDeleteAdmin({ targetUserId: id }) as HttpsCallableResult<{success?: boolean; message?: string; error?: string}>;
+        
+        if (result.data.success) {
+            revalidatePath("/admin/users");
+            return { success: true, message: result.data.message };
+        } else {
+            return { error: result.data.error || "Cloud функц алдаа буцаалаа." };
+        }
     } catch (error: any) {
-        return { error: error.message || "Админ хэрэглэгчийн Firestore бичлэгийг устгахад алдаа гарлаа." };
+        console.error("Error calling 'deleteAdminUser' Cloud Function:", error);
+        return { error: error.message || "Хэрэглэгч устгах функцийг дуудахад алдаа гарлаа." };
     }
 }
 

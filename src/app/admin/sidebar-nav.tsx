@@ -9,13 +9,13 @@ import {
   Library,
   Newspaper,
   Settings,
-  ChevronDown,
-  ChevronRight,
   Bell,
-  Image as ImageIcon 
+  Image as ImageIcon,
+  MapPin,
+  FileText,
+  HelpCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { UserRole } from "@/types";
 import React, { useState } from "react";
@@ -42,17 +42,25 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { href: "/admin/dashboard", label: "Хяналтын самбар", icon: LayoutDashboard },
-  {
-    href: "/admin/content", label: "Мэдээлэл нэмэх", icon: Library, // Updated label
+  { 
+    href: "/admin/content", label: "Мэдээлэл удирдах", icon: Library,
     subItems: [
-      { href: "/admin/categories", label: "ангилал нэмэх", icon: Library, roles: [UserRole.SUPER_ADMIN] }, // Updated label
-      { href: "/admin/entries", label: "Өгөгдөл нэмэх", icon: Newspaper, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] }, // Updated label
+      { href: "/admin/categories", label: "Ангилал", icon: Library, roles: [UserRole.SUPER_ADMIN] },
+      { href: "/admin/entries", label: "Өгөгдөл", icon: Newspaper, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
+      { href: "/admin/banners", label: "Баннер", icon: ImageIcon, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
     ]
   },
-  { href: "/admin/banners", label: "Баннер", icon: ImageIcon, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
   { href: "/admin/notifications", label: "Мэдэгдэл", icon: Bell, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
   { href: "/admin/users", label: "Хэрэглэгчид", icon: Users, roles: [UserRole.SUPER_ADMIN] },
-  // { href: "/admin/settings", label: "Settings", icon: Settings },
+  {
+    href: "/admin/settings", label: "Тохиргоо", icon: Settings,
+    roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN],
+    subItems: [
+      { href: "/admin/cities", label: "Хотууд", icon: MapPin, roles: [UserRole.SUPER_ADMIN] },
+      { href: "/admin/anket", label: "Анкет", icon: FileText, roles: [UserRole.SUPER_ADMIN] },
+      { href: "/admin/help", label: "Тусламж", icon: HelpCircle, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
+    ]
+  },
 ];
 
 
@@ -75,16 +83,10 @@ export function SidebarNav() {
     if (item.hideIfSubAdmin && currentUser.role === UserRole.SUB_ADMIN) {
         return null;
     }
-    // Keep original logic for "ангилал" if sub-item label changes, might need adjustment if structure changes
-    if (item.label === "ангилал нэмэх" && currentUser.role === UserRole.SUB_ADMIN) {
-        return null;
-    }
-
+    
     let itemIsActive = pathname === item.href || (item.href !== "/admin/dashboard" && pathname.startsWith(item.href));
     if (item.subItems && !itemIsActive) {
         itemIsActive = item.subItems.some(sub => {
-            // Same check for sub-item label
-            if (sub.label === "ангилал нэмэх" && currentUser.role === UserRole.SUB_ADMIN) return false;
             return pathname.startsWith(sub.href);
         });
     }
@@ -96,8 +98,6 @@ export function SidebarNav() {
       const visibleSubItems = item.subItems.filter(subItem => {
         if (subItem.roles && !subItem.roles.includes(currentUser.role)) return false;
         if (subItem.hideIfSubAdmin && currentUser.role === UserRole.SUB_ADMIN) return false;
-        // Same check for sub-item label
-        if (subItem.label === "ангилал нэмэх" && currentUser.role === UserRole.SUB_ADMIN) return false;
         return true;
       });
 

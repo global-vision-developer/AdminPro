@@ -8,7 +8,7 @@ import { UserForm, type UserFormValues } from '../components/user-form';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { UserRole } from '@/types';
-import { addAdminUser } from '@/lib/actions/userActions'; // Updated to use the new server action
+import { addAdminUser } from '@/lib/actions/userActions';
 
 export default function NewUserPage() {
   const router = useRouter();
@@ -18,7 +18,7 @@ export default function NewUserPage() {
 
   useEffect(() => {
     if (!adminAuthLoading && adminUser && adminUser.role !== UserRole.SUPER_ADMIN) {
-      toast({ title: "Access Denied", description: "You do not have permission to add users.", variant: "destructive" });
+      toast({ title: "Хандалт хориглогдсон", description: "Та хэрэглэгч нэмэх эрхгүй байна.", variant: "destructive" });
       router.push('/admin/dashboard');
     }
   }, [adminUser, adminAuthLoading, router, toast]);
@@ -26,7 +26,7 @@ export default function NewUserPage() {
   const handleSubmit = async (data: UserFormValues): Promise<{error?: string, success?: boolean, message?: string}> => {
     setIsSubmitting(true);
     if (!adminUser || adminUser.role !== UserRole.SUPER_ADMIN) {
-        toast({ title: "Authorization Error", description: "Not authorized to create users.", variant: "destructive"});
+        toast({ title: "Эрхийн алдаа", description: "Хэрэглэгч үүсгэх эрхгүй байна.", variant: "destructive"});
         setIsSubmitting(false);
         return { error: "Not authorized." };
     }
@@ -34,20 +34,19 @@ export default function NewUserPage() {
     const result = await addAdminUser(data);
     setIsSubmitting(false);
 
-    // The form itself will handle the toast notifications based on the result.
     return result; 
   };
   
   if (adminAuthLoading) {
-    return <div className="p-4"><p>Loading admin authentication...</p></div>;
+    return <div className="p-4"><p>Админы нэвтрэлтийг шалгаж байна...</p></div>;
   }
 
   if (!adminUser && !adminAuthLoading) {
-     return <div className="p-4"><p>Admin user not authenticated. Please log in.</p></div>;
+     return <div className="p-4"><p>Админ нэвтрээгүй байна. Нэвтэрнэ үү.</p></div>;
   }
 
   if (adminUser.role !== UserRole.SUPER_ADMIN) {
-    return <div className="p-4"><p>Access Denied. You do not have permission to view this page.</p></div>;
+    return <div className="p-4"><p>Хандалт хориглогдсон. Та энэ хуудсыг үзэх эрхгүй байна.</p></div>;
   }
 
 

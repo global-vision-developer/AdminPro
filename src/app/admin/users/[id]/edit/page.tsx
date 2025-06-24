@@ -25,7 +25,7 @@ export default function EditUserPage() {
 
   useEffect(() => {
     if (superAdminUser && superAdminUser.role !== UserRole.SUPER_ADMIN) {
-      toast({ title: "Access Denied", description: "You do not have permission to edit admin users.", variant: "destructive" });
+      toast({ title: "Хандалт хориглогдсон", description: "Та админ хэрэглэгчдийг засах эрхгүй байна.", variant: "destructive" });
       router.push('/admin/dashboard');
       return;
     }
@@ -38,7 +38,7 @@ export default function EditUserPage() {
     if (fetchedUser) {
       setUserToEdit(fetchedUser);
     } else {
-      toast({ title: "Error", description: "Admin user not found.", variant: "destructive" });
+      toast({ title: "Алдаа", description: "Админ хэрэглэгч олдсонгүй.", variant: "destructive" });
       router.push('/admin/users');
     }
     setIsLoading(false);
@@ -53,16 +53,16 @@ export default function EditUserPage() {
     setIsSubmitting(true);
     if (!userToEdit) {
         setIsSubmitting(false);
-        return { error: "User data not loaded."};
+        return { error: "Хэрэглэгчийн мэдээлэл ачаалагдаагүй байна."};
     }
 
     if (superAdminUser?.id === userToEdit.id && data.role !== UserRole.SUPER_ADMIN && superAdminUser.role === UserRole.SUPER_ADMIN) {
-        toast({ title: "Action Prohibited", description: "Super Admins cannot change or downgrade their own role.", variant: "destructive"});
+        toast({ title: "Үйлдэл хориглогдсон", description: "Сүпер Админ өөрийн эрхийг өөрчлөх/доошлуулах боломжгүй.", variant: "destructive"});
         setIsSubmitting(false);
         return { error: "Super Admins cannot change or downgrade their own role." };
     }
     if (userToEdit.email === 'super@example.com' && (data.email !== 'super@example.com' || data.role !== UserRole.SUPER_ADMIN)) {
-      toast({ title: "Action Prohibited", description: "The main super admin (super@example.com) email and role cannot be changed.", variant: "destructive" });
+      toast({ title: "Үйлдэл хориглогдсон", description: "Үндсэн сүпер админы (super@example.com) и-мэйл болон эрхийг өөрчлөх боломжгүй.", variant: "destructive" });
       setIsSubmitting(false);
       return { error: "Main super admin email and role cannot be changed." };
     }
@@ -82,11 +82,11 @@ export default function EditUserPage() {
     if (data.newPassword && data.newPassword.length > 0) {
         if (data.newPassword.length < 6) {
              setIsSubmitting(false);
-             return { error: "New password must be at least 6 characters."};
+             return { error: "Шинэ нууц үг дор хаяж 6 тэмдэгттэй байх ёстой."};
         }
         if (data.newPassword !== data.confirmNewPassword) {
             setIsSubmitting(false);
-            return { error: "New passwords do not match."};
+            return { error: "Шинэ нууц үгнүүд таарахгүй байна."};
         }
         updatePayload.newPassword = data.newPassword;
     }
@@ -99,20 +99,20 @@ export default function EditUserPage() {
 
   const handleSendPasswordReset = async (email: string) => {
     if (!email) {
-        toast({ title: "Error", description: "Email address is missing.", variant: "destructive"});
+        toast({ title: "Алдаа", description: "И-мэйл хаяг олдсонгүй.", variant: "destructive"});
         return;
     }
     setIsSubmitting(true); 
     const result = await sendAdminPasswordResetEmail(email);
     if (result.success) {
         toast({
-            title: "Password Reset Email Sent",
-            description: `A password reset email has been sent to ${email}. Please check the inbox.`,
+            title: "Нууц үг сэргээх и-мэйл илгээлээ",
+            description: `${email} хаяг руу нууц үг сэргээх и-мэйл илгээлээ. Ирсэн и-мэйлээ шалгана уу.`,
         });
     } else {
         toast({
-            title: "Error Sending Reset Email",
-            description: result.error || "Failed to send password reset email. Please try again.",
+            title: "И-мэйл илгээхэд алдаа гарлаа",
+            description: result.error || "Нууц үг сэргээх и-мэйл илгээхэд алдаа гарлаа. Дахин оролдоно уу.",
             variant: "destructive",
         });
     }
@@ -120,7 +120,7 @@ export default function EditUserPage() {
   };
 
   if (superAdminUser?.role !== UserRole.SUPER_ADMIN && !isLoading) {
-    return <div className="p-4"><p>Access denied. Redirecting...</p></div>;
+    return <div className="p-4"><p>Хандалт хориглогдсон. Хуудас руу шилжиж байна...</p></div>;
   }
 
   if (isLoading) {
@@ -137,7 +137,7 @@ export default function EditUserPage() {
   }
 
   if (!userToEdit) {
-    return <PageHeader title="Admin User Not Found" description="Could not load admin user details or user does not exist." />;
+    return <PageHeader title="Админ хэрэглэгч олдсонгүй" description="Админ хэрэглэгчийн мэдээллийг ачааллаж чадсангүй эсвэл хэрэглэгч байхгүй байна." />;
   }
 
   return (
@@ -156,5 +156,3 @@ export default function EditUserPage() {
     </>
   );
 }
-
-    
