@@ -1,7 +1,5 @@
 {
   "projects": {
-    "mbad": "mbad-c532e"
-  },
-  "targets": {},
-  "etags": {}
+    "default": "mbad-c532e"
+  }
 }
