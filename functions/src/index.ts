@@ -1,9 +1,10 @@
+
 // functions/src/index.ts
 
 import {
   onCall,
-  HttpsError,
   type CallableRequest,
+  HttpsError,
 } from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
@@ -15,6 +16,7 @@ if (admin.apps.length === 0) {
 }
 
 const db = admin.firestore();
+const messaging = admin.messaging();
 const fAuth = admin.auth(); // Firebase Admin Auth instance
 
 // Client-аас ирэх payload-ийн төрөл
@@ -34,7 +36,7 @@ interface SendNotificationPayload {
   body: string;
   imageUrl?: string | null;
   deepLink?: string | null;
-  scheduleAt?: string | null; // Comes as ISO string from client
+  scheduleAt?: string | null; // ISO string from client
   selectedUsers: Pick<AppUser, "id" | "email" | "displayName" | "fcmTokens">[];
   adminCreator: Pick<UserProfile, "id" | "name" | "email">;
 }
@@ -42,24 +44,14 @@ interface SendNotificationPayload {
 // Firestore-д хадгалах log-ийн төрлүүд
 interface NotificationTargetForLog {
   userId: string;
-  userEmail: string | undefined;
-  userName: string | undefined;
+  userEmail?: string;
+  userName?: string;
   token: string;
-  status: "pending";
+  status: "success" | "failed"; // No pending state
+  error?: string;
+  messageId?: string;
+  attemptedAt: FirebaseFirestore.Timestamp;
 }
-
-interface NotificationLog {
-    title: string;
-    body: string;
-    imageUrl: string | null;
-    deepLink: string | null;
-    adminCreator: Pick<UserProfile, "id" | "name" | "email">;
-    createdAt: FirebaseFirestore.FieldValue;
-    targets: NotificationTargetForLog[];
-    processingStatus: "pending";
-    scheduleAt: FirebaseFirestore.Timestamp | null;
-}
-
 
 export const sendNotification = onCall(
   {region: "us-central1"},
@@ -94,63 +86,96 @@ export const sendNotification = onCall(
       );
     }
 
-    const targets: NotificationTargetForLog[] = [];
+    const tokensToSend: string[] = [];
+    const targetsForLog: NotificationTargetForLog[] = [];
+    const tokenToUserMap = new Map<string, AppUser>();
+
     selectedUsers.forEach((user) => {
       if (user.fcmTokens && user.fcmTokens.length > 0) {
         user.fcmTokens.forEach((token: string) => {
-          if (token) {
-            targets.push({
-              userId: user.id,
-              userEmail: user.email,
-              userName: user.displayName,
-              token: token,
-              status: "pending",
-            });
+          if (token && !tokenToUserMap.has(token)) {
+            tokensToSend.push(token);
+            tokenToUserMap.set(token, user);
           }
         });
       }
     });
 
-    if (targets.length === 0) {
+    if (tokensToSend.length === 0) {
+      // Log this attempt but return a specific message
+      const noTokenLog = {
+        title,
+        body,
+        adminCreator,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        processingStatus: "completed_no_targets",
+        targets: [],
+      };
+      await db.collection("notifications").add(noTokenLog);
       return {
         success: false,
         message: "Сонгосон хэрэглэгчдэд идэвхтэй FCM token олдсонгүй.",
       };
     }
 
-    const notificationLog: NotificationLog = {
-      title,
-      body,
-      imageUrl: imageUrl || null,
-      deepLink: deepLink || null,
-      adminCreator,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      targets: targets,
-      processingStatus: "pending",
-      scheduleAt: scheduleAt ?
-        admin.firestore.Timestamp.fromDate(new Date(scheduleAt)) :
-        null,
+    const messagePayload: admin.messaging.MulticastMessage = {
+      notification: {
+        title: title,
+        body: body,
+        ...(imageUrl && {imageUrl: imageUrl}),
+      },
+      tokens: tokensToSend,
+      data: {
+        ...(deepLink && {deepLink: deepLink}),
+      },
     };
 
-    try {
-      const docRef = await db
-        .collection("notifications")
-        .add(notificationLog);
-      logger.info(`Notification request ${docRef.id} saved for processing.`);
-      return {
-        success: true,
-        message: `Мэдэгдэл илгээх хүсэлтийг хүлээн авлаа (ID: ${docRef.id}).`,
-      };
-    } catch (error: unknown) {
-      logger.error("Error saving notification request to Firestore:", error);
-      const errorMessage =
-        error instanceof Error ? error.message : "An unknown error occurred.";
-      throw new HttpsError("internal", "Мэдэгдэл хадгалахад алдаа гарлаа.", {
-        details: errorMessage,
+    logger.info(`Sending ${tokensToSend.length} messages.`);
+    const response = await messaging.sendEachForMulticast(messagePayload);
+    const currentTimestamp = admin.firestore.Timestamp.now();
+
+    response.responses.forEach((result, index) => {
+      const token = tokensToSend[index];
+      const user = tokenToUserMap.get(token);
+      targetsForLog.push({
+        userId: user?.id || "unknown",
+        userEmail: user?.email,
+        userName: user?.displayName,
+        token: token,
+        status: result.success ? "success" : "failed",
+        messageId: result.success ? result.messageId : undefined,
+        error: result.success ? undefined : result.error?.message,
+        attemptedAt: currentTimestamp,
       });
-    }
+    });
+
+    const finalProcessingStatus =
+      response.failureCount === 0 ? "completed" : "partially_completed";
+
+    const finalLog = {
+        title,
+        body,
+        imageUrl: imageUrl || null,
+        deepLink: deepLink || null,
+        adminCreator,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        targets: targetsForLog,
+        processingStatus: finalProcessingStatus,
+        scheduleAt: scheduleAt ?
+            admin.firestore.Timestamp.fromDate(new Date(scheduleAt)) :
+            null,
+    };
+
+    const docRef = await db.collection("notifications").add(finalLog);
+    logger.info(`Notification sent and log ${docRef.id} created.`);
+
+    return {
+      success: true,
+      message: `Мэдэгдэл илгээгдлээ. ${response.successCount} амжилттай, ${response.failureCount} амжилтгүй.`,
+    };
   }
 );
+
 
 // --- V2 Callable Function: Update Admin Auth Details ---
 const ADMINS_COLLECTION = "admins";
@@ -451,3 +476,5 @@ export const createAdminUser = onCall(
     }
   }
 );
+
+    
