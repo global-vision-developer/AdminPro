@@ -6,6 +6,7 @@ export enum UserRole {
 
 export interface UserProfile {
   id: string;
+  uid?: string; // Added from userActions
   name: string;
   email: string;
   role: UserRole;
@@ -22,6 +23,7 @@ export enum FieldType {
   DATE = 'Date',
   BOOLEAN = 'Boolean',
   IMAGE_GALLERY = 'Image Gallery',
+  CITY_PICKER = 'City Picker', // Added
 }
 
 export interface ImageGalleryItemForm {
@@ -104,4 +106,69 @@ export interface NotificationLog {
   processingStatus: 'pending' | 'processing' | 'completed' | 'partially_completed' | 'error' | 'scheduled' | 'completed_no_targets';
   processedAt?: string | null;
   targets: NotificationTarget[];
+}
+
+
+export enum AnketStatus {
+  PENDING = "pending",
+  APPROVED = "approved",
+  REJECTED = "rejected",
+}
+
+export interface Anket {
+  id: string;
+  name: string;
+  email: string;
+  phoneNumber?: string;
+  cvLink: string;
+  message: string;
+  submittedAt: string;
+  status: AnketStatus;
+  processedBy?: string;
+  processedAt?: string;
+}
+
+
+export enum CityType {
+  MAJOR = "Major",
+  OTHER = "Other"
+}
+
+export const CITY_TYPE_DISPLAY_NAMES: { [key in CityType | 'all_types']: string } = {
+  [CityType.MAJOR]: "Том хот",
+  [CityType.OTHER]: "Бусад",
+  'all_types': "Бүх төрөл"
+};
+
+export interface City {
+  id: string;
+  name: string;
+  nameCN: string;
+  order: number;
+  cityType: CityType;
+  iataCode?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export enum HelpTopic {
+  APPLICATION_GUIDE = "application_guide",
+  TRAVEL_TIPS = "travel_tips",
+}
+
+export const HELP_TOPIC_DISPLAY_NAMES: { [key in HelpTopic | 'all_topics']: string } = {
+  [HelpTopic.APPLICATION_GUIDE]: "Аппын заавар",
+  [HelpTopic.TRAVEL_TIPS]: "Аяллын зөвлөгөө",
+  "all_topics": "Бүх сэдэв"
+};
+
+export interface HelpItem {
+  id: string;
+  topic: HelpTopic;
+  question: string;
+  answer: string;
+  isPredefined: boolean;
+  createdAt: string;
+  updatedAt?: string;
+  createdBy: string;
 }

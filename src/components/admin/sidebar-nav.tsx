@@ -9,13 +9,13 @@ import {
   Library,
   Newspaper,
   Settings,
-  ChevronDown,
-  ChevronRight,
   Bell,
-  Image as ImageIcon 
+  Image as ImageIcon,
+  MapPin,
+  FileText,
+  HelpCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { UserRole } from "@/types";
 import React, { useState } from "react";
@@ -42,12 +42,25 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { href: "/admin/dashboard", label: "Хяналтын самбар", icon: LayoutDashboard },
-  { href: "/admin/categories", label: "Ангилал", icon: Library, roles: [UserRole.SUPER_ADMIN] },
-  { href: "/admin/entries", label: "Өгөгдөл", icon: Newspaper, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
-  { href: "/admin/banners", label: "Баннер", icon: ImageIcon, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
+  { 
+    href: "/admin/content", label: "Контент Удирдах", icon: Library,
+    subItems: [
+      { href: "/admin/categories", label: "Ангилал", icon: Library, roles: [UserRole.SUPER_ADMIN] },
+      { href: "/admin/entries", label: "Өгөгдөл", icon: Newspaper, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
+      { href: "/admin/banners", label: "Баннер", icon: ImageIcon, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
+    ]
+  },
   { href: "/admin/notifications", label: "Мэдэгдэл", icon: Bell, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
   { href: "/admin/users", label: "Хэрэглэгчид", icon: Users, roles: [UserRole.SUPER_ADMIN] },
-  // { href: "/admin/settings", label: "Settings", icon: Settings },
+  {
+    href: "/admin/settings", label: "Тохиргоо", icon: Settings,
+    roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN],
+    subItems: [
+      { href: "/admin/cities", label: "Хотууд", icon: MapPin, roles: [UserRole.SUPER_ADMIN] },
+      { href: "/admin/anket", label: "Анкет", icon: FileText, roles: [UserRole.SUPER_ADMIN] },
+      { href: "/admin/help", label: "Тусламж", icon: HelpCircle, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
+    ]
+  },
 ];
 
 
@@ -70,7 +83,7 @@ export function SidebarNav() {
     if (item.hideIfSubAdmin && currentUser.role === UserRole.SUB_ADMIN) {
         return null;
     }
-
+    
     let itemIsActive = pathname === item.href || (item.href !== "/admin/dashboard" && pathname.startsWith(item.href));
     if (item.subItems && !itemIsActive) {
         itemIsActive = item.subItems.some(sub => {
@@ -113,7 +126,7 @@ export function SidebarNav() {
               className={cn(
                 "flex items-center justify-between w-full p-2 rounded-md hover:bg-sidebar-accent hover:text-sidebar-accent-foreground text-sm font-medium",
                 itemIsActive && "bg-sidebar-accent text-sidebar-accent-foreground",
-                "justify-start"
+                "justify-start" 
               )}
             >
               <div className="flex items-center gap-2">
