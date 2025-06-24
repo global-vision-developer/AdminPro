@@ -11,19 +11,21 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
-import type { AppUser, NotificationLog } from '@/types';
+import type { AppUser, NotificationLog, UserProfile } from '@/types';
 import { getAppUsers } from '@/lib/actions/appUserActions';
 import { NotificationForm, type NotificationFormValues } from './components/notification-form';
-import { sendNotificationAction, getNotificationLogs } from '@/lib/actions/notificationActions'; 
-import { NotificationHistory } from './components/notification-history'; // Import new component
+import { getNotificationLogs } from '@/lib/actions/notificationActions'; 
+import { NotificationHistory } from './components/notification-history';
 import { MailWarning, Send, Users, Loader2, Search as SearchIcon, Info, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/hooks/use-auth';
+import { getFunctions, httpsCallable, HttpsCallableResult } from 'firebase/functions';
+import { app as clientApp } from '@/lib/firebase';
 
 export default function NotificationsPage() {
   const [appUsers, setAppUsers] = useState<AppUser[]>([]);
-  const [notificationLogs, setNotificationLogs] = useState<NotificationLog[]>([]); // State for history
+  const [notificationLogs, setNotificationLogs] = useState<NotificationLog[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<Record<string, AppUser>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSendNotificationDialogOpen, setIsSendNotificationDialogOpen] = useState(false);
@@ -118,17 +120,43 @@ export default function NotificationsPage() {
         setIsSendNotificationDialogOpen(false);
         return;
     }
-    
-    const result = await sendNotificationAction({ ...formData, selectedUsers: usersToSend, adminCreator: currentUser });
-    setIsSubmittingNotification(false);
 
-    if (result.success) {
-      toast({ title: "Хүсэлт амжилттай", description: result.message });
-      setIsSendNotificationDialogOpen(false);
-      setSelectedUsers({});
-      fetchData();
-    } else {
-      toast({ title: "Алдаа", description: result.error, variant: "destructive" });
+    const payload = {
+        ...formData,
+        scheduleAt: formData.scheduleAt ? formData.scheduleAt.toISOString() : null,
+        selectedUsers: usersToSend.map(u => ({ id: u.id, email: u.email, displayName: u.displayName, fcmTokens: u.fcmTokens })), // Ensure payload is serializable
+        adminCreator: {
+            id: currentUser.id,
+            name: currentUser.name,
+            email: currentUser.email,
+        },
+    };
+
+    try {
+        const functions = getFunctions(clientApp, 'us-central1');
+        const callSendNotification = httpsCallable(functions, 'sendNotification');
+        
+        const result = await callSendNotification(payload) as HttpsCallableResult<{success: boolean; message: string; error?: string}>;
+
+        if (result.data.success) {
+            toast({ title: "Хүсэлт амжилттай", description: result.data.message });
+            setIsSendNotificationDialogOpen(false);
+            setSelectedUsers({});
+            fetchData(); // Refreshes history
+        } else {
+            toast({ title: "Алдаа", description: result.data.error || "Cloud функцээс тодорхойгүй алдаа гарлаа.", variant: "destructive" });
+        }
+    } catch (error: any) {
+        console.error("Error calling 'sendNotification' Cloud Function:", error);
+        let errorMessage = error.message || "Мэдэгдэл илгээхэд алдаа гарлаа.";
+        if (error.code === 'functions/unauthenticated') {
+            errorMessage = "Authentication error. Please log out and log back in.";
+        } else if (error.code === 'functions/unavailable' || error.code === 'functions/not-found') {
+            errorMessage = "The notification service is currently unavailable. Please try again later.";
+        }
+        toast({ title: "Алдаа", description: errorMessage, variant: "destructive" });
+    } finally {
+        setIsSubmittingNotification(false);
     }
   };
 
@@ -252,3 +280,5 @@ export default function NotificationsPage() {
     </>
   );
 }
+
+    
