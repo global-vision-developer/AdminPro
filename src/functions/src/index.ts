@@ -12,7 +12,7 @@ import {
 } from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
-import { UserRole } from "./types"; // Assuming types are defined locally
+import {UserRole} from "./types";
 
 // Firebase Admin SDK-г эхлүүлнэ (зөвхөн нэг удаа)
 if (admin.apps.length === 0) {
@@ -35,7 +35,6 @@ interface FunctionNotificationTarget {
   attemptedAt?: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
 }
 
-/* eslint-disable indent */
 export const processNotificationRequest = onDocumentCreated(
   {
     document: "notifications/{notificationId}",
@@ -69,36 +68,40 @@ export const processNotificationRequest = onDocumentCreated(
       deepLink,
       targets,
       scheduleAt,
+      processingStatus,
     } = notificationData;
 
     // Хуваарьт илгээлт
     if (scheduleAt && scheduleAt.toMillis() > Date.now() + 5 * 60 * 1000) {
-      const scheduledTime = new Date(scheduleAt.toMillis()).toISOString();
-      logger.info(`ID ${notificationId} sched for later. Skipping.`);
-      try {
-        await db.doc(`notifications/${notificationId}`).update({
-          processingStatus: "scheduled",
-        });
-      } catch (updateError) {
-        logger.error(
-          `Err upd status to scheduled. ID: ${notificationId}:`,
-          updateError
-        );
+      if (processingStatus !== "scheduled") {
+        logger.info(`ID ${notificationId} is scheduled for later. Updating status.`);
+        try {
+          await db.doc(`notifications/${notificationId}`).update({
+            processingStatus: "scheduled",
+          });
+        } catch (updateError) {
+          logger.error(
+            `Err upd status to scheduled. ID: ${notificationId}:`,
+            updateError
+          );
+        }
       }
       return null;
     }
 
     // Боловсруулж эхэлснийг тэмдэглэх
-    try {
-      await db.doc(`notifications/${notificationId}`).update({
-        processingStatus: "processing",
-        processedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-    } catch (updateError) {
-      logger.error(
-        `Err upd status to processing. ID: ${notificationId}:`,
-        updateError
-      );
+    if (processingStatus !== "processing") {
+      try {
+        await db.doc(`notifications/${notificationId}`).update({
+          processingStatus: "processing",
+          processedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      } catch (updateError) {
+        logger.error(
+          `Err upd status to processing. ID: ${notificationId}:`,
+          updateError
+        );
+      }
     }
 
     const tokensToSend: string[] = [];
@@ -107,8 +110,7 @@ export const processNotificationRequest = onDocumentCreated(
     const originalTargetsArray: FunctionNotificationTarget[] =
       Array.isArray(typedTargets) ?
         typedTargets.map(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (t: any) => ({...t} as FunctionNotificationTarget)
+          (t: FunctionNotificationTarget) => ({...t})
         ) : [];
 
 
@@ -238,7 +240,6 @@ export const processNotificationRequest = onDocumentCreated(
     return null;
   }
 );
-/* eslint-enable indent */
 
 const ADMINS_COLLECTION = "admins";
 
@@ -276,7 +277,9 @@ export const updateAdminAuthDetails = onCall(
       }
     } catch (error) {
       logger.error("Error checking caller permissions:", error);
-      if (error instanceof HttpsError) throw error;
+      if (error instanceof HttpsError) {
+        throw error;
+      }
       throw new HttpsError(
         "internal",
         "Could not verify caller permissions."
@@ -300,7 +303,7 @@ export const updateAdminAuthDetails = onCall(
       ) {
         throw new HttpsError("permission-denied", "Cannot change the email of the primary super admin account.");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error("Error fetching target user for pre-check:", error);
     }
 
@@ -339,36 +342,36 @@ export const updateAdminAuthDetails = onCall(
         success: true,
         message: "Admin authentication and Firestore details updated successfully.",
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error("Error updating admin auth details:", error);
       let errorCode: HttpsError["code"] = "unknown";
       let errorMessage = "Failed to update admin authentication details.";
       if (error && typeof error === "object" && "code" in error) {
         const firebaseErrorCode = (error as {code: string}).code;
         switch (firebaseErrorCode) {
-          case "auth/email-already-exists":
-            errorCode = "already-exists";
-            errorMessage = "The new email address is already in use by another account.";
-            break;
-          case "auth/invalid-email":
-            errorCode = "invalid-argument";
-            errorMessage = "The new email address is not valid.";
-            break;
-          case "auth/user-not-found":
-            errorCode = "not-found";
-            errorMessage = "Target user not found in Firebase Authentication.";
-            break;
-          case "auth/weak-password":
-            errorCode = "invalid-argument";
-            errorMessage = "The new password is too weak.";
-            break;
-          default:
-            errorCode = "internal";
-            errorMessage = (error as Error).message || "An internal error occurred during auth update.";
+        case "auth/email-already-exists":
+          errorCode = "already-exists";
+          errorMessage = "The new email address is already in use by another account.";
+          break;
+        case "auth/invalid-email":
+          errorCode = "invalid-argument";
+          errorMessage = "The new email address is not valid.";
+          break;
+        case "auth/user-not-found":
+          errorCode = "not-found";
+          errorMessage = "Target user not found in Firebase Authentication.";
+          break;
+        case "auth/weak-password":
+          errorCode = "invalid-argument";
+          errorMessage = "The new password is too weak.";
+          break;
+        default:
+          errorCode = "internal";
+          errorMessage = (error as unknown as Error).message || "An internal error occurred during auth update.";
         }
         throw new HttpsError(errorCode, errorMessage, {originalCode: firebaseErrorCode});
       } else {
-        errorMessage = (error as Error).message || "An unknown error occurred.";
+        errorMessage = (error as unknown as Error).message || "An unknown error occurred.";
         throw new HttpsError("internal", errorMessage);
       }
     }
@@ -378,17 +381,17 @@ export const updateAdminAuthDetails = onCall(
 
 // --- V2 Callable Function: Create a new Admin User ---
 interface CreateAdminUserData {
-    email: string;
-    password?: string;
-    name: string;
-    role: UserRole;
-    allowedCategoryIds?: string[];
+  email: string;
+  password?: string;
+  name: string;
+  role: UserRole;
+  allowedCategoryIds?: string[];
 }
 export const createAdminUser = onCall(
   {region: "us-central1"},
   async (request: CallableRequest<CreateAdminUserData>) => {
     if (!request.auth) {
-        throw new HttpsError("unauthenticated", "The function must be called while authenticated.");
+      throw new HttpsError("unauthenticated", "The function must be called while authenticated.");
     }
     const callerUid = request.auth.uid;
     try {
@@ -398,7 +401,9 @@ export const createAdminUser = onCall(
       }
     } catch (error) {
       logger.error("Error checking caller permissions for user creation:", error);
-      if (error instanceof HttpsError) throw error;
+      if (error instanceof HttpsError) {
+        throw error;
+      }
       throw new HttpsError("internal", "Could not verify caller permissions.");
     }
 
@@ -407,63 +412,65 @@ export const createAdminUser = onCall(
       throw new HttpsError("invalid-argument", "Missing required fields: email, password, name, role.");
     }
     if (password.length < 6) {
-        throw new HttpsError("invalid-argument", "Password must be at least 6 characters long.");
+      throw new HttpsError("invalid-argument", "Password must be at least 6 characters long.");
     }
 
     try {
       logger.info(`'createAdminUser' called by ${callerUid} for new user ${email}.`);
       const photoURL = `https://placehold.co/100x100.png?text=${name.substring(0, 2).toUpperCase()}&bg=FF5733&txt=FFFFFF`;
       const userRecord = await fAuth.createUser({
-          email: email,
-          password: password,
-          displayName: name,
-          photoURL: photoURL,
+        email: email,
+        password: password,
+        displayName: name,
+        photoURL: photoURL,
       });
 
       logger.info("Successfully created new user in Firebase Auth:", userRecord.uid);
-      
+
       const adminDocRef = db.collection(ADMINS_COLLECTION).doc(userRecord.uid);
       const firestoreAdminData = {
-          uid: userRecord.uid,
-          email: userRecord.email,
-          name: name,
-          role: role,
-          avatar: photoURL,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          allowedCategoryIds: role === UserRole.SUB_ADMIN ? allowedCategoryIds : [],
+        uid: userRecord.uid,
+        email: userRecord.email,
+        name: name,
+        role: role,
+        avatar: photoURL,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        allowedCategoryIds: role === UserRole.SUB_ADMIN ? allowedCategoryIds : [],
       };
-      
+
       await adminDocRef.set(firestoreAdminData);
       logger.info("Successfully created Firestore admin document for:", userRecord.uid);
 
       return {success: true, message: `Admin user ${name} created successfully.`, userId: userRecord.uid};
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error("Error creating new admin user:", error);
       let errorCode: HttpsError["code"] = "unknown";
       let errorMessage = "Failed to create new admin user.";
       if (error && typeof error === "object" && "code" in error) {
-          const firebaseErrorCode = (error as {code: string}).code;
-          switch (firebaseErrorCode) {
-            case "auth/email-already-exists":
-                errorCode = "already-exists";
-                errorMessage = "The email address is already in use by another account.";
-                break;
-            case "auth/invalid-email":
-                errorCode = "invalid-argument";
-                errorMessage = "The email address is not valid.";
-                break;
-             case "auth/weak-password":
-                errorCode = "invalid-argument";
-                errorMessage = "The new password is too weak.";
-                break;
-            default:
-                errorCode = "internal";
-                errorMessage = (error as Error).message || "An internal error occurred during auth user creation.";
-          }
-           throw new HttpsError(errorCode, errorMessage, {originalCode: firebaseErrorCode});
+        const firebaseErrorCode = (error as {code: string}).code;
+        switch (firebaseErrorCode) {
+        case "auth/email-already-exists":
+          errorCode = "already-exists";
+          errorMessage = "The email address is already in use by another account.";
+          break;
+        case "auth/invalid-email":
+          errorCode = "invalid-argument";
+          errorMessage = "The email address is not valid.";
+          break;
+        case "auth/weak-password":
+          errorCode = "invalid-argument";
+          errorMessage = "The new password is too weak.";
+          break;
+        default:
+          errorCode = "internal";
+          errorMessage = (error as unknown as Error).message || "An internal error occurred during auth user creation.";
+        }
+        throw new HttpsError(errorCode, errorMessage, {originalCode: firebaseErrorCode});
+      } else {
+        errorMessage = (error as unknown as Error).message || "An unknown error occurred.";
+        throw new HttpsError("internal", errorMessage);
       }
-      throw new HttpsError("internal", errorMessage);
     }
   }
 );
