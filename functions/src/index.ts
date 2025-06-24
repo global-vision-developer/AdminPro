@@ -1,3 +1,4 @@
+
 // functions/src/index.ts
 
 import {
@@ -26,7 +27,7 @@ interface AppUser {
   fcmTokens?: string[];
 }
 interface UserProfile {
-  id: string;
+  uid: string;
   name: string;
   email: string;
 }
@@ -37,7 +38,7 @@ interface SendNotificationPayload {
   deepLink?: string | null;
   scheduleAt?: string | null; // ISO string from client
   selectedUsers: Pick<AppUser, "id" | "email" | "displayName" | "fcmTokens">[];
-  adminCreator: Pick<UserProfile, "id" | "name" | "email">;
+  adminCreator: Pick<UserProfile, "uid" | "name" | "email">;
 }
 
 // Firestore-д хадгалах log-ийн төрлүүд
@@ -57,7 +58,7 @@ interface NotificationLog {
     body: string;
     imageUrl: string | null;
     deepLink: string | null;
-    adminCreator: Pick<UserProfile, "id" | "name" | "email">;
+    adminCreator: Pick<UserProfile, "uid" | "name" | "email">;
     createdAt: FirebaseFirestore.FieldValue;
     targets: NotificationTargetForLog[];
     processingStatus: "completed" | "partially_completed" | "scheduled" | "completed_no_targets";

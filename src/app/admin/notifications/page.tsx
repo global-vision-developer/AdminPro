@@ -126,7 +126,7 @@ export default function NotificationsPage() {
         scheduleAt: formData.scheduleAt ? formData.scheduleAt.toISOString() : null,
         selectedUsers: usersToSend.map(u => ({ id: u.id, email: u.email, displayName: u.displayName, fcmTokens: u.fcmTokens })), // Ensure payload is serializable
         adminCreator: {
-            id: currentUser.id,
+            uid: currentUser.id,
             name: currentUser.name,
             email: currentUser.email,
         },
