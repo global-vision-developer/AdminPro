@@ -1,13 +1,9 @@
 // functions/src/index.ts
 
 import {
-  onDocumentCreated,
-  type FirestoreEvent,
-} from "firebase-functions/v2/firestore";
-import {
   onCall,
-  type CallableRequest,
   HttpsError,
+  type CallableRequest,
 } from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
@@ -19,20 +15,7 @@ if (admin.apps.length === 0) {
 }
 
 const db = admin.firestore();
-const messaging = admin.messaging();
 const fAuth = admin.auth(); // Firebase Admin Auth instance
-
-// NotificationTarget-ийн орон нутгийн тодорхойлолт
-interface FunctionNotificationTarget {
-  userId: string;
-  token: string;
-  status: "pending" | "success" | "failed";
-  userEmail?: string;
-  userName?: string;
-  error?: string;
-  messageId?: string;
-  attemptedAt?: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
-}
 
 // Client-аас ирэх payload-ийн төрөл
 interface AppUser {
@@ -56,35 +39,40 @@ interface SendNotificationPayload {
   adminCreator: Pick<UserProfile, "id" | "name" | "email">;
 }
 
-// Firestore-д хадгалах мэдэгдлийн бичлэгийн төрөл
-interface NotificationLogPayload {
-  title: string;
-  body: string;
-  imageUrl: string | null;
-  deepLink: string | null;
-  adminCreator: Pick<UserProfile, "id" | "name" | "email">;
-  createdAt: FirebaseFirestore.FieldValue;
-  targets: FunctionNotificationTarget[];
-  processingStatus: "pending" | "scheduled" | "processing";
-  scheduleAt?: FirebaseFirestore.Timestamp;
-  processedAt?: FirebaseFirestore.FieldValue;
-  error?: string;
-}
-
 export const sendNotification = onCall(
   {region: "us-central1"},
   async (request: CallableRequest<SendNotificationPayload>) => {
     if (!request.auth) {
-      throw new HttpsError("unauthenticated", "The function must be called while authenticated.");
+      throw new HttpsError(
+        "unauthenticated",
+        "The function must be called while authenticated."
+      );
     }
 
-    const {title, body, imageUrl, deepLink, scheduleAt, selectedUsers, adminCreator} = request.data;
+    const {
+      title,
+      body,
+      imageUrl,
+      deepLink,
+      scheduleAt,
+      selectedUsers,
+      adminCreator,
+    } = request.data;
 
-    if (!title || !body || !selectedUsers || !Array.isArray(selectedUsers) || selectedUsers.length === 0) {
-      throw new HttpsError("invalid-argument", "Missing required fields: title, body, and selectedUsers.");
+    if (
+      !title ||
+      !body ||
+      !selectedUsers ||
+      !Array.isArray(selectedUsers) ||
+      selectedUsers.length === 0
+    ) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Missing required fields: title, body, and selectedUsers."
+      );
     }
 
-    const targets: FunctionNotificationTarget[] = [];
+    const targets = [];
     selectedUsers.forEach((user) => {
       if (user.fcmTokens && user.fcmTokens.length > 0) {
         user.fcmTokens.forEach((token: string) => {
@@ -102,10 +90,13 @@ export const sendNotification = onCall(
     });
 
     if (targets.length === 0) {
-      return {success: false, message: "Сонгосон хэрэглэгчдэд идэвхтэй FCM token олдсонгүй."};
+      return {
+        success: false,
+        message: "Сонгосон хэрэглэгчдэд идэвхтэй FCM token олдсонгүй.",
+      };
     }
 
-    const notificationLog: NotificationLogPayload = {
+    const notificationLog: Record<string, any> = {
       title,
       body,
       imageUrl: imageUrl || null,
@@ -114,251 +105,34 @@ export const sendNotification = onCall(
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       targets: targets,
       processingStatus: "pending",
-    };
-
-    if (scheduleAt) {
-      notificationLog.scheduleAt = admin.firestore.Timestamp.fromDate(new Date(scheduleAt));
-      notificationLog.processingStatus = "scheduled";
-      const scheduledDocRef = await db.collection("notifications").add(notificationLog);
-      logger.info(`Scheduled notification ${scheduledDocRef.id} for later.`);
-      return {success: true, message: `Мэдэгдэл амжилттай хуваарьт орлоо (ID: ${scheduledDocRef.id}).`};
-    }
-
-    notificationLog.processingStatus = "processing";
-    notificationLog.processedAt = admin.firestore.FieldValue.serverTimestamp();
-    const docRef = await db.collection("notifications").add(notificationLog);
-    const notificationId = docRef.id;
-    logger.info(`Processing immediate notification ${notificationId}.`);
-
-    const tokensToSend = targets.map((t) => t.token);
-    const messagePayload: admin.messaging.MulticastMessage = {
-      notification: {title, body, ...(imageUrl && {imageUrl})},
-      tokens: tokensToSend,
-      data: {...(deepLink && {deepLink}), notificationId},
+      scheduleAt: scheduleAt ?
+        admin.firestore.Timestamp.fromDate(new Date(scheduleAt)) :
+        null,
     };
 
     try {
-      const response = await messaging.sendEachForMulticast(messagePayload);
-      logger.info(`Sent ${response.successCount} successful msgs for ID: ${notificationId}`);
-      if (response.failureCount > 0) {
-        logger.warn(`Failed to send ${response.failureCount} msgs for ID: ${notificationId}`);
-      }
-
-      let allSentSuccessfully = response.failureCount === 0;
-      const updatedTargetsFirestore = [...targets];
-      const currentTimestamp = admin.firestore.FieldValue.serverTimestamp();
-
-      response.responses.forEach((result, index) => {
-        const token = tokensToSend[index];
-        const originalTargetIndex = targets.findIndex((t) => t.token === token);
-        if (originalTargetIndex !== -1) {
-          const targetToUpdateInFirestore: FunctionNotificationTarget = updatedTargetsFirestore[originalTargetIndex];
-          if (result.success) {
-            targetToUpdateInFirestore.status = "success";
-            targetToUpdateInFirestore.messageId = result.messageId;
-            delete targetToUpdateInFirestore.error;
-          } else {
-            allSentSuccessfully = false;
-            targetToUpdateInFirestore.status = "failed";
-            targetToUpdateInFirestore.error = result.error?.message || "Unknown FCM error";
-          }
-          targetToUpdateInFirestore.attemptedAt = currentTimestamp;
-        }
-      });
-
-      const finalProcessingStatus = allSentSuccessfully ? "completed" : "partially_completed";
-      await db.doc(`notifications/${notificationId}`).update({
-        targets: updatedTargetsFirestore,
-        processingStatus: finalProcessingStatus,
-        processedAt: currentTimestamp,
-      });
-
-      logger.info(`ID: ${notificationId} processing finished. Status: ${finalProcessingStatus}`);
-      return {success: true, message: `Мэдэгдэл илгээгдлээ. Амжилттай: ${response.successCount}, Амжилтгүй: ${response.failureCount}`};
+      const docRef = await db
+        .collection("notifications")
+        .add(notificationLog);
+      logger.info(`Notification request ${docRef.id} saved for processing.`);
+      return {
+        success: true,
+        message: `Мэдэгдэл илгээх хүсэлтийг хүлээн авлаа (ID: ${docRef.id}).`,
+      };
     } catch (error: unknown) {
-      logger.error(`Critical error sending multicast for ID: ${notificationId}:`, error);
-      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-      await db.doc(`notifications/${notificationId}`).update({processingStatus: "error", error: errorMessage});
-      throw new HttpsError("internal", "Мэдэгдэл илгээхэд алдаа гарлаа.", {details: errorMessage});
+      logger.error("Error saving notification request to Firestore:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "An unknown error occurred.";
+      throw new HttpsError("internal", "Мэдэгдэл хадгалахад алдаа гарлаа.", {
+        details: errorMessage,
+      });
     }
   }
 );
-
-
-export const processNotificationRequest = onDocumentCreated(
-  {
-    document: "notifications/{notificationId}",
-    region: "us-central1",
-  },
-  async (
-    event: FirestoreEvent<FirebaseFirestore.DocumentSnapshot | undefined>
-  ) => {
-    const notificationId = event.params.notificationId;
-    const snapshot = event.data;
-
-    if (!snapshot) {
-      logger.error(`No data for event. ID: ${notificationId}`);
-      return null;
-    }
-
-    const notificationData = snapshot.data();
-
-    if (!notificationData) {
-      logger.error(`Notification data undefined. ID: ${notificationId}`);
-      return null;
-    }
-
-    // This trigger should only process scheduled notifications
-    if (notificationData.processingStatus !== "scheduled") {
-      logger.info(`Skipping notification ${notificationId} with status ${notificationData.processingStatus}. Only "scheduled" status is processed by this trigger.`);
-      return null;
-    }
-
-    const {
-      title,
-      body,
-      imageUrl,
-      deepLink,
-      targets,
-      scheduleAt,
-    } = notificationData;
-
-    // Double check if it's time to send
-    if (scheduleAt && scheduleAt.toMillis() > Date.now()) {
-      logger.info(`Notification ${notificationId} is scheduled for a later time, not processing now.`);
-      return null;
-    }
-
-    logger.info(`Processing scheduled notification. ID: ${notificationId}`);
-
-    try {
-      await db.doc(`notifications/${notificationId}`).update({
-        processingStatus: "processing",
-        processedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-    } catch (updateError: unknown) {
-      logger.error(
-        `Err upd status to processing. ID: ${notificationId}:`,
-        updateError
-      );
-    }
-
-    const tokensToSend: string[] = [];
-    const typedTargets = targets as unknown as (FunctionNotificationTarget[] | undefined);
-
-    const originalTargetsArray: FunctionNotificationTarget[] =
-      Array.isArray(typedTargets) ?
-        typedTargets.map(
-          (t: FunctionNotificationTarget) => ({...t})
-        ) : [];
-
-
-    originalTargetsArray.forEach((target) => {
-      if (target && target.token) {
-        tokensToSend.push(target.token);
-      }
-    });
-
-    if (tokensToSend.length === 0) {
-      logger.info(`No valid tokens for scheduled notification ID: ${notificationId}`);
-      await db
-        .doc(`notifications/${notificationId}`)
-        .update({processingStatus: "completed_no_targets"})
-        .catch((err) =>
-          logger.error("Err updating to completed_no_targets:", err)
-        );
-      return null;
-    }
-
-    const messagePayload: admin.messaging.MulticastMessage = {
-      notification: {
-        title: title || "New Notification",
-        body: body || "You have a new message.",
-        ...(imageUrl && {imageUrl: imageUrl as string}),
-      },
-      tokens: tokensToSend,
-      data: {
-        ...(deepLink && {deepLink: deepLink as string}),
-        notificationId: notificationId,
-      },
-    };
-
-    logger.info(
-      `Sending ${tokensToSend.length} msgs for scheduled ID: ${notificationId}.`
-    );
-
-    try {
-      const response = await messaging.sendEachForMulticast(messagePayload);
-      logger.info(
-        `Sent ${response.successCount} successful msgs for ID: ` +
-        notificationId
-      );
-
-      let allSentSuccessfully = response.failureCount === 0;
-      const updatedTargetsFirestore = [...originalTargetsArray];
-      const currentTimestamp = admin.firestore.FieldValue.serverTimestamp();
-
-      response.responses.forEach((result, index) => {
-        const token = tokensToSend[index];
-        const originalTargetIndex = originalTargetsArray.findIndex(
-          (t) => t.token === token
-        );
-
-        if (originalTargetIndex !== -1) {
-          const targetToUpdateInFirestore: FunctionNotificationTarget =
-            updatedTargetsFirestore[originalTargetIndex];
-          if (result.success) {
-            targetToUpdateInFirestore.status = "success";
-            targetToUpdateInFirestore.messageId = result.messageId;
-            delete targetToUpdateInFirestore.error;
-          } else {
-            allSentSuccessfully = false;
-            targetToUpdateInFirestore.status = "failed";
-            targetToUpdateInFirestore.error =
-              result.error?.message || "Unknown FCM error";
-            logger.error(
-              `Failed to send to token ${token} for notification ` +
-              `${notificationId}:`,
-              result.error
-            );
-          }
-          targetToUpdateInFirestore.attemptedAt = currentTimestamp;
-        }
-      });
-
-      const finalProcessingStatus = allSentSuccessfully ?
-        "completed" :
-        "partially_completed";
-
-      await db.doc(`notifications/${notificationId}`).update({
-        targets: updatedTargetsFirestore,
-        processingStatus: finalProcessingStatus,
-        processedAt: currentTimestamp,
-      });
-
-      logger.info(
-        `ID: ${notificationId} scheduled processing finished. ` +
-        `Status: ${finalProcessingStatus}`
-      );
-    } catch (error: unknown) {
-      logger.error(
-        `Critical error sending multicast for scheduled ID: ${notificationId}:`,
-        error
-      );
-      await db
-        .doc(`notifications/${notificationId}`)
-        .update({
-          processingStatus: "error",
-          error: (error as Error).message,
-        });
-    }
-    return null;
-  }
-);
-
-const ADMINS_COLLECTION = "admins";
 
 // --- V2 Callable Function: Update Admin Auth Details ---
+const ADMINS_COLLECTION = "admins";
+
 interface UpdateAdminAuthDetailsData {
   targetUserId: string;
   newEmail?: string;
@@ -406,7 +180,10 @@ export const updateAdminAuthDetails = onCall(
       throw new HttpsError("invalid-argument", "targetUserId is required.");
     }
     if (!newEmail && !newPassword) {
-      throw new HttpsError("invalid-argument", "Either newEmail or newPassword must be provided.");
+      throw new HttpsError(
+        "invalid-argument",
+        "Either newEmail or newPassword must be provided."
+      );
     }
 
     try {
@@ -416,7 +193,10 @@ export const updateAdminAuthDetails = onCall(
         newEmail &&
         newEmail !== "super@example.com"
       ) {
-        throw new HttpsError("permission-denied", "Cannot change the email of the primary super admin account.");
+        throw new HttpsError(
+          "permission-denied",
+          "Cannot change the email of the primary super admin account."
+        );
       }
     } catch (error: unknown) {
       logger.error("Error fetching target user for pre-check:", error);
@@ -424,34 +204,49 @@ export const updateAdminAuthDetails = onCall(
 
     try {
       const updatePayloadAuth: {email?: string; password?: string} = {};
-      const updatePayloadFirestore: {email?: string; updatedAt: FirebaseFirestore.FieldValue} = {
+      const updatePayloadFirestore: {
+        email?: string;
+        updatedAt: FirebaseFirestore.FieldValue;
+      } = {
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       };
 
       if (newEmail) {
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
-          throw new HttpsError("invalid-argument", "The new email address is not valid.");
+          throw new HttpsError(
+            "invalid-argument",
+            "The new email address is not valid."
+          );
         }
         updatePayloadAuth.email = newEmail;
         updatePayloadFirestore.email = newEmail;
       }
       if (newPassword) {
         if (newPassword.length < 6) {
-          throw new HttpsError("invalid-argument", "New password must be at least 6 characters long.");
+          throw new HttpsError(
+            "invalid-argument",
+            "New password must be at least 6 characters long."
+          );
         }
         updatePayloadAuth.password = newPassword;
       }
 
       if (Object.keys(updatePayloadAuth).length > 0) {
         await fAuth.updateUser(targetUserId, updatePayloadAuth);
-        logger.info(`Successfully updated Firebase Auth for user: ${targetUserId}`, updatePayloadAuth);
+        logger.info(
+          `Successfully updated Firebase Auth for user: ${targetUserId}`,
+          updatePayloadAuth
+        );
       }
 
       await db
         .collection(ADMINS_COLLECTION)
         .doc(targetUserId)
         .update(updatePayloadFirestore);
-      logger.info(`Successfully updated Firestore for user: ${targetUserId}`, updatePayloadFirestore);
+      logger.info(
+        `Successfully updated Firestore for user: ${targetUserId}`,
+        updatePayloadFirestore
+      );
 
       return {
         success: true,
@@ -464,35 +259,40 @@ export const updateAdminAuthDetails = onCall(
       if (error && typeof error === "object" && "code" in error) {
         const firebaseErrorCode = (error as {code: string}).code;
         switch (firebaseErrorCode) {
-          case "auth/email-already-exists":
-            errorCode = "already-exists";
-            errorMessage = "The new email address is already in use by another account.";
-            break;
-          case "auth/invalid-email":
-            errorCode = "invalid-argument";
-            errorMessage = "The new email address is not valid.";
-            break;
-          case "auth/user-not-found":
-            errorCode = "not-found";
-            errorMessage = "Target user not found in Firebase Authentication.";
-            break;
-          case "auth/weak-password":
-            errorCode = "invalid-argument";
-            errorMessage = "The new password is too weak.";
-            break;
-          default:
-            errorCode = "internal";
-            errorMessage = (error as Error).message || "An internal error occurred during auth update.";
+        case "auth/email-already-exists":
+          errorCode = "already-exists";
+          errorMessage =
+              "The new email address is already in use by another account.";
+          break;
+        case "auth/invalid-email":
+          errorCode = "invalid-argument";
+          errorMessage = "The new email address is not valid.";
+          break;
+        case "auth/user-not-found":
+          errorCode = "not-found";
+          errorMessage = "Target user not found in Firebase Authentication.";
+          break;
+        case "auth/weak-password":
+          errorCode = "invalid-argument";
+          errorMessage = "The new password is too weak.";
+          break;
+        default:
+          errorCode = "internal";
+          errorMessage =
+              (error as Error).message ||
+              "An internal error occurred during auth update.";
         }
-        throw new HttpsError(errorCode, errorMessage, {originalCode: firebaseErrorCode});
+        throw new HttpsError(errorCode, errorMessage, {
+          originalCode: firebaseErrorCode,
+        });
       } else {
-        errorMessage = (error as Error).message || "An unknown error occurred.";
+        errorMessage =
+          (error as Error).message || "An unknown error occurred.";
         throw new HttpsError("internal", errorMessage);
       }
     }
   }
 );
-
 
 // --- V2 Callable Function: Create a new Admin User ---
 interface CreateAdminUserData {
@@ -506,33 +306,56 @@ export const createAdminUser = onCall(
   {region: "us-central1"},
   async (request: CallableRequest<CreateAdminUserData>) => {
     if (!request.auth) {
-      throw new HttpsError("unauthenticated", "The function must be called while authenticated.");
+      throw new HttpsError(
+        "unauthenticated",
+        "The function must be called while authenticated."
+      );
     }
     const callerUid = request.auth.uid;
     try {
-      const callerAdminDoc = await db.collection(ADMINS_COLLECTION).doc(callerUid).get();
-      if (!callerAdminDoc.exists || callerAdminDoc.data()?.role !== UserRole.SUPER_ADMIN) {
-        throw new HttpsError("permission-denied", "Caller does not have Super Admin privileges to create users.");
+      const callerAdminDoc = await db
+        .collection(ADMINS_COLLECTION)
+        .doc(callerUid)
+        .get();
+      if (
+        !callerAdminDoc.exists ||
+        callerAdminDoc.data()?.role !== UserRole.SUPER_ADMIN
+      ) {
+        throw new HttpsError(
+          "permission-denied",
+          "Caller does not have Super Admin privileges to create users."
+        );
       }
     } catch (error) {
       logger.error("Error checking caller permissions for user creation:", error);
       if (error instanceof HttpsError) {
         throw error;
       }
-      throw new HttpsError("internal", "Could not verify caller permissions.");
+      throw new HttpsError(
+        "internal",
+        "Could not verify caller permissions."
+      );
     }
 
     const {email, password, name, role, allowedCategoryIds = []} = request.data;
     if (!email || !password || !name || !role) {
-      throw new HttpsError("invalid-argument", "Missing required fields: email, password, name, role.");
+      throw new HttpsError(
+        "invalid-argument",
+        "Missing required fields: email, password, name, role."
+      );
     }
     if (password.length < 6) {
-      throw new HttpsError("invalid-argument", "Password must be at least 6 characters long.");
+      throw new HttpsError(
+        "invalid-argument",
+        "Password must be at least 6 characters long."
+      );
     }
 
     try {
       logger.info(`'createAdminUser' called by ${callerUid} for new user ${email}.`);
-      const photoURL = `https://placehold.co/100x100.png?text=${name.substring(0, 2).toUpperCase()}&bg=FF5733&txt=FFFFFF`;
+      const photoURL = `https://placehold.co/100x100.png?text=${name
+        .substring(0, 2)
+        .toUpperCase()}&bg=FF5733&txt=FFFFFF`;
       const userRecord = await fAuth.createUser({
         email: email,
         password: password,
@@ -540,7 +363,10 @@ export const createAdminUser = onCall(
         photoURL: photoURL,
       });
 
-      logger.info("Successfully created new user in Firebase Auth:", userRecord.uid);
+      logger.info(
+        "Successfully created new user in Firebase Auth:",
+        userRecord.uid
+      );
 
       const adminDocRef = db.collection(ADMINS_COLLECTION).doc(userRecord.uid);
       const firestoreAdminData = {
@@ -551,13 +377,21 @@ export const createAdminUser = onCall(
         avatar: photoURL,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        allowedCategoryIds: role === UserRole.SUB_ADMIN ? allowedCategoryIds : [],
+        allowedCategoryIds:
+          role === UserRole.SUB_ADMIN ? allowedCategoryIds : [],
       };
 
       await adminDocRef.set(firestoreAdminData);
-      logger.info("Successfully created Firestore admin document for:", userRecord.uid);
+      logger.info(
+        "Successfully created Firestore admin document for:",
+        userRecord.uid
+      );
 
-      return {success: true, message: `Admin user ${name} created successfully.`, userId: userRecord.uid};
+      return {
+        success: true,
+        message: `Admin user ${name} created successfully.`,
+        userId: userRecord.uid,
+      };
     } catch (error: unknown) {
       logger.error("Error creating new admin user:", error);
       let errorCode: HttpsError["code"] = "unknown";
@@ -565,25 +399,33 @@ export const createAdminUser = onCall(
       if (error && typeof error === "object" && "code" in error) {
         const firebaseErrorCode = (error as {code: string}).code;
         switch (firebaseErrorCode) {
-          case "auth/email-already-exists":
-            errorCode = "already-exists";
-            errorMessage = "The email address is already in use by another account.";
-            break;
-          case "auth/invalid-email":
-            errorCode = "invalid-argument";
-            errorMessage = "The email address is not valid.";
-            break;
-          case "auth/weak-password":
-            errorCode = "invalid-argument";
-            errorMessage = "The new password is too weak.";
-            break;
-          default:
-            errorCode = "internal";
-            errorMessage = (error as Error).message || "An internal error occurred during auth user creation.";
+        case "auth/email-already-exists":
+          errorCode = "already-exists";
+          errorMessage =
+              "The email address is already in use by another account.";
+          break;
+        case "auth/invalid-email":
+          errorCode = "invalid-argument";
+          errorMessage = "The email address is not valid.";
+          break;
+        case "auth/weak-password":
+          errorCode = "invalid-argument";
+          errorMessage = "The new password is too weak.";
+          break;
+        default:
+          errorCode = "internal";
+          errorMessage =
+              (error as Error).message ||
+              "An internal error occurred during auth user creation.";
         }
-        throw new HttpsError(errorCode, errorMessage, {originalCode: firebaseErrorCode});
+        throw new HttpsError(errorCode, errorMessage, {
+          originalCode: firebaseErrorCode,
+        });
       }
-      throw new HttpsError("internal", (error as Error).message || "An unknown error occurred.");
+      throw new HttpsError(
+        "internal",
+        (error as Error).message || "An unknown error occurred."
+      );
     }
   }
 );
