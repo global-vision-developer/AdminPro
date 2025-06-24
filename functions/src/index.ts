@@ -158,15 +158,17 @@ export const sendNotification = onCall(
       }
 
       const messagePayload: admin.messaging.MulticastMessage = {
-        notification: {
-          title: title,
-          body: body,
-          ...(imageUrl && {imageUrl: imageUrl}),
-        },
+        notification: Object.assign(
+          {title: title, body: body},
+          imageUrl && {imageUrl: imageUrl}
+        ),
         tokens: tokensToSend,
-        data: {
-          ...(deepLink && {deepLink: deepLink}),
-        },
+        data: Object.assign(
+          {},
+          deepLink && {deepLink: deepLink},
+          // Add a unique ID to each message to prevent collapsing
+          {_internalMessageId: new Date().getTime().toString() + Math.random().toString()}
+        ),
       };
 
       logger.info(`Sending ${tokensToSend.length} messages.`);
@@ -200,7 +202,6 @@ export const sendNotification = onCall(
             targetLog.error = result.error.message;
           }
         }
-        
         targetsForLog.push(targetLog as NotificationTargetForLog);
       });
 
