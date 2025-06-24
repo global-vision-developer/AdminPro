@@ -69,6 +69,15 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
       },
       {
         id: uuidv4(),
+        label: 'Description',
+        key: 'description',
+        type: FieldType.TEXTAREA,
+        required: false,
+        placeholder: 'A detailed description of the entry.',
+        description: 'The main content or description for this entry.'
+      },
+      {
+        id: uuidv4(),
         label: 'Cover Image',
         key: 'cover-image',
         type: FieldType.IMAGE,
@@ -80,10 +89,10 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
         id: uuidv4(),
         label: 'City',
         key: 'city',
-        type: FieldType.CITY_PICKER, // Changed to CITY_PICKER
+        type: FieldType.CITY_PICKER,
         required: false,
-        placeholder: 'Select a city', // Updated placeholder
-        description: 'The city associated with this entry.' // Updated description
+        placeholder: 'Select a city',
+        description: 'The city associated with this entry.'
       },
       {
         id: uuidv4(),
