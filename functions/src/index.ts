@@ -160,16 +160,16 @@ export const sendNotification = onCall(
       const dataPayload: { [key: string]: string } = {
         _internalMessageId: new Date().getTime().toString() + Math.random().toString(),
       };
-
       if (deepLink) {
         dataPayload.deepLink = deepLink;
       }
 
       const messagePayload: admin.messaging.MulticastMessage = {
-        notification: Object.assign(
-          {title: title, body: body},
-          imageUrl && {imageUrl: imageUrl}
-        ),
+        notification: {
+          title: title,
+          body: body,
+          ...(imageUrl && {imageUrl: imageUrl}),
+        },
         tokens: tokensToSend,
         data: dataPayload,
       };
@@ -377,26 +377,26 @@ export const updateAdminAuthDetails = onCall(
       if (error && typeof error === "object" && "code" in error) {
         const firebaseErrorCode = (error as {code: string}).code;
         switch (firebaseErrorCode) {
-        case "auth/email-already-exists":
-          errorCode = "already-exists";
-          errorMessage =
+          case "auth/email-already-exists":
+            errorCode = "already-exists";
+            errorMessage =
               "The new email address is already in use by another account.";
-          break;
-        case "auth/invalid-email":
-          errorCode = "invalid-argument";
-          errorMessage = "The new email address is not valid.";
-          break;
-        case "auth/user-not-found":
-          errorCode = "not-found";
-          errorMessage = "Target user not found in Firebase Authentication.";
-          break;
-        case "auth/weak-password":
-          errorCode = "invalid-argument";
-          errorMessage = "The new password is too weak.";
-          break;
-        default:
-          errorCode = "internal";
-          errorMessage =
+            break;
+          case "auth/invalid-email":
+            errorCode = "invalid-argument";
+            errorMessage = "The new email address is not valid.";
+            break;
+          case "auth/user-not-found":
+            errorCode = "not-found";
+            errorMessage = "Target user not found in Firebase Authentication.";
+            break;
+          case "auth/weak-password":
+            errorCode = "invalid-argument";
+            errorMessage = "The new password is too weak.";
+            break;
+          default:
+            errorCode = "internal";
+            errorMessage =
               (error as unknown as Error).message ||
               "An internal error occurred during auth update.";
         }
@@ -419,6 +419,7 @@ interface CreateAdminUserData {
   name: string;
   role: UserRole;
   allowedCategoryIds?: string[];
+  canSendNotifications?: boolean;
 }
 export const createAdminUser = onCall(
   {region: "us-central1"},
@@ -458,7 +459,7 @@ export const createAdminUser = onCall(
       );
     }
 
-    const {email, password, name, role, allowedCategoryIds = []} = request.data;
+    const {email, password, name, role, allowedCategoryIds = [], canSendNotifications = false} = request.data;
     if (!email || !password || !name || !role) {
       throw new HttpsError(
         "invalid-argument",
@@ -502,6 +503,7 @@ export const createAdminUser = onCall(
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         allowedCategoryIds:
           role === UserRole.SUB_ADMIN ? allowedCategoryIds : [],
+        canSendNotifications: role === UserRole.SUPER_ADMIN ? true : canSendNotifications,
       };
 
       await adminDocRef.set(firestoreAdminData);
@@ -522,22 +524,22 @@ export const createAdminUser = onCall(
       if (error && typeof error === "object" && "code" in error) {
         const firebaseErrorCode = (error as {code: string}).code;
         switch (firebaseErrorCode) {
-        case "auth/email-already-exists":
-          errorCode = "already-exists";
-          errorMessage =
+          case "auth/email-already-exists":
+            errorCode = "already-exists";
+            errorMessage =
               "The email address is already in use by another account.";
-          break;
-        case "auth/invalid-email":
-          errorCode = "invalid-argument";
-          errorMessage = "The email address is not valid.";
-          break;
-        case "auth/weak-password":
-          errorCode = "invalid-argument";
-          errorMessage = "The new password is too weak.";
-          break;
-        default:
-          errorCode = "internal";
-          errorMessage =
+            break;
+          case "auth/invalid-email":
+            errorCode = "invalid-argument";
+            errorMessage = "The email address is not valid.";
+            break;
+          case "auth/weak-password":
+            errorCode = "invalid-argument";
+            errorMessage = "The new password is too weak.";
+            break;
+          default:
+            errorCode = "internal";
+            errorMessage =
               (error as unknown as Error).message ||
               "An internal error occurred during auth user creation.";
         }
@@ -549,6 +551,70 @@ export const createAdminUser = onCall(
         "internal",
         (error as unknown as Error).message || "An unknown error occurred."
       );
+    }
+  }
+);
+
+
+// --- V2 Callable Function: Delete Admin User ---
+interface DeleteAdminUserData {
+  targetUserId: string;
+}
+
+export const deleteAdminUser = onCall(
+  {region: "us-central1"},
+  async (request: CallableRequest<DeleteAdminUserData>) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "The function must be called while authenticated.");
+    }
+    const callerUid = request.auth.uid;
+    try {
+      const callerAdminDoc = await db.collection(ADMINS_COLLECTION).doc(callerUid).get();
+      if (!callerAdminDoc.exists || callerAdminDoc.data()?.role !== UserRole.SUPER_ADMIN) {
+        throw new HttpsError("permission-denied", "Caller does not have Super Admin privileges to delete users.");
+      }
+    } catch (error) {
+      logger.error("Error checking caller permissions for user deletion:", error);
+      throw new HttpsError("internal", "Could not verify caller permissions.");
+    }
+
+    const {targetUserId} = request.data;
+    if (!targetUserId) {
+      throw new HttpsError("invalid-argument", "targetUserId is required.");
+    }
+
+    if (callerUid === targetUserId) {
+      throw new HttpsError("permission-denied", "You cannot delete your own account.");
+    }
+
+    try {
+      const targetUserRecord = await fAuth.getUser(targetUserId);
+      if (targetUserRecord.email === "super@example.com") {
+        throw new HttpsError("permission-denied", "Cannot delete the primary super admin account.");
+      }
+
+      // Delete from Auth
+      await fAuth.deleteUser(targetUserId);
+      logger.info(`Successfully deleted user ${targetUserId} from Firebase Auth.`);
+      
+      // Delete from Firestore
+      await db.collection(ADMINS_COLLECTION).doc(targetUserId).delete();
+      logger.info(`Successfully deleted Firestore admin document for ${targetUserId}.`);
+      
+      return { success: true, message: `Admin user ${targetUserRecord.displayName || targetUserRecord.email} has been deleted successfully.` };
+    } catch (error: any) {
+      logger.error(`Error deleting admin user ${targetUserId}:`, error);
+      if (error.code === "auth/user-not-found") {
+        try {
+           await db.collection(ADMINS_COLLECTION).doc(targetUserId).delete();
+           logger.info(`Firestore admin document for non-auth user ${targetUserId} deleted.`);
+           return { success: true, message: "User not found in Auth, but Firestore document deleted." };
+        } catch (firestoreError: any) {
+          logger.error(`Error deleting Firestore document for non-auth user ${targetUserId}:`, firestoreError);
+          throw new HttpsError("internal", `Failed to delete user: ${firestoreError.message}`);
+        }
+      }
+      throw new HttpsError("internal", `Failed to delete user: ${error.message}`);
     }
   }
 );

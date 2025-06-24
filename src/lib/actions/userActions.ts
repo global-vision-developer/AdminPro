@@ -54,8 +54,10 @@ export async function addAdminUser(
         }
     } catch (error: any) {
         let errorMessage = error.message || "Админ хэрэглэгч нэмэхэд алдаа гарлаа.";
-        if (error.code === 'unavailable' || error.code === 'not-found') {
+        if (error.code === 'functions/unavailable' || error.code === 'functions/not-found') {
             errorMessage = "Cloud Function-тэй холбогдож чадсангүй. Firebase төлөвлөгөө болон функцээ deploy хийсэн эсэхээ шалгана уу.";
+        } else if (error.code === 'unauthenticated') {
+            errorMessage = "Authentication required. The function must be called while authenticated.";
         }
         return { error: errorMessage };
     }
