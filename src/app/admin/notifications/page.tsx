@@ -19,6 +19,7 @@ import { NotificationHistory } from './components/notification-history'; // Impo
 import { MailWarning, Send, Users, Loader2, Search as SearchIcon, Info, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { useAuth } from '@/hooks/use-auth';
 
 export default function NotificationsPage() {
   const [appUsers, setAppUsers] = useState<AppUser[]>([]);
@@ -29,6 +30,7 @@ export default function NotificationsPage() {
   const [isSubmittingNotification, setIsSubmittingNotification] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
+  const { currentUser } = useAuth();
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -101,6 +103,13 @@ export default function NotificationsPage() {
 
   const handleSendNotificationSubmit = async (formData: NotificationFormValues) => {
     setIsSubmittingNotification(true);
+
+    if (!currentUser) {
+        toast({ title: "Алдаа", description: "Admin not authenticated. Please log in again.", variant: "destructive" });
+        setIsSubmittingNotification(false);
+        return;
+    }
+
     const usersToSend = Object.values(selectedUsers).filter(u => u.fcmTokens && u.fcmTokens.length > 0);
 
     if (usersToSend.length === 0) {
@@ -110,7 +119,7 @@ export default function NotificationsPage() {
         return;
     }
     
-    const result = await createNotificationEntry({ ...formData, selectedUsers: usersToSend });
+    const result = await createNotificationEntry({ ...formData, selectedUsers: usersToSend, adminCreator: currentUser });
     setIsSubmittingNotification(false);
 
     if (result && "id" in result) {

@@ -1,8 +1,8 @@
 
 "use server";
 
-import { db, auth as adminAuth } from "@/lib/firebase";
-import type { NotificationLog, NotificationTarget, AppUser } from "@/types";
+import { db } from "@/lib/firebase";
+import type { NotificationLog, NotificationTarget, AppUser, UserProfile } from "@/types";
 import { collection, addDoc, serverTimestamp, Timestamp, getDocs, query, orderBy, limit }
 from "firebase/firestore";
 import { revalidatePath } from "next/cache";
@@ -16,13 +16,14 @@ interface CreateNotificationPayload {
   deepLink?: string | null;
   scheduleAt?: Date | null;
   selectedUsers: Pick<AppUser, "id" | "email" | "displayName" | "fcmTokens">[];
+  adminCreator: Pick<UserProfile, 'id' | 'name' | 'email'>;
 }
 
 export async function createNotificationEntry(
   payload: CreateNotificationPayload
 ): Promise<{ id: string } | { error: string }> {
-  const currentAdmin = adminAuth.currentUser;
-  if (!currentAdmin) {
+  const { adminCreator } = payload;
+  if (!adminCreator || !adminCreator.id) {
     return { error: "Admin not authenticated. Unable to create notification." };
   }
 
@@ -52,9 +53,9 @@ export async function createNotificationEntry(
       imageUrl: payload.imageUrl || null,
       deepLink: payload.deepLink || null,
       adminCreator: {
-        uid: currentAdmin.uid,
-        email: currentAdmin.email || "N/A",
-        name: currentAdmin.displayName || currentAdmin.email?.split('@')[0] || "Admin",
+        uid: adminCreator.id,
+        email: adminCreator.email || "N/A",
+        name: adminCreator.name || adminCreator.email?.split('@')[0] || "Admin",
       },
       createdAt: serverTimestamp(),
       processingStatus: 'pending',
