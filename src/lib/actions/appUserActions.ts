@@ -18,12 +18,9 @@ export async function getAppUsers(): Promise<AppUser[]> {
     const users: AppUser[] = querySnapshot.docs.map((doc) => {
       const data = doc.data();
 
-      // Handle both singular 'fcmToken' (string) and plural 'fcmTokens' (array)
+      // Simplified token handling to match the user's database structure.
       const tokens: string[] = [];
-      if (Array.isArray(data.fcmTokens)) {
-        // Filter for valid, non-empty strings
-        tokens.push(...data.fcmTokens.filter((t: any) => typeof t === 'string' && t));
-      } else if (typeof data.fcmToken === 'string' && data.fcmToken) {
+      if (typeof data.fcmToken === 'string' && data.fcmToken) {
         tokens.push(data.fcmToken);
       }
 
