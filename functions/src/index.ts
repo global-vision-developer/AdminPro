@@ -60,7 +60,6 @@ export const processNotificationRequest = onDocumentCreated(
 
     logger.info(`Processing notification. ID: ${notificationId}`);
 
-
     const {
       title,
       body,
@@ -71,38 +70,42 @@ export const processNotificationRequest = onDocumentCreated(
       processingStatus,
     } = notificationData;
 
-    // Хуваарьт илгээлт
-    if (scheduleAt && scheduleAt.toMillis() > Date.now() + 5 * 60 * 1000) {
-      if (processingStatus !== "scheduled") {
-        logger.info(`ID ${notificationId} is scheduled for later. Updating status.`);
-        try {
-          await db.doc(`notifications/${notificationId}`).update({
-            processingStatus: "scheduled",
-          });
-        } catch (updateError) {
-          logger.error(
-            `Err upd status to scheduled. ID: ${notificationId}:`,
-            updateError
-          );
-        }
-      }
+    // Check if the notification is ready to be processed
+    const isReadyToProcess =
+        processingStatus === "pending" ||
+        (processingStatus === "scheduled" &&
+          scheduleAt &&
+          scheduleAt.toMillis() <= Date.now() + 5 * 60 * 1000);
+
+    // If it's scheduled for a later time, do nothing and exit.
+    if (processingStatus === "scheduled" && scheduleAt && scheduleAt.toMillis() > Date.now() + 5 * 60 * 1000) {
+      logger.info(`ID ${notificationId} is scheduled for a later time. No action needed now.`);
       return null;
     }
 
-    // Боловсруулж эхэлснийг тэмдэглэх
-    if (processingStatus === "pending") {
-      try {
-        await db.doc(`notifications/${notificationId}`).update({
-          processingStatus: "processing",
-          processedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-      } catch (updateError) {
-        logger.error(
-          `Err upd status to processing. ID: ${notificationId}:`,
-          updateError
-        );
-      }
+    // If it's not pending or a due scheduled notification, exit.
+    if (!isReadyToProcess) {
+      logger.info(
+          `ID ${notificationId} is not in a state to be processed (status: ${processingStatus}). Exiting.`
+      );
+      return null;
     }
+
+
+    // Update status to 'processing' since it's ready.
+    try {
+      await db.doc(`notifications/${notificationId}`).update({
+        processingStatus: "processing",
+        processedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } catch (updateError) {
+      logger.error(
+        `Err upd status to processing. ID: ${notificationId}:`,
+        updateError
+      );
+      return null; // Stop if status can't be updated
+    }
+
 
     const tokensToSend: string[] = [];
     const typedTargets = targets as unknown as (FunctionNotificationTarget[] | undefined);
