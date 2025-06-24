@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription as UiCardDesc
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import type { UserProfile, Category } from '@/types';
 import { UserRole } from '@/types';
-import { Save, Loader2, ListChecks, MailWarning, KeyRound } from 'lucide-react';
+import { Save, Loader2, ListChecks, MailWarning, KeyRound, Bell } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -26,6 +26,7 @@ const userFormSchemaBase = z.object({
   email: z.string().email("И-мэйл хаяг буруу байна."),
   role: z.nativeEnum(UserRole),
   allowedCategoryIds: z.array(z.string()).optional(),
+  canSendNotifications: z.boolean().optional().default(false),
 });
 
 const newUserFormSchema = userFormSchemaBase.extend({
@@ -94,6 +95,7 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
     defaultValues: initialData ? {
       ...initialData,
       allowedCategoryIds: initialData.allowedCategoryIds || [],
+      canSendNotifications: initialData.canSendNotifications || false,
       password: '', 
       confirmPassword: '',
       newPassword: '',
@@ -103,6 +105,7 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
       email: '',
       role: UserRole.SUB_ADMIN,
       allowedCategoryIds: [],
+      canSendNotifications: false,
       password: '',
       confirmPassword: '',
       newPassword: '',
@@ -238,6 +241,7 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
                       field.onChange(value);
                       if (value !== UserRole.SUB_ADMIN) {
                         form.setValue('allowedCategoryIds', []);
+                        form.setValue('canSendNotifications', false);
                       }
                     }}
                     defaultValue={field.value}
@@ -269,63 +273,88 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
             />
 
             {watchRole === UserRole.SUB_ADMIN && (
-              <FormField
-                control={form.control}
-                name="allowedCategoryIds"
-                render={() => (
-                  <FormItem>
-                    <FormLabel className="flex items-center">
-                      <ListChecks className="mr-2 h-5 w-5 text-primary" />
-                      Дэд админд зөвшөөрсөн категориуд
-                    </FormLabel>
-                    <FormDescription>Энэ Дэд админы удирдаж болох бүртгэлийн категориудыг сонгоно уу.</FormDescription>
-                    {loadingCategories ? (
-                      <p>Категориудыг ачаалж байна...</p>
-                    ) : allCategories.length === 0 ? (
-                      <p className="text-muted-foreground">Оноох боломжтой категори алга. Эхлээд категори үүсгэнэ үү.</p>
-                    ) : (
-                      <ScrollArea className="h-48 rounded-md border p-3">
-                        <div className="space-y-2">
-                          {allCategories.map((category) => (
-                            <FormField
-                              key={category.id}
-                              control={form.control}
-                              name="allowedCategoryIds"
-                              render={({ field }) => {
-                                return (
-                                  <FormItem
-                                    key={category.id}
-                                    className="flex flex-row items-center space-x-3 space-y-0"
-                                  >
-                                    <FormControl>
-                                      <Checkbox
-                                        checked={field.value?.includes(category.id)}
-                                        onCheckedChange={(checked) => {
-                                          return checked
-                                            ? field.onChange([...(field.value || []), category.id])
-                                            : field.onChange(
-                                                (field.value || []).filter(
-                                                  (value) => value !== category.id
-                                                )
-                                              )
-                                        }}
-                                      />
-                                    </FormControl>
-                                    <FormLabel className="font-normal">
-                                      {category.name}
-                                    </FormLabel>
-                                  </FormItem>
-                                )
-                              }}
-                            />
-                          ))}
-                        </div>
-                      </ScrollArea>
+              <div className="space-y-4 rounded-md border p-4">
+                 <FormField
+                    control={form.control}
+                    name="canSendNotifications"
+                    render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                             <FormControl>
+                                <Checkbox
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                                <FormLabel className="flex items-center">
+                                    <Bell className="mr-2 h-4 w-4 text-primary" />
+                                    Мэдэгдэл илгээх эрхтэй
+                                </FormLabel>
+                                <FormDescription>
+                                Энэ дэд админ мэдэгдэл илгээх хэсэгт хандах, мэдэгдэл илгээх боломжтой эсэх.
+                                </FormDescription>
+                            </div>
+                        </FormItem>
                     )}
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                />
+                <FormField
+                  control={form.control}
+                  name="allowedCategoryIds"
+                  render={() => (
+                    <FormItem>
+                      <FormLabel className="flex items-center">
+                        <ListChecks className="mr-2 h-5 w-5 text-primary" />
+                        Зөвшөөрсөн категориуд
+                      </FormLabel>
+                      <FormDescription>Энэ Дэд админы удирдаж болох бүртгэлийн категориудыг сонгоно уу.</FormDescription>
+                      {loadingCategories ? (
+                        <p>Категориудыг ачаалж байна...</p>
+                      ) : allCategories.length === 0 ? (
+                        <p className="text-muted-foreground">Оноох боломжтой категори алга. Эхлээд категори үүсгэнэ үү.</p>
+                      ) : (
+                        <ScrollArea className="h-48 rounded-md border p-3">
+                          <div className="space-y-2">
+                            {allCategories.map((category) => (
+                              <FormField
+                                key={category.id}
+                                control={form.control}
+                                name="allowedCategoryIds"
+                                render={({ field }) => {
+                                  return (
+                                    <FormItem
+                                      key={category.id}
+                                      className="flex flex-row items-center space-x-3 space-y-0"
+                                    >
+                                      <FormControl>
+                                        <Checkbox
+                                          checked={field.value?.includes(category.id)}
+                                          onCheckedChange={(checked) => {
+                                            return checked
+                                              ? field.onChange([...(field.value || []), category.id])
+                                              : field.onChange(
+                                                  (field.value || []).filter(
+                                                    (value) => value !== category.id
+                                                  )
+                                                )
+                                          }}
+                                        />
+                                      </FormControl>
+                                      <FormLabel className="font-normal">
+                                        {category.name}
+                                      </FormLabel>
+                                    </FormItem>
+                                  )
+                                }}
+                              />
+                            ))}
+                          </div>
+                        </ScrollArea>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
             )}
           </CardContent>
         </Card>

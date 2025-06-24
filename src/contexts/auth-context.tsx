@@ -46,14 +46,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           let profileName = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Admin User';
           let profileAvatar = firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${(profileName).substring(0,2).toUpperCase()}&bg=FF5733&txt=FFFFFF`;
           let allowedCategoryIdsFromFirestore: string[] = [];
+          let canSendNotificationsFromFirestore = false;
           
           if (userDocSnap.exists()) {
             const userData = userDocSnap.data();
             userRoleFromFirestore = userData.role as UserRole || UserRole.SUB_ADMIN; 
             profileName = userData.name || profileName; 
             profileAvatar = userData.avatar || profileAvatar;
-            if (userRoleFromFirestore === UserRole.SUB_ADMIN) {
+            
+            if (userRoleFromFirestore === UserRole.SUPER_ADMIN) {
+              allowedCategoryIdsFromFirestore = [];
+              canSendNotificationsFromFirestore = true;
+            } else { // SUB_ADMIN
               allowedCategoryIdsFromFirestore = Array.isArray(userData.allowedCategoryIds) ? userData.allowedCategoryIds : [];
+              canSendNotificationsFromFirestore = userData.canSendNotifications === true;
             }
 
             if (firebaseUser.displayName !== profileName || firebaseUser.photoURL !== profileAvatar) {
@@ -76,16 +82,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 avatar: avatarForDoc,
                 createdAt: serverTimestamp(), 
                 updatedAt: serverTimestamp(),
+                allowedCategoryIds: [],
+                canSendNotifications: false, // Default for new users
               };
-              if (newFirestoreDocData.role === UserRole.SUB_ADMIN) {
-                newFirestoreDocData.allowedCategoryIds = []; 
-              }
 
               await setDoc(userDocRef, newFirestoreDocData);
               profileName = nameForDoc;
               profileAvatar = avatarForDoc;
               userRoleFromFirestore = UserRole.SUB_ADMIN; 
               allowedCategoryIdsFromFirestore = [];
+              canSendNotificationsFromFirestore = false;
               toast({title: "Admin Profile Initialized", description: `Your admin profile has been initialized in Firestore with role ${userRoleFromFirestore}.`, duration: 7000});
             } catch (firestoreSetError: any) {
                 console.error(`AuthContext: FAILED to create Firestore document in '${ADMINS_COLLECTION}' for admin ${firebaseUser.uid}. Error:`, firestoreSetError);
@@ -106,6 +112,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             role: userRoleFromFirestore, 
             avatar: profileAvatar,
             allowedCategoryIds: allowedCategoryIdsFromFirestore,
+            canSendNotifications: canSendNotificationsFromFirestore,
           };
           setCurrentUserLocal(userProfile);
 

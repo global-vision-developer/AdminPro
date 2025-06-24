@@ -26,7 +26,7 @@ import { revalidatePath } from "next/cache";
 const ADMINS_COLLECTION = "admins";
 
 export async function addAdminUser(
-  data: Required<Pick<UserProfile, "name" | "email" | "role">> & { password?: string; allowedCategoryIds?: string[] }
+  data: Required<Pick<UserProfile, "name" | "email" | "role">> & { password?: string; allowedCategoryIds?: string[], canSendNotifications?: boolean }
 ): Promise<{ success?: boolean; error?: string; message?: string }> {
     if (!data.password) {
         return { error: "Нууц үг оруулах шаардлагатай." };
@@ -41,6 +41,7 @@ export async function addAdminUser(
             name: data.name,
             role: data.role,
             allowedCategoryIds: data.role === UserRole.SUB_ADMIN ? data.allowedCategoryIds || [] : [],
+            canSendNotifications: data.role === UserRole.SUB_ADMIN ? data.canSendNotifications || false : true,
         };
         
         const result = await callCreateAdmin(payload) as HttpsCallableResult<{success?: boolean; message?: string; error?: string; userId?: string}>;
@@ -63,7 +64,7 @@ export async function addAdminUser(
 
 export async function updateAdminUser(
   userId: string,
-  data: Partial<Pick<UserProfile, "name" | "email" | "role" | "allowedCategoryIds" | "avatar">> & { newPassword?: string }
+  data: Partial<Pick<UserProfile, "name" | "email" | "role" | "allowedCategoryIds" | "avatar" | "canSendNotifications">> & { newPassword?: string }
 ): Promise<{ success?: boolean; error?: string; message?: string }> {
   try {
     const adminDocRef = doc(db, ADMINS_COLLECTION, userId);
@@ -76,11 +77,15 @@ export async function updateAdminUser(
     if (data.avatar !== undefined) updatePayloadFirestore.avatar = data.avatar;
 
     if (data.role === UserRole.SUB_ADMIN) {
-      updatePayloadFirestore.allowedCategoryIds = data.allowedCategoryIds || [];
+      if (data.allowedCategoryIds !== undefined) {
+        updatePayloadFirestore.allowedCategoryIds = data.allowedCategoryIds;
+      }
+      if (data.canSendNotifications !== undefined) {
+        updatePayloadFirestore.canSendNotifications = data.canSendNotifications;
+      }
     } else if (data.role === UserRole.SUPER_ADMIN) {
       updatePayloadFirestore.allowedCategoryIds = [];
-    } else if (data.allowedCategoryIds !== undefined) {
-      updatePayloadFirestore.allowedCategoryIds = data.allowedCategoryIds;
+      updatePayloadFirestore.canSendNotifications = true;
     }
     
     const currentDoc = await getDoc(adminDocRef);
@@ -149,6 +154,7 @@ export async function getAdminUsers(): Promise<UserProfile[]> {
         role: data.role || UserRole.SUB_ADMIN,
         avatar: data.avatar,
         allowedCategoryIds: data.allowedCategoryIds || [],
+        canSendNotifications: data.canSendNotifications === true,
         createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : undefined,
         updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().toISOString() : undefined,
       };
@@ -173,6 +179,7 @@ export async function getAdminUser(id: string): Promise<UserProfile | null> {
         role: data.role || UserRole.SUB_ADMIN,
         avatar: data.avatar,
         allowedCategoryIds: data.allowedCategoryIds || [],
+        canSendNotifications: data.canSendNotifications === true,
         createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : undefined,
         updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().toISOString() : undefined,
       };

@@ -12,6 +12,7 @@ export interface UserProfile {
   role: UserRole;
   avatar?: string;
   allowedCategoryIds?: string[];
+  canSendNotifications?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }

@@ -165,10 +165,11 @@ export const sendNotification = onCall(
       }
 
       const messagePayload: admin.messaging.MulticastMessage = {
-        notification: Object.assign(
-          {title: title, body: body},
-          imageUrl && {imageUrl: imageUrl}
-        ),
+        notification: {
+          title: title,
+          body: body,
+          ...(imageUrl && {imageUrl: imageUrl}),
+        },
         tokens: tokensToSend,
         data: dataPayload,
       };
@@ -181,12 +182,13 @@ export const sendNotification = onCall(
         const token = tokensToSend[index];
         const user = tokenToUserMap.get(token);
 
-        const targetLog: Partial<NotificationTargetForLog> = {
+        const targetLog: NotificationTargetForLog = {
           userId: user?.id || "unknown",
           token: token,
           status: result.success ? "success" : "failed",
           attemptedAt: currentTimestamp,
         };
+
         if (user?.email) {
           targetLog.userEmail = user.email;
         }
@@ -203,7 +205,7 @@ export const sendNotification = onCall(
             targetLog.error = result.error.message;
           }
         }
-        targetsForLog.push(targetLog as NotificationTargetForLog);
+        targetsForLog.push(targetLog);
       });
 
       const finalProcessingStatus =
@@ -417,6 +419,7 @@ interface CreateAdminUserData {
   name: string;
   role: UserRole;
   allowedCategoryIds?: string[];
+  canSendNotifications?: boolean;
 }
 export const createAdminUser = onCall(
   {region: "us-central1"},
@@ -456,7 +459,7 @@ export const createAdminUser = onCall(
       );
     }
 
-    const {email, password, name, role, allowedCategoryIds = []} = request.data;
+    const {email, password, name, role, allowedCategoryIds = [], canSendNotifications = false} = request.data;
     if (!email || !password || !name || !role) {
       throw new HttpsError(
         "invalid-argument",
@@ -500,6 +503,7 @@ export const createAdminUser = onCall(
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         allowedCategoryIds:
           role === UserRole.SUB_ADMIN ? allowedCategoryIds : [],
+        canSendNotifications: role === UserRole.SUPER_ADMIN ? true : canSendNotifications,
       };
 
       await adminDocRef.set(firestoreAdminData);
