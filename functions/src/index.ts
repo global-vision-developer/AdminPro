@@ -157,18 +157,21 @@ export const sendNotification = onCall(
         };
       }
 
+      const dataPayload: { [key: string]: string } = {
+        _internalMessageId: new Date().getTime().toString() + Math.random().toString(),
+      };
+
+      if (deepLink) {
+        dataPayload.deepLink = deepLink;
+      }
+
       const messagePayload: admin.messaging.MulticastMessage = {
         notification: Object.assign(
           {title: title, body: body},
           imageUrl && {imageUrl: imageUrl}
         ),
         tokens: tokensToSend,
-        data: Object.assign(
-          {},
-          deepLink && {deepLink: deepLink},
-          // Add a unique ID to each message to prevent collapsing
-          {_internalMessageId: new Date().getTime().toString() + Math.random().toString()}
-        ),
+        data: dataPayload,
       };
 
       logger.info(`Sending ${tokensToSend.length} messages.`);
@@ -549,5 +552,3 @@ export const createAdminUser = onCall(
     }
   }
 );
-
-    
