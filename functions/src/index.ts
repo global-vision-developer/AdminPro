@@ -35,214 +35,140 @@ interface FunctionNotificationTarget {
   attemptedAt?: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
 }
 
-export const processNotificationRequest = onDocumentCreated(
-  {
-    document: "notifications/{notificationId}",
-    region: "us-central1",
-  },
-  async (
-    event: FirestoreEvent<FirebaseFirestore.DocumentSnapshot | undefined>
-  ) => {
-    const notificationId = event.params.notificationId;
-    const snapshot = event.data;
+interface AppUser {
+  id: string;
+  email: string;
+  displayName?: string;
+  fcmTokens?: string[];
+}
+interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+}
 
-    if (!snapshot) {
-      logger.error(`No data for event. ID: ${notificationId}`);
-      return null;
+interface SendNotificationPayload {
+  title: string;
+  body: string;
+  imageUrl?: string | null;
+  deepLink?: string | null;
+  scheduleAt?: string | null; // Comes as ISO string from client
+  selectedUsers: Pick<AppUser, "id" | "email" | "displayName" | "fcmTokens">[];
+  adminCreator: Pick<UserProfile, "id" | "name" | "email">;
+}
+
+export const sendNotification = onCall(
+  {region: "us-central1"},
+  async (request: CallableRequest<SendNotificationPayload>) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "The function must be called while authenticated.");
     }
 
-    const notificationData = snapshot.data();
+    const {title, body, imageUrl, deepLink, scheduleAt, selectedUsers, adminCreator} = request.data;
 
-    if (!notificationData) {
-      logger.error(`Notification data undefined. ID: ${notificationId}`);
-      return null;
+    if (!title || !body || !selectedUsers || !Array.isArray(selectedUsers) || selectedUsers.length === 0) {
+      throw new HttpsError("invalid-argument", "Missing required fields: title, body, and selectedUsers.");
     }
 
-    logger.info(`Processing notification. ID: ${notificationId}`);
-
-    const {
-      title,
-      body,
-      imageUrl,
-      deepLink,
-      targets,
-      scheduleAt,
-      processingStatus,
-    } = notificationData;
-
-    // Check if the notification is ready to be processed
-    const isReadyToProcess =
-        processingStatus === "pending" ||
-        (processingStatus === "scheduled" &&
-          scheduleAt &&
-          scheduleAt.toMillis() <= Date.now() + 5 * 60 * 1000);
-
-    // If it's scheduled for a later time, do nothing and exit.
-    if (processingStatus === "scheduled" && scheduleAt && scheduleAt.toMillis() > Date.now() + 5 * 60 * 1000) {
-      logger.info(`ID ${notificationId} is scheduled for a later time. No action needed now.`);
-      return null;
-    }
-
-    // If it's not pending or a due scheduled notification, exit.
-    if (!isReadyToProcess) {
-      logger.info(
-          `ID ${notificationId} is not in a state to be processed (status: ${processingStatus}). Exiting.`
-      );
-      return null;
-    }
-
-
-    // Update status to 'processing' since it's ready.
-    try {
-      await db.doc(`notifications/${notificationId}`).update({
-        processingStatus: "processing",
-        processedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-    } catch (updateError) {
-      logger.error(
-        `Err upd status to processing. ID: ${notificationId}:`,
-        updateError
-      );
-      return null; // Stop if status can't be updated
-    }
-
-
-    const tokensToSend: string[] = [];
-    const typedTargets = targets as unknown as (FunctionNotificationTarget[] | undefined);
-
-    const originalTargetsArray: FunctionNotificationTarget[] =
-      Array.isArray(typedTargets) ?
-        typedTargets.map(
-          (t: FunctionNotificationTarget) => ({...t})
-        ) : [];
-
-
-    originalTargetsArray.forEach((target) => {
-      if (target && target.token && target.status === "pending") {
-        tokensToSend.push(target.token);
+    const targets: FunctionNotificationTarget[] = [];
+    selectedUsers.forEach((user) => {
+      if (user.fcmTokens && user.fcmTokens.length > 0) {
+        user.fcmTokens.forEach((token: string) => {
+          if (token) {
+            targets.push({
+              userId: user.id,
+              userEmail: user.email,
+              userName: user.displayName,
+              token: token,
+              status: "pending",
+            });
+          }
+        });
       }
     });
 
-    if (tokensToSend.length === 0) {
-      logger.info(`No valid pending tokens for ID: ${notificationId}`);
-      await db
-        .doc(`notifications/${notificationId}`)
-        .update({processingStatus: "completed_no_targets"})
-        .catch((err) =>
-          logger.error("Err updating to completed_no_targets:", err)
-        );
-      return null;
+    if (targets.length === 0) {
+      return {success: false, message: "Сонгосон хэрэглэгчдэд идэвхтэй FCM token олдсонгүй."};
     }
 
-    const messagePayload: admin.messaging.MulticastMessage = {
-      notification: {
-        title: title || "New Notification",
-        body: body || "You have a new message.",
-        ...(imageUrl && {imageUrl: imageUrl as string}),
-      },
-      tokens: tokensToSend,
-      data: {
-        ...(deepLink && {deepLink: deepLink as string}),
-        notificationId: notificationId,
-      },
+    const notificationLog: any = {
+      title,
+      body,
+      imageUrl: imageUrl || null,
+      deepLink: deepLink || null,
+      adminCreator,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      targets: targets,
+      processingStatus: "pending",
     };
 
-    logger.info(
-      `Sending ${tokensToSend.length} msgs for ID: ${notificationId}. ` +
-      `Payload: ${JSON.stringify(messagePayload.notification)}`
-    );
+    if (scheduleAt) {
+      notificationLog.scheduleAt = admin.firestore.Timestamp.fromDate(new Date(scheduleAt));
+      notificationLog.processingStatus = "scheduled";
+      const scheduledDocRef = await addDoc(admin.firestore().collection("notifications"), notificationLog);
+      logger.info(`Scheduled notification ${scheduledDocRef.id} for later.`);
+      return {success: true, message: `Мэдэгдэл амжилттай хуваарьт орлоо (ID: ${scheduledDocRef.id}).`};
+    }
+
+    notificationLog.processingStatus = "processing";
+    notificationLog.processedAt = admin.firestore.FieldValue.serverTimestamp();
+    const docRef = await addDoc(admin.firestore().collection("notifications"), notificationLog);
+    const notificationId = docRef.id;
+    logger.info(`Processing immediate notification ${notificationId}.`);
+
+    const tokensToSend = targets.map((t) => t.token);
+    const messagePayload: admin.messaging.MulticastMessage = {
+      notification: {title, body, ...(imageUrl && {imageUrl})},
+      tokens: tokensToSend,
+      data: {...(deepLink && {deepLink}), notificationId},
+    };
 
     try {
       const response = await messaging.sendEachForMulticast(messagePayload);
-      logger.info(
-        `Sent ${response.successCount} successful msgs for ID: ` +
-        notificationId
-      );
+      logger.info(`Sent ${response.successCount} successful msgs for ID: ${notificationId}`);
       if (response.failureCount > 0) {
-        logger.warn(
-          `Failed to send ${response.failureCount} msgs for ID: ` +
-          notificationId
-        );
+        logger.warn(`Failed to send ${response.failureCount} msgs for ID: ${notificationId}`);
       }
 
       let allSentSuccessfully = response.failureCount === 0;
-      const updatedTargetsFirestore = [...originalTargetsArray];
+      const updatedTargetsFirestore = [...targets];
       const currentTimestamp = admin.firestore.FieldValue.serverTimestamp();
 
       response.responses.forEach((result, index) => {
         const token = tokensToSend[index];
-        const originalTargetIndex = originalTargetsArray.findIndex(
-          (t) => t.token === token && t.status === "pending"
-        );
-
+        const originalTargetIndex = targets.findIndex((t) => t.token === token);
         if (originalTargetIndex !== -1) {
-          const targetToUpdateInFirestore: FunctionNotificationTarget =
-            updatedTargetsFirestore[originalTargetIndex];
+          const targetToUpdateInFirestore: FunctionNotificationTarget = updatedTargetsFirestore[originalTargetIndex];
           if (result.success) {
             targetToUpdateInFirestore.status = "success";
             targetToUpdateInFirestore.messageId = result.messageId;
             delete targetToUpdateInFirestore.error;
           } else {
             allSentSuccessfully = false;
-            targetToUpdateInFirestore.status = "failed" as const;
-            targetToUpdateInFirestore.error =
-              result.error?.message || "Unknown FCM error";
-            logger.error(
-              `Failed to send to token ${token} for notification ` +
-              `${notificationId}:`,
-              result.error
-            );
+            targetToUpdateInFirestore.status = "failed";
+            targetToUpdateInFirestore.error = result.error?.message || "Unknown FCM error";
           }
           targetToUpdateInFirestore.attemptedAt = currentTimestamp;
         }
       });
 
-      const finalProcessingStatus = allSentSuccessfully ?
-        "completed" :
-        "partially_completed";
-
-      await db.doc(`notifications/${notificationId}`).update({
+      const finalProcessingStatus = allSentSuccessfully ? "completed" : "partially_completed";
+      await updateDoc(docRef, {
         targets: updatedTargetsFirestore,
         processingStatus: finalProcessingStatus,
         processedAt: currentTimestamp,
       });
 
-      logger.info(
-        `ID: ${notificationId} processing finished. ` +
-        `Status: ${finalProcessingStatus}`
-      );
-    } catch (error) {
-      logger.error(
-        `Critical error sending multicast for ID: ${notificationId}:`,
-        error
-      );
-      const errorTimestamp = admin.firestore.FieldValue.serverTimestamp();
-      const updatedTargetsOnError = originalTargetsArray.map((t) => {
-        if (t.status === "pending") {
-          return {
-            ...t,
-            status: "failed" as const,
-            error: `General function error: ${(error as Error).message}`,
-            attemptedAt: errorTimestamp,
-          };
-        }
-        return t;
-      });
-      try {
-        await db
-          .doc(`notifications/${notificationId}`)
-          .update({
-            processingStatus: "error",
-            targets: updatedTargetsOnError,
-            processedAt: errorTimestamp,
-          });
-      } catch (err) {
-        logger.error("Error updating to error status:", err);
-      }
+      logger.info(`ID: ${notificationId} processing finished. Status: ${finalProcessingStatus}`);
+      return {success: true, message: `Мэдэгдэл илгээгдлээ. Амжилттай: ${response.successCount}, Амжилтгүй: ${response.failureCount}`};
+    } catch (error: any) {
+      logger.error(`Critical error sending multicast for ID: ${notificationId}:`, error);
+      await updateDoc(docRef, {processingStatus: "error", error: error.message});
+      throw new HttpsError("internal", "Мэдэгдэл илгээхэд алдаа гарлаа.", {details: error.message});
     }
-    return null;
   }
 );
+
 
 const ADMINS_COLLECTION = "admins";
 

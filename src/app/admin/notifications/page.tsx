@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { AppUser, NotificationLog } from '@/types';
 import { getAppUsers } from '@/lib/actions/appUserActions';
 import { NotificationForm, type NotificationFormValues } from './components/notification-form';
-import { createNotificationEntry, getNotificationLogs } from '@/lib/actions/notificationActions'; 
+import { sendNotificationAction, getNotificationLogs } from '@/lib/actions/notificationActions'; 
 import { NotificationHistory } from './components/notification-history'; // Import new component
 import { MailWarning, Send, Users, Loader2, Search as SearchIcon, Info, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -119,15 +119,15 @@ export default function NotificationsPage() {
         return;
     }
     
-    const result = await createNotificationEntry({ ...formData, selectedUsers: usersToSend, adminCreator: currentUser });
+    const result = await sendNotificationAction({ ...formData, selectedUsers: usersToSend, adminCreator: currentUser });
     setIsSubmittingNotification(false);
 
-    if (result && "id" in result) {
-      toast({ title: "Мэдэгдэл хүсэлт үүслээ", description: `Мэдэгдэл илгээх хүсэлт амжилттай үүсч, Firestore-д хадгалагдлаа (ID: ${result.id}). Firebase Function боловсруулахыг хүлээнэ үү.` });
+    if (result.success) {
+      toast({ title: "Хүсэлт амжилттай", description: result.message });
       setIsSendNotificationDialogOpen(false);
       setSelectedUsers({});
-      fetchData(); // Refresh data including logs
-    } else if (result && "error" in result) {
+      fetchData();
+    } else {
       toast({ title: "Алдаа", description: result.error, variant: "destructive" });
     }
   };
