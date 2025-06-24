@@ -39,6 +39,28 @@ interface SendNotificationPayload {
   adminCreator: Pick<UserProfile, "id" | "name" | "email">;
 }
 
+// Firestore-д хадгалах log-ийн төрлүүд
+interface NotificationTargetForLog {
+  userId: string;
+  userEmail: string | undefined;
+  userName: string | undefined;
+  token: string;
+  status: "pending";
+}
+
+interface NotificationLog {
+    title: string;
+    body: string;
+    imageUrl: string | null;
+    deepLink: string | null;
+    adminCreator: Pick<UserProfile, "id" | "name" | "email">;
+    createdAt: FirebaseFirestore.FieldValue;
+    targets: NotificationTargetForLog[];
+    processingStatus: "pending";
+    scheduleAt: FirebaseFirestore.Timestamp | null;
+}
+
+
 export const sendNotification = onCall(
   {region: "us-central1"},
   async (request: CallableRequest<SendNotificationPayload>) => {
@@ -72,7 +94,7 @@ export const sendNotification = onCall(
       );
     }
 
-    const targets = [];
+    const targets: NotificationTargetForLog[] = [];
     selectedUsers.forEach((user) => {
       if (user.fcmTokens && user.fcmTokens.length > 0) {
         user.fcmTokens.forEach((token: string) => {
@@ -96,7 +118,7 @@ export const sendNotification = onCall(
       };
     }
 
-    const notificationLog: Record<string, any> = {
+    const notificationLog: NotificationLog = {
       title,
       body,
       imageUrl: imageUrl || null,
@@ -279,7 +301,7 @@ export const updateAdminAuthDetails = onCall(
         default:
           errorCode = "internal";
           errorMessage =
-              (error as Error).message ||
+              (error as unknown as Error).message ||
               "An internal error occurred during auth update.";
         }
         throw new HttpsError(errorCode, errorMessage, {
@@ -287,7 +309,7 @@ export const updateAdminAuthDetails = onCall(
         });
       } else {
         errorMessage =
-          (error as Error).message || "An unknown error occurred.";
+          (error as unknown as Error).message || "An unknown error occurred.";
         throw new HttpsError("internal", errorMessage);
       }
     }
@@ -415,7 +437,7 @@ export const createAdminUser = onCall(
         default:
           errorCode = "internal";
           errorMessage =
-              (error as Error).message ||
+              (error as unknown as Error).message ||
               "An internal error occurred during auth user creation.";
         }
         throw new HttpsError(errorCode, errorMessage, {
@@ -424,7 +446,7 @@ export const createAdminUser = onCall(
       }
       throw new HttpsError(
         "internal",
-        (error as Error).message || "An unknown error occurred."
+        (error as unknown as Error).message || "An unknown error occurred."
       );
     }
   }
