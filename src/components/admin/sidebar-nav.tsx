@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -43,7 +42,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { href: "/admin/dashboard", label: "Хяналтын самбар", icon: LayoutDashboard },
   { 
-    href: "/admin/content", label: "Контент Удирдах", icon: Library,
+    href: "/admin/content", label: "Мэдээлэл удирдах", icon: Library,
     subItems: [
       { href: "/admin/categories", label: "Ангилал", icon: Library, roles: [UserRole.SUPER_ADMIN] },
       { href: "/admin/entries", label: "Өгөгдөл", icon: Newspaper, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
