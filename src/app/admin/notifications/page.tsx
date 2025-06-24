@@ -173,14 +173,6 @@ export default function NotificationsPage() {
         </div>
       </PageHeader>
 
-      <Alert variant="default" className="mb-4 border-blue-500">
-        <Info className="h-5 w-5 text-blue-500" />
-        <AlertTitle className="font-semibold text-blue-700">FCM Tokens-ийн тухай</AlertTitle>
-        <AlertDescription className="text-blue-600">
-          Энэ хэсэг нь Firebase Cloud Messaging (FCM) ашиглан notification илгээнэ. Таны хэрэглэгчийн аппликэйшн (React Native, Flutter, Swift, г.м) нь FCM-ээс авсан төхөөрөмжийн token-оо Firestore-ийн `users` collection доторх тухайн хэрэглэгчийн document-ийн `fcmTokens` (массивын төрөлтэй) талбарт хадгалах ёстой.
-        </AlertDescription>
-      </Alert>
-
       <Card>
         <CardHeader>
           <CardTitle>Апп Хэрэглэгчид</CardTitle>
@@ -280,5 +272,3 @@ export default function NotificationsPage() {
     </>
   );
 }
-
-    
