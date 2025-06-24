@@ -86,6 +86,29 @@ export const sendNotification = onCall(
       );
     }
 
+    // Scheduling logic: if scheduled for the future, just save and exit.
+    // A separate scheduled function would be needed to process these.
+    // For now, we will save it with a 'scheduled' status.
+    if (scheduleAt && new Date(scheduleAt).getTime() > Date.now()) {
+      const scheduledLog = {
+        title,
+        body,
+        imageUrl: imageUrl || null,
+        deepLink: deepLink || null,
+        adminCreator,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        targets: [], // Targets will be processed by the scheduled function
+        processingStatus: "scheduled",
+        scheduleAt: admin.firestore.Timestamp.fromDate(new Date(scheduleAt)),
+      };
+      const docRef = await db.collection("notifications").add(scheduledLog);
+      logger.info(`Notification ${docRef.id} has been scheduled for later.`);
+      return {
+        success: true,
+        message: `Мэдэгдэл хуваарьт амжилттай орлоо (ID: ${docRef.id}).`,
+      };
+    }
+
     const tokensToSend: string[] = [];
     const targetsForLog: NotificationTargetForLog[] = [];
     const tokenToUserMap = new Map<string, AppUser>();
@@ -153,17 +176,17 @@ export const sendNotification = onCall(
       response.failureCount === 0 ? "completed" : "partially_completed";
 
     const finalLog = {
-        title,
-        body,
-        imageUrl: imageUrl || null,
-        deepLink: deepLink || null,
-        adminCreator,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        targets: targetsForLog,
-        processingStatus: finalProcessingStatus,
-        scheduleAt: scheduleAt ?
-            admin.firestore.Timestamp.fromDate(new Date(scheduleAt)) :
-            null,
+      title,
+      body,
+      imageUrl: imageUrl || null,
+      deepLink: deepLink || null,
+      adminCreator,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      targets: targetsForLog,
+      processingStatus: finalProcessingStatus,
+      scheduleAt: scheduleAt ?
+        admin.firestore.Timestamp.fromDate(new Date(scheduleAt)) :
+        null,
     };
 
     const docRef = await db.collection("notifications").add(finalLog);
@@ -306,28 +329,28 @@ export const updateAdminAuthDetails = onCall(
       if (error && typeof error === "object" && "code" in error) {
         const firebaseErrorCode = (error as {code: string}).code;
         switch (firebaseErrorCode) {
-        case "auth/email-already-exists":
-          errorCode = "already-exists";
-          errorMessage =
-              "The new email address is already in use by another account.";
-          break;
-        case "auth/invalid-email":
-          errorCode = "invalid-argument";
-          errorMessage = "The new email address is not valid.";
-          break;
-        case "auth/user-not-found":
-          errorCode = "not-found";
-          errorMessage = "Target user not found in Firebase Authentication.";
-          break;
-        case "auth/weak-password":
-          errorCode = "invalid-argument";
-          errorMessage = "The new password is too weak.";
-          break;
-        default:
-          errorCode = "internal";
-          errorMessage =
-              (error as unknown as Error).message ||
-              "An internal error occurred during auth update.";
+          case "auth/email-already-exists":
+            errorCode = "already-exists";
+            errorMessage =
+                "The new email address is already in use by another account.";
+            break;
+          case "auth/invalid-email":
+            errorCode = "invalid-argument";
+            errorMessage = "The new email address is not valid.";
+            break;
+          case "auth/user-not-found":
+            errorCode = "not-found";
+            errorMessage = "Target user not found in Firebase Authentication.";
+            break;
+          case "auth/weak-password":
+            errorCode = "invalid-argument";
+            errorMessage = "The new password is too weak.";
+            break;
+          default:
+            errorCode = "internal";
+            errorMessage =
+                (error as unknown as Error).message ||
+                "An internal error occurred during auth update.";
         }
         throw new HttpsError(errorCode, errorMessage, {
           originalCode: firebaseErrorCode,
@@ -446,24 +469,24 @@ export const createAdminUser = onCall(
       if (error && typeof error === "object" && "code" in error) {
         const firebaseErrorCode = (error as {code: string}).code;
         switch (firebaseErrorCode) {
-        case "auth/email-already-exists":
-          errorCode = "already-exists";
-          errorMessage =
-              "The email address is already in use by another account.";
-          break;
-        case "auth/invalid-email":
-          errorCode = "invalid-argument";
-          errorMessage = "The email address is not valid.";
-          break;
-        case "auth/weak-password":
-          errorCode = "invalid-argument";
-          errorMessage = "The new password is too weak.";
-          break;
-        default:
-          errorCode = "internal";
-          errorMessage =
-              (error as unknown as Error).message ||
-              "An internal error occurred during auth user creation.";
+          case "auth/email-already-exists":
+            errorCode = "already-exists";
+            errorMessage =
+                "The email address is already in use by another account.";
+            break;
+          case "auth/invalid-email":
+            errorCode = "invalid-argument";
+            errorMessage = "The email address is not valid.";
+            break;
+          case "auth/weak-password":
+            errorCode = "invalid-argument";
+            errorMessage = "The new password is too weak.";
+            break;
+          default:
+            errorCode = "internal";
+            errorMessage =
+                (error as unknown as Error).message ||
+                "An internal error occurred during auth user creation.";
         }
         throw new HttpsError(errorCode, errorMessage, {
           originalCode: firebaseErrorCode,
@@ -476,5 +499,3 @@ export const createAdminUser = onCall(
     }
   }
 );
-
-    
