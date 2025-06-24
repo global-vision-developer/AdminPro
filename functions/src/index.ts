@@ -176,16 +176,32 @@ export const sendNotification = onCall(
       response.responses.forEach((result, index) => {
         const token = tokensToSend[index];
         const user = tokenToUserMap.get(token);
-        targetsForLog.push({
+
+        const targetLog: Partial<NotificationTargetForLog> = {
           userId: user?.id || "unknown",
-          userEmail: user?.email,
-          userName: user?.displayName,
           token: token,
           status: result.success ? "success" : "failed",
-          messageId: result.success ? result.messageId : undefined,
-          error: result.success ? undefined : result.error?.message,
           attemptedAt: currentTimestamp,
-        });
+        };
+
+        if (user?.email) {
+          targetLog.userEmail = user.email;
+        }
+        if (user?.displayName) {
+          targetLog.userName = user.displayName;
+        }
+
+        if (result.success) {
+          if (result.messageId) {
+            targetLog.messageId = result.messageId;
+          }
+        } else {
+          if (result.error) {
+            targetLog.error = result.error.message;
+          }
+        }
+        
+        targetsForLog.push(targetLog as NotificationTargetForLog);
       });
 
       const finalProcessingStatus =
@@ -532,3 +548,5 @@ export const createAdminUser = onCall(
     }
   }
 );
+
+    
