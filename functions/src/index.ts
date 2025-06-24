@@ -107,7 +107,7 @@ export const sendNotification = onCall(
         deepLink: deepLink || null,
         adminCreator,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        targets: [], // Targets will be processed by the scheduled function
+        targets: [], // Targets will be processed by a separate scheduled function
         processingStatus: "scheduled",
         scheduleAt: admin.firestore.Timestamp.fromDate(new Date(scheduleAt)),
       };
