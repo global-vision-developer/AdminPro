@@ -2,7 +2,7 @@
 "use server";
 
 import { db } from "@/lib/firebase";
-import type { NotificationLog } from "@/types";
+import type { NotificationLog, NotificationTarget } from "@/types";
 import { collection, getDocs, query, orderBy, limit, Timestamp } from "firebase/firestore";
 
 const NOTIFICATIONS_COLLECTION = "notifications";
@@ -18,6 +18,17 @@ export async function getNotificationLogs(): Promise<NotificationLog[]> {
     
     return querySnapshot.docs.map(doc => {
       const data = doc.data();
+      
+      // Manually process targets to convert Timestamps to strings
+      const rawTargets = data.targets || [];
+      const processedTargets: NotificationTarget[] = rawTargets.map((target: any) => {
+        const newTarget = { ...target };
+        if (target.attemptedAt && target.attemptedAt instanceof Timestamp) {
+          newTarget.attemptedAt = target.attemptedAt.toDate().toISOString();
+        }
+        return newTarget;
+      });
+
       return {
         id: doc.id,
         title: data.title,
@@ -29,7 +40,7 @@ export async function getNotificationLogs(): Promise<NotificationLog[]> {
         createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : new Date().toISOString(),
         processingStatus: data.processingStatus,
         processedAt: data.processedAt instanceof Timestamp ? data.processedAt.toDate().toISOString() : null,
-        targets: data.targets || [],
+        targets: processedTargets,
       } as NotificationLog;
     });
   } catch (error: any) {
