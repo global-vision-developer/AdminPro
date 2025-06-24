@@ -22,6 +22,7 @@ export enum FieldType {
   NUMBER = 'Number',
   DATE = 'Date',
   BOOLEAN = 'Boolean',
+  IMAGE = 'Image',
   IMAGE_GALLERY = 'Image Gallery',
   CITY_PICKER = 'City Picker', // Added
 }

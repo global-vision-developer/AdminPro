@@ -93,6 +93,26 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
             return value ? "Yes" : "No";
         case FieldType.NUMBER:
             return value.toLocaleString();
+        case FieldType.IMAGE:
+            if (typeof value === 'string' && (value.startsWith('http://') || value.startsWith('https://') || value.startsWith('data:image'))) {
+                return (
+                <div className="flex items-center space-x-2 w-32">
+                    <Image 
+                    data-ai-hint="preview thumbnail"
+                    src={value}
+                    alt={field.label || "Preview"}
+                    width={32} 
+                    height={32} 
+                    className="rounded object-cover h-8 w-8 border"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                    <a href={value} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline truncate" title={value}>
+                        Link
+                    </a>
+                </div>
+                );
+            }
+            return <span className="text-xs text-muted-foreground italic">No image</span>;
         case FieldType.IMAGE_GALLERY:
             if (Array.isArray(value) && value.length > 0) {
                 const galleryValue = value as ImageGalleryItemStored[];
@@ -117,29 +137,6 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
             }
             return <span className="text-xs text-muted-foreground italic">Empty gallery</span>;
         case FieldType.TEXT:
-            if ((field.key === 'nuur-zurag-url' || field.key === 'coverImage' || field.key === 'thumbnailUrl') && typeof value === 'string' && (value.startsWith('http://') || value.startsWith('https://') || value.startsWith('data:image'))) {
-                 return (
-                    <div className="flex items-center space-x-2 w-32">
-                        <Image 
-                        data-ai-hint="preview thumbnail"
-                        src={value} // Can be data URI or URL
-                        alt={field.label || "Preview"}
-                        width={32} 
-                        height={32} 
-                        className="rounded object-cover h-8 w-8 border"
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                        />
-                        {value.startsWith('data:image') ? (
-                           <span className="text-xs text-muted-foreground truncate" title="Base64 Image Data">Base64 Image</span>
-                        ) : (
-                           <a href={value} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline truncate" title={value}>
-                             Link
-                           </a>
-                        )}
-                    </div>
-                );
-            }
-            // Fallthrough for regular text
         case FieldType.TEXTAREA:
             const stringValue = String(value);
             return stringValue.length > 30 ? stringValue.substring(0, 27) + "..." : stringValue;

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -65,6 +66,15 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
         required: true,
         placeholder: 'Entry title or name',
         description: 'The main title or name for this entry.'
+      },
+      {
+        id: uuidv4(),
+        label: 'Cover Image',
+        key: 'cover-image',
+        type: FieldType.IMAGE,
+        required: false,
+        placeholder: 'Upload a cover image',
+        description: 'The main cover image for this entry.'
       },
       {
         id: uuidv4(),

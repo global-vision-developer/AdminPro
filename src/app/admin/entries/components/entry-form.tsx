@@ -57,9 +57,7 @@ const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, a
     let fieldSchema: z.ZodTypeAny;
     switch (field.type) {
       case FieldType.TEXT:
-        if (field.key === 'nuur-zurag-url' || field.label.toLowerCase().includes('image url') || field.label.toLowerCase().includes('cover image')) {
-            fieldSchema = z.string().nullable().optional();
-        } else if (field.required) {
+        if (field.required) {
           fieldSchema = z.string().trim().min(1, { message: `${field.label} field is required.` });
         } else {
           fieldSchema = z.string().optional().nullable().transform(val => val ?? '');
@@ -70,6 +68,13 @@ const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, a
           fieldSchema = z.string().trim().min(1, { message: `${field.label} field is required.` });
         } else {
           fieldSchema = z.string().optional().nullable().transform(val => val ?? '');
+        }
+        break;
+      case FieldType.IMAGE:
+        if (field.required) {
+            fieldSchema = z.string().min(1, { message: `${field.label} is required.` });
+        } else {
+            fieldSchema = z.string().nullable().optional();
         }
         break;
       case FieldType.NUMBER:
@@ -186,10 +191,8 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
             else if (field.type === FieldType.NUMBER) defaultDataValues[field.key] = undefined;
             else if (field.type === FieldType.DATE) defaultDataValues[field.key] = undefined;
             else if (field.type === FieldType.IMAGE_GALLERY) defaultDataValues[field.key] = [];
+            else if (field.type === FieldType.IMAGE) defaultDataValues[field.key] = null;
             else if (field.type === FieldType.CITY_PICKER) defaultDataValues[field.key] = undefined; // Default for City Picker
-            else if (field.key === 'nuur-zurag-url' || field.label.toLowerCase().includes('image url') || field.label.toLowerCase().includes('cover image')) {
-                 defaultDataValues[field.key] = null;
-            }
             else defaultDataValues[field.key] = '';
         }
     });
@@ -296,11 +299,10 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
         case FieldType.TEXT:
         case FieldType.TEXTAREA:
         case FieldType.CITY_PICKER: // City Picker stores string (ID) or null
-          if (field.key === 'nuur-zurag-url' || field.label.toLowerCase().includes('image url') || field.label.toLowerCase().includes('cover image')) {
-            valueToSave = typeof valueFromForm === 'string' ? valueFromForm : null;
-          } else {
-            valueToSave = (typeof valueFromForm === 'string') ? valueFromForm : (valueFromForm === null ? null : '');
-          }
+          valueToSave = (typeof valueFromForm === 'string') ? valueFromForm : (valueFromForm === null ? null : '');
+          break;
+        case FieldType.IMAGE:
+          valueToSave = typeof valueFromForm === 'string' && valueFromForm ? valueFromForm : null;
           break;
         case FieldType.IMAGE_GALLERY:
           valueToSave = Array.isArray(valueFromForm)
@@ -383,8 +385,7 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
                 {selectedCategory?.fields.map(catField => {
                   const isUserOnlyField = catField.description?.includes(USER_ONLY_FIELD_MARKER);
                   const Icon = catField.key === 'rating' ? Star : catField.key === 'comment' ? MessageSquareText : null;
-                  const isCoverImageField = catField.type === FieldType.TEXT && (catField.key === 'nuur-zurag-url' || catField.label.toLowerCase().includes('image url') || catField.label.toLowerCase().includes('cover image'));
-
+                  
                   if (isUserOnlyField) {
                     return (
                       <FormItem key={catField.id}>
@@ -401,6 +402,31 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
                         </div>
                       </FormItem>
                     );
+                  }
+
+                  if (catField.type === FieldType.IMAGE) {
+                     return (
+                        <FormField
+                            key={catField.id}
+                            control={form.control}
+                            name={`data.${catField.key}`}
+                            render={({ field: formHookField }) => (
+                                <FormItem>
+                                    <FormLabel>{catField.label}{catField.required && <span className="text-destructive">*</span>}</FormLabel>
+                                    {catField.description && <FormDescription>{catField.description}</FormDescription>}
+                                    <FormControl>
+                                        <ImageUploader
+                                            initialImageUrl={formHookField.value}
+                                            onUploadComplete={(url) => formHookField.onChange(url)}
+                                            storagePath="entries/"
+                                            label={catField.label}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                     );
                   }
 
                   if (catField.type === FieldType.IMAGE_GALLERY) {
@@ -472,31 +498,6 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
                     );
                   }
 
-                  if (isCoverImageField) {
-                     return (
-                        <FormField
-                            key={catField.id}
-                            control={form.control}
-                            name={`data.${catField.key}`}
-                            render={({ field: formHookField }) => (
-                                <FormItem>
-                                    <FormLabel>{catField.label === 'golheseg' ? 'аппын эхний нүүр хэсэг(home page) дээр preview гаргах эсэх' : catField.label}{catField.required && <span className="text-destructive">*</span>}</FormLabel>
-                                    {catField.description && <FormDescription>{catField.description === "Энэ бичлэгийн гол нүүр зургийн интернет хаяг." ? "үндсэн нүүр зургийн интернет хаяг(address)" : catField.description}</FormDescription>}
-                                    <FormControl>
-                                        <ImageUploader
-                                            initialImageUrl={formHookField.value}
-                                            onUploadComplete={(url) => formHookField.onChange(url)}
-                                            storagePath="entries/"
-                                            label={catField.label}
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                     );
-                  }
-
                   if (catField.type === FieldType.CITY_PICKER) {
                     return (
                       <FormField
@@ -537,7 +538,6 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
                       />
                     );
                   }
-
 
                   return (
                     <FormField
