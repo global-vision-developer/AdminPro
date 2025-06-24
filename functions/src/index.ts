@@ -1,4 +1,3 @@
-
 // functions/src/index.ts
 
 import {
@@ -53,6 +52,19 @@ interface NotificationTargetForLog {
   attemptedAt: FirebaseFirestore.Timestamp;
 }
 
+interface NotificationLog {
+    title: string;
+    body: string;
+    imageUrl: string | null;
+    deepLink: string | null;
+    adminCreator: Pick<UserProfile, "id" | "name" | "email">;
+    createdAt: FirebaseFirestore.FieldValue;
+    targets: NotificationTargetForLog[];
+    processingStatus: "completed" | "partially_completed" | "scheduled" | "completed_no_targets";
+    scheduleAt: FirebaseFirestore.Timestamp | null;
+}
+
+
 export const sendNotification = onCall(
   {region: "us-central1"},
   async (request: CallableRequest<SendNotificationPayload>) => {
@@ -86,11 +98,9 @@ export const sendNotification = onCall(
       );
     }
 
-    // Scheduling logic: if scheduled for the future, just save and exit.
-    // A separate scheduled function would be needed to process these.
-    // For now, we will save it with a 'scheduled' status.
+    // Scheduling logic
     if (scheduleAt && new Date(scheduleAt).getTime() > Date.now()) {
-      const scheduledLog = {
+      const scheduledLog: NotificationLog = {
         title,
         body,
         imageUrl: imageUrl || null,
@@ -125,8 +135,7 @@ export const sendNotification = onCall(
     });
 
     if (tokensToSend.length === 0) {
-      // Log this attempt but return a specific message
-      const noTokenLog = {
+      const noTokenLog: Partial<NotificationLog> = {
         title,
         body,
         adminCreator,
@@ -175,7 +184,7 @@ export const sendNotification = onCall(
     const finalProcessingStatus =
       response.failureCount === 0 ? "completed" : "partially_completed";
 
-    const finalLog = {
+    const finalLog: NotificationLog = {
       title,
       body,
       imageUrl: imageUrl || null,
@@ -329,28 +338,28 @@ export const updateAdminAuthDetails = onCall(
       if (error && typeof error === "object" && "code" in error) {
         const firebaseErrorCode = (error as {code: string}).code;
         switch (firebaseErrorCode) {
-          case "auth/email-already-exists":
-            errorCode = "already-exists";
-            errorMessage =
-                "The new email address is already in use by another account.";
-            break;
-          case "auth/invalid-email":
-            errorCode = "invalid-argument";
-            errorMessage = "The new email address is not valid.";
-            break;
-          case "auth/user-not-found":
-            errorCode = "not-found";
-            errorMessage = "Target user not found in Firebase Authentication.";
-            break;
-          case "auth/weak-password":
-            errorCode = "invalid-argument";
-            errorMessage = "The new password is too weak.";
-            break;
-          default:
-            errorCode = "internal";
-            errorMessage =
-                (error as unknown as Error).message ||
-                "An internal error occurred during auth update.";
+        case "auth/email-already-exists":
+          errorCode = "already-exists";
+          errorMessage =
+              "The new email address is already in use by another account.";
+          break;
+        case "auth/invalid-email":
+          errorCode = "invalid-argument";
+          errorMessage = "The new email address is not valid.";
+          break;
+        case "auth/user-not-found":
+          errorCode = "not-found";
+          errorMessage = "Target user not found in Firebase Authentication.";
+          break;
+        case "auth/weak-password":
+          errorCode = "invalid-argument";
+          errorMessage = "The new password is too weak.";
+          break;
+        default:
+          errorCode = "internal";
+          errorMessage =
+              (error as unknown as Error).message ||
+              "An internal error occurred during auth update.";
         }
         throw new HttpsError(errorCode, errorMessage, {
           originalCode: firebaseErrorCode,
@@ -469,24 +478,24 @@ export const createAdminUser = onCall(
       if (error && typeof error === "object" && "code" in error) {
         const firebaseErrorCode = (error as {code: string}).code;
         switch (firebaseErrorCode) {
-          case "auth/email-already-exists":
-            errorCode = "already-exists";
-            errorMessage =
-                "The email address is already in use by another account.";
-            break;
-          case "auth/invalid-email":
-            errorCode = "invalid-argument";
-            errorMessage = "The email address is not valid.";
-            break;
-          case "auth/weak-password":
-            errorCode = "invalid-argument";
-            errorMessage = "The new password is too weak.";
-            break;
-          default:
-            errorCode = "internal";
-            errorMessage =
-                (error as unknown as Error).message ||
-                "An internal error occurred during auth user creation.";
+        case "auth/email-already-exists":
+          errorCode = "already-exists";
+          errorMessage =
+              "The email address is already in use by another account.";
+          break;
+        case "auth/invalid-email":
+          errorCode = "invalid-argument";
+          errorMessage = "The email address is not valid.";
+          break;
+        case "auth/weak-password":
+          errorCode = "invalid-argument";
+          errorMessage = "The new password is too weak.";
+          break;
+        default:
+          errorCode = "internal";
+          errorMessage =
+              (error as unknown as Error).message ||
+              "An internal error occurred during auth user creation.";
         }
         throw new HttpsError(errorCode, errorMessage, {
           originalCode: firebaseErrorCode,
