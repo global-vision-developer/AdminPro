@@ -59,15 +59,13 @@ export async function createNotificationEntry(
       },
       createdAt: serverTimestamp(),
       targets: targets,
-      processingStatus: 'pending', // Default status
+      processingStatus: 'pending', // Default status for immediate sends
     };
 
+    // Only override status if it's a scheduled notification
     if (payload.scheduleAt) {
       notificationData.scheduleAt = Timestamp.fromDate(payload.scheduleAt);
       notificationData.processingStatus = 'scheduled';
-    } else {
-      // For immediate sends, set status to 'processing' right away for better UX.
-      notificationData.processingStatus = 'processing';
     }
 
     const docRef = await addDoc(collection(db, NOTIFICATIONS_COLLECTION), notificationData);
