@@ -4,6 +4,6 @@
 // but ensures the functions environment is self-contained.
 
 export enum UserRole {
-  SUPER_ADMIN = 'Super Admin',
-  SUB_ADMIN = 'Sub Admin',
+  SUPER_ADMIN = "Super Admin",
+  SUB_ADMIN = "Sub Admin",
 }
