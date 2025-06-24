@@ -90,7 +90,7 @@ export const processNotificationRequest = onDocumentCreated(
     }
 
     // Боловсруулж эхэлснийг тэмдэглэх
-    if (processingStatus !== "processing") {
+    if (processingStatus === "pending") {
       try {
         await db.doc(`notifications/${notificationId}`).update({
           processingStatus: "processing",
@@ -467,10 +467,8 @@ export const createAdminUser = onCall(
           errorMessage = (error as unknown as Error).message || "An internal error occurred during auth user creation.";
         }
         throw new HttpsError(errorCode, errorMessage, {originalCode: firebaseErrorCode});
-      } else {
-        errorMessage = (error as unknown as Error).message || "An unknown error occurred.";
-        throw new HttpsError("internal", errorMessage);
       }
+      throw new HttpsError("internal", (error as unknown as Error).message || "An unknown error occurred.");
     }
   }
 );
