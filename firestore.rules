@@ -1,0 +1,97 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- Helper Functions ---
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+        return get(/databases/$(database)/documents/admins/$(request.auth.uid)).data;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    function isSuperAdmin() {
+      return isAdmin() && getUserData().role == 'Super Admin';
+    }
+
+    function isSubAdmin() {
+      return isAdmin() && getUserData().role == 'Sub Admin';
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function canManageCategory(categoryId) {
+        return categoryId in getUserData().allowedCategoryIds;
+    }
+
+    function canSendNotifications() {
+        return isSuperAdmin() || (isSubAdmin() && getUserData().canSendNotifications == true);
+    }
+    
+    // --- Collection Rules ---
+
+    // Admins can only be managed via Cloud Functions invoked by a Super Admin.
+    // An admin can read their own profile data.
+    match /admins/{userId} {
+      allow read: if isSuperAdmin() || isOwner(userId);
+      // Writes are blocked from the client and must go through Cloud Functions.
+      allow write: if false;
+    }
+    
+    // App Users can only be read by Admins (for sending notifications).
+    // App users are created/updated by the client app, not the admin panel.
+    match /users/{userId} {
+        allow read: if isAdmin();
+        allow write: if false;
+    }
+    
+    // Categories can be read by any admin, but only written by Super Admins.
+    match /categories/{categoryId} {
+        allow read: if isAdmin();
+        allow write: if isSuperAdmin();
+    }
+    
+    // Entries have role-based permissions for read and write.
+    match /entries/{entryId} {
+      allow get: if isSuperAdmin() || (isSubAdmin() && canManageCategory(resource.data.categoryId));
+      allow list: if isAdmin(); // List queries are handled client-side
+      allow create: if isSuperAdmin() || (isSubAdmin() && canManageCategory(request.resource.data.categoryId));
+      allow update: if isSuperAdmin() || (isSubAdmin() && canManageCategory(resource.data.categoryId));
+      allow delete: if isSuperAdmin() || (isSubAdmin() && canManageCategory(resource.data.categoryId));
+    }
+    
+    // Notification logs can be read by any admin with notification permissions, but only created by Cloud Functions.
+    match /notifications/{notificationId} {
+        allow read: if canSendNotifications();
+        allow write: if false;
+    }
+
+    // Ankets (applications) can be read and updated by any admin.
+    match /ankets/{anketId} {
+        allow read, write: if isAdmin();
+    }
+    
+    // Banners can be read and managed by any admin.
+    match /banners/{bannerId} {
+        allow read, write: if isAdmin();
+    }
+
+    // Cities can be read by any admin, but only managed by any admin.
+    match /cities/{cityId} {
+        allow read, write: if isAdmin();
+    }
+    
+    // Help Items can be read and managed by any admin.
+    match /help_items/{helpId} {
+        allow read, write: if isAdmin();
+    }
+  }
+}
