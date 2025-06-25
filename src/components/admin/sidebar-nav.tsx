@@ -49,14 +49,14 @@ const navItems: NavItem[] = [
       { href: "/admin/banners", label: "Баннер", icon: ImageIcon, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
     ]
   },
-  { href: "/admin/notifications", label: "Мэдэгдэл", icon: Bell, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
+  { href: "/admin/notifications", label: "Мэдэгдэл", icon: Bell }, // Custom check will be applied
   { href: "/admin/users", label: "Хэрэглэгчид", icon: Users, roles: [UserRole.SUPER_ADMIN] },
   {
     href: "/admin/settings", label: "Тохиргоо", icon: Settings,
     roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN],
     subItems: [
-      { href: "/admin/cities", label: "Хотууд", icon: MapPin, roles: [UserRole.SUPER_ADMIN] },
-      { href: "/admin/anket", label: "Анкет", icon: FileText, roles: [UserRole.SUPER_ADMIN] },
+      { href: "/admin/cities", label: "Хотууд", icon: MapPin, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
+      { href: "/admin/anket", label: "Анкет", icon: FileText, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
       { href: "/admin/help", label: "Тусламж", icon: HelpCircle, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
     ]
   },
@@ -76,9 +76,17 @@ export function SidebarNav() {
   if (!currentUser) return null;
 
   const renderNavItem = (item: NavItem, isSubItem = false) => {
-    if (item.roles && !item.roles.includes(currentUser.role)) {
+    // Custom check for Notifications
+    if (item.href === "/admin/notifications") {
+        const canSeeNotifications = currentUser.role === UserRole.SUPER_ADMIN || 
+                                    (currentUser.role === UserRole.SUB_ADMIN && currentUser.canSendNotifications);
+        if (!canSeeNotifications) {
+            return null;
+        }
+    } else if (item.roles && !item.roles.includes(currentUser.role)) {
       return null;
     }
+    
     if (item.hideIfSubAdmin && currentUser.role === UserRole.SUB_ADMIN) {
         return null;
     }
