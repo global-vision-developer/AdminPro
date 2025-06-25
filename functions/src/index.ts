@@ -168,31 +168,18 @@ export const sendNotification = onCall(
         };
       }
 
-      // **FIX**: The client app expects a specific data payload to build the in-app notification history.
-      // We will now structure the `data` payload to match the format the client app expects,
-      // using the raw title and body from the form for the `titleKey` and `descriptionKey` fields.
-      const dataPayload: { [key: string]: any } = {
-        // The client expects keys for localization. We'll pass the raw strings.
-        // The client app should be designed to display the key itself if a localization isn't found.
+      // **FIX**: Corrected the data payload to only contain strings as required by FCM.
+      // All values are now guaranteed to be strings.
+      const dataPayloadForFCM: { [key:string]: string } = {
         titleKey: title,
         descriptionKey: body,
-        
-        // The client expects an `itemType` to categorize the notification.
         itemType: "general",
-
-        // These fields are for navigation and display.
-        link: deepLink || null,
-        imageUrl: imageUrl || null,
-        
-        // The client might expect these fields, even if they are empty for a general notification.
-        descriptionPlaceholders: {}, // Sending as empty map
-        dataAiHint: null,
-
-        // The client also seems to add these fields, but sending them might ensure consistency.
+        link: deepLink || '', // Ensure string
+        imageUrl: imageUrl || '', // Ensure string
+        descriptionPlaceholders: JSON.stringify({}), // Stringify object
+        dataAiHint: '', // Use empty string for null
         isGlobal: "false",
         read: "false",
-        
-        // Keep a unique ID for debugging or other client-side purposes
         _internalMessageId: new Date().getTime().toString() + Math.random().toString(),
       };
 
@@ -217,7 +204,7 @@ export const sendNotification = onCall(
         tokens: tokensToSend,
         // This 'data' part is delivered to the app's message handler for custom logic,
         // like saving to Firestore.
-        data: dataPayload,
+        data: dataPayloadForFCM,
       };
 
       logger.info(`Sending ${tokensToSend.length} messages.`);
@@ -680,3 +667,5 @@ export const deleteAdminUser = onCall(
     }
   }
 );
+
+    
