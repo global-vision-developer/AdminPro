@@ -232,7 +232,7 @@ export const sendNotification = onCall(
         success: true,
         message: `Мэдэгдэл илгээгдлээ. ${response.successCount} амжилттай, ${response.failureCount} амжилтгүй.`,
       };
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Error in sendNotification function:", error);
       if (error instanceof HttpsError) {
         throw error;
@@ -409,13 +409,13 @@ export const updateAdminAuthDetails = onCall(
             break;
           default:
             errorCode = "internal";
-            errorMessage = (error as Error).message || "An internal error occurred during update.";
+            errorMessage = (error as unknown as Error).message || "An internal error occurred during update.";
         }
         throw new HttpsError(errorCode, errorMessage, {
           originalCode: firebaseErrorCode,
         });
       } else {
-        errorMessage = (error as Error).message || "An unknown error occurred.";
+        errorMessage = (error as unknown as Error).message || "An unknown error occurred.";
         throw new HttpsError("internal", errorMessage);
       }
     }
@@ -628,5 +628,3 @@ export const deleteAdminUser = onCall(
     }
   }
 );
-
-    
