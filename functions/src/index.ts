@@ -170,9 +170,12 @@ export const sendNotification = onCall(
 
       // **FIX**: Ensure all necessary data is in the data payload for client-side processing
       const dataPayload: { [key: string]: string } = {
-        _internalMessageId: new Date().getTime().toString() + Math.random().toString(),
         title: title,
         body: body,
+        itemType: "general",
+        isGlobal: "false",
+        read: "false",
+        _internalMessageId: new Date().getTime().toString() + Math.random().toString(),
       };
       if (deepLink) {
         dataPayload.deepLink = deepLink;
@@ -183,9 +186,18 @@ export const sendNotification = onCall(
 
       const messagePayload: admin.messaging.MulticastMessage = {
         notification: {
-          title: title,
-          body: body,
-          ...(imageUrl && {imageUrl: imageUrl}),
+          title,
+          body,
+          ...(imageUrl && { imageUrl }),
+        },
+        webpush: {
+          notification: {
+            title,
+            body,
+            ...(imageUrl && { image: imageUrl }), // Use 'image' for the web standard
+            icon: "https://placehold.co/96x96.png?text=AP&bg=FF5733&txt=FFFFFF",
+            badge: "https://placehold.co/96x96.png?text=AP&bg=FF5733&txt=FFFFFF",
+          },
         },
         tokens: tokensToSend,
         data: dataPayload,
@@ -651,5 +663,3 @@ export const deleteAdminUser = onCall(
     }
   }
 );
-
-    
