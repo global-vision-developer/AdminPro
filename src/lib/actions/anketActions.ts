@@ -31,10 +31,11 @@ export async function getAnkets(statusFilter?: AnketStatus): Promise<Anket[]> {
   try {
     const anketsRef = collection(db, ANKETS_COLLECTION);
     
-    // Order by 'createdAt' field, which should exist if serverTimestamp() is used on creation.
+    // Query without ordering by a potentially non-existent field.
+    // Sorting will be done in-memory after fetching.
     const q = statusFilter 
-      ? query(anketsRef, where("status", "==", statusFilter), orderBy("createdAt", "desc")) 
-      : query(anketsRef, orderBy("createdAt", "desc"));
+      ? query(anketsRef, where("status", "==", statusFilter))
+      : query(anketsRef);
       
     const [querySnapshot, usersMap] = await Promise.all([
         getDocs(q),
@@ -45,23 +46,35 @@ export async function getAnkets(statusFilter?: AnketStatus): Promise<Anket[]> {
       const data = doc.data();
       const user = usersMap[data.uid || doc.id] || null;
 
+      // Handle missing createdAt/submittedAt gracefully
+      let submittedAtDate;
+      if (data.createdAt && data.createdAt instanceof Timestamp) {
+        submittedAtDate = data.createdAt.toDate();
+      } else if (data.submittedAt && data.submittedAt instanceof Timestamp) { // Also check for submittedAt
+        submittedAtDate = data.submittedAt.toDate();
+      } else {
+        console.warn(`Anket document (ID: ${doc.id}) has no valid 'createdAt' or 'submittedAt' timestamp. Using fallback.`);
+        submittedAtDate = new Date(); // Fallback to current date
+      }
+
       return {
         id: doc.id,
         uid: data.uid || doc.id,
         name: data.name || user?.displayName || "Unknown User",
         email: user?.email || "No Email",
-        submittedAt: (data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date()).toISOString(),
+        submittedAt: submittedAtDate.toISOString(),
         status: data.status || AnketStatus.PENDING,
         averageRating: data.averageRating ?? null,
       } as Anket;
     });
     
-    return ankets;
+    // Since we removed orderBy from the query, we sort here in the code.
+    return ankets.sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
 
   } catch (e: any) {
     console.error("Error getting ankets: ", e);
     if (e.code === 'failed-precondition' && e.message?.includes('index')) {
-        console.error("Firestore index missing for 'ankets' query. Please create a composite index for 'status' and 'createdAt' in the Firebase console.");
+        console.error("Firestore index missing for 'ankets' query. Please create a composite index for 'status' in the Firebase console.");
     }
     return [];
   }
@@ -86,6 +99,16 @@ export async function getAnket(id: string): Promise<Anket | null> {
       const canWorkInOtherCitiesNames = Array.isArray(data.canWorkInOtherCities) 
         ? data.canWorkInOtherCities.map((cityId: string) => citiesMap[cityId] || cityId) 
         : [];
+        
+      // Handle missing createdAt/submittedAt gracefully
+      let submittedAtDate;
+      if (data.createdAt && data.createdAt instanceof Timestamp) {
+        submittedAtDate = data.createdAt.toDate();
+      } else if (data.submittedAt && data.submittedAt instanceof Timestamp) {
+        submittedAtDate = data.submittedAt.toDate();
+      } else {
+        submittedAtDate = new Date(); // Fallback to current date
+      }
 
       return {
         id: anketSnap.id,
@@ -93,7 +116,7 @@ export async function getAnket(id: string): Promise<Anket | null> {
         name: data.name || user?.displayName || "Unknown User",
         email: user?.email || "No Email",
         status: data.status || AnketStatus.PENDING,
-        submittedAt: (data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date()).toISOString(),
+        submittedAt: submittedAtDate.toISOString(),
         processedBy: data.processedBy,
         processedAt: data.processedAt instanceof Timestamp ? data.processedAt.toDate().toISOString() : undefined,
         
@@ -241,7 +264,7 @@ export async function approveAnketAndCreateTranslatorEntry(
     await batch.commit();
 
     revalidatePath("/admin/anket");
-    revalidatePath(`/admin/anket/${id}`);
+    revalidatePath(`/admin/anket/${anketId}`);
     revalidatePath("/admin/entries");
     revalidatePath(`/admin/entries?category=${translatorCategory.id}`);
 
