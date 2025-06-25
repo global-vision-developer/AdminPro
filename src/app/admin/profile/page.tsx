@@ -26,7 +26,7 @@ const profileFormSchema = z.object({
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
 export default function ProfilePage() {
-  const { currentUser, loading } = useAuth();
+  const { currentUser, loading, updateCurrentUserProfile } = useAuth();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -55,7 +55,6 @@ export default function ProfilePage() {
     }
     setIsSubmitting(true);
     
-    // Call the unified server action which handles both Auth and Firestore updates via the Cloud Function
     const result = await updateAdminUser(currentUser.id, {
       name: data.name,
       avatar: data.avatar,
@@ -66,9 +65,9 @@ export default function ProfilePage() {
         title: "Профайл Шинэчлэгдлээ",
         description: result.message || "Таны профайл амжилттай шинэчлэгдлээ.",
       });
+      // Immediately update the local state to reflect changes in UI
+      updateCurrentUserProfile({ name: data.name, avatar: data.avatar });
       setIsEditing(false);
-      // NOTE: The useAuth hook will eventually get the updated user data from onAuthStateChanged
-      // but it can be slow. A page refresh might be needed for instant UI updates, or a more complex state management.
     } else {
        toast({
         title: "Шинэчлэлт Амжилтгүй",

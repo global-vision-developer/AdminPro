@@ -22,6 +22,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>; 
   logout: () => Promise<void>;
   loading: boolean;
+  updateCurrentUserProfile: (data: Partial<UserProfile>) => void;
 }
 
 const ADMINS_COLLECTION = "admins";
@@ -33,6 +34,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
+
+  const updateCurrentUserProfile = useCallback((data: Partial<UserProfile>) => {
+    setCurrentUserLocal(prevUser => {
+      if (!prevUser) return null;
+      return { ...prevUser, ...data };
+    });
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -170,7 +178,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [router, toast]);
 
   return (
-    <AuthContext.Provider value={{ currentUser: currentUser, login, logout, loading }}>
+    <AuthContext.Provider value={{ currentUser: currentUser, login, logout, loading, updateCurrentUserProfile }}>
       {children}
     </AuthContext.Provider>
   );
