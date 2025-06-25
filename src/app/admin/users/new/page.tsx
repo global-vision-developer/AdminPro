@@ -41,7 +41,7 @@ export default function NewUserPage() {
     return <div className="p-4"><p>Админы нэвтрэлтийг шалгаж байна...</p></div>;
   }
 
-  if (!adminUser && !adminAuthLoading) {
+  if (!adminUser) {
      return <div className="p-4"><p>Админ нэвтрээгүй байна. Нэвтэрнэ үү.</p></div>;
   }
 

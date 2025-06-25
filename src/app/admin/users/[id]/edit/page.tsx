@@ -18,21 +18,23 @@ export default function EditUserPage() {
   const userId = params.id as string;
 
   const { toast } = useToast();
-  const { currentUser: superAdminUser } = useAuth(); 
+  const { currentUser: superAdminUser, loading: authLoading } = useAuth(); 
   const [userToEdit, setUserToEdit] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (superAdminUser && superAdminUser.role !== UserRole.SUPER_ADMIN) {
+    if (!authLoading && superAdminUser && superAdminUser.role !== UserRole.SUPER_ADMIN) {
       toast({ title: "Хандалт хориглогдсон", description: "Та админ хэрэглэгчдийг засах эрхгүй байна.", variant: "destructive" });
       router.push('/admin/dashboard');
-      return;
     }
-  }, [superAdminUser, router, toast]);
+  }, [superAdminUser, authLoading, router, toast]);
 
   const fetchUserToEdit = useCallback(async () => {
-    if (!userId || (superAdminUser && superAdminUser.role !== UserRole.SUPER_ADMIN)) return;
+    if (!userId || (superAdminUser && superAdminUser.role !== UserRole.SUPER_ADMIN)) {
+      setIsLoading(false);
+      return;
+    };
     setIsLoading(true);
     const fetchedUser = await getAdminUser(userId);
     if (fetchedUser) {
@@ -45,8 +47,10 @@ export default function EditUserPage() {
   }, [userId, superAdminUser, router, toast]);
 
   useEffect(() => {
-    fetchUserToEdit();
-  }, [fetchUserToEdit]);
+    if (!authLoading) {
+        fetchUserToEdit();
+    }
+  }, [fetchUserToEdit, authLoading]);
 
 
   const handleSubmit = async (data: UserFormValues): Promise<{error?: string, success?: boolean, message?: string}> => {
@@ -71,15 +75,9 @@ export default function EditUserPage() {
       name: data.name,
       email: data.email, 
       role: data.role,
+      canSendNotifications: data.canSendNotifications,
+      allowedCategoryIds: data.allowedCategoryIds,
     };
-
-    if (data.role === UserRole.SUB_ADMIN) {
-      updatePayload.allowedCategoryIds = data.allowedCategoryIds || [];
-      updatePayload.canSendNotifications = data.canSendNotifications || false;
-    } else {
-      updatePayload.allowedCategoryIds = [];
-      updatePayload.canSendNotifications = true; 
-    }
 
     if (data.newPassword && data.newPassword.length > 0) {
         if (data.newPassword.length < 6) {
@@ -121,11 +119,7 @@ export default function EditUserPage() {
     setIsSubmitting(false);
   };
 
-  if (superAdminUser?.role !== UserRole.SUPER_ADMIN && !isLoading) {
-    return <div className="p-4"><p>Хандалт хориглогдсон. Хуудас руу шилжиж байна...</p></div>;
-  }
-
-  if (isLoading) {
+  if (authLoading || isLoading) {
     return (
       <>
         <PageHeader title="Админ эрх өөрчлөх" />
@@ -136,6 +130,10 @@ export default function EditUserPage() {
         </div>
       </>
     );
+  }
+
+  if (!superAdminUser || superAdminUser.role !== UserRole.SUPER_ADMIN) {
+    return <div className="p-4"><p>Хандалт хориглогдсон. Хуудас руу шилжиж байна...</p></div>;
   }
 
   if (!userToEdit) {
