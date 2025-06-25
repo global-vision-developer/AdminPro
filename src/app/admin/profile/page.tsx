@@ -17,8 +17,6 @@ import { Loader2, Save, KeyRound, UserCircle, Mail, Edit, Undo, Send } from 'luc
 import ImageUploader from '@/components/admin/image-uploader';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { updateProfile } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
 
 const profileFormSchema = z.object({
   name: z.string().min(1, "Name is required."),
@@ -51,48 +49,35 @@ export default function ProfilePage() {
   }, [currentUser, form, isEditing]);
   
   const handleSubmit = async (data: ProfileFormValues) => {
-    if (!currentUser || !auth.currentUser) {
+    if (!currentUser) {
       toast({ title: "Error", description: "Not authenticated.", variant: "destructive" });
       return;
     }
     setIsSubmitting(true);
     
-    try {
-      // 1. Update Firebase Auth profile (client-side)
-      await updateProfile(auth.currentUser, {
-        displayName: data.name,
-        photoURL: data.avatar,
+    // Call the unified server action which handles both Auth and Firestore updates via the Cloud Function
+    const result = await updateAdminUser(currentUser.id, {
+      name: data.name,
+      avatar: data.avatar,
+    });
+
+    if (result.success) {
+      toast({
+        title: "Профайл Шинэчлэгдлээ",
+        description: result.message || "Таны профайл амжилттай шинэчлэгдлээ.",
       });
-
-      // 2. Update Firestore document via Server Action
-      const result = await updateAdminUser(currentUser.id, {
-        name: data.name,
-        avatar: data.avatar,
-      });
-
-      if (result.success) {
-        toast({
-          title: "Профайл Шинэчлэгдлээ",
-          description: result.message || "Таны профайл амжилттай шинэчлэгдлээ.",
-        });
-        setIsEditing(false);
-      } else {
-         toast({
-          title: "Firestore Шинэчлэлт Амжилтгүй",
-          description: result.error || "Профайлын мэдээллийг мэдээллийн санд шинэчилж чадсангүй.",
-          variant: "destructive",
-        });
-      }
-
-    } catch (error: any) {
+      setIsEditing(false);
+      // NOTE: The useAuth hook will eventually get the updated user data from onAuthStateChanged
+      // but it can be slow. A page refresh might be needed for instant UI updates, or a more complex state management.
+    } else {
        toast({
-        title: "Auth Шинэчлэлт Амжилтгүй",
-        description: error.message || "Таны authentication профайлыг шинэчилж чадсангүй.",
+        title: "Шинэчлэлт Амжилтгүй",
+        description: result.error || "Профайлын мэдээллийг шинэчилж чадсангүй.",
         variant: "destructive",
       });
-    } finally {
-        setIsSubmitting(false);
     }
+
+    setIsSubmitting(false);
   };
 
   const handlePasswordReset = async () => {

@@ -39,7 +39,7 @@ interface SendNotificationPayload {
   imageUrl?: string | null;
   deepLink?: string | null;
   scheduleAt?: string | null; // ISO string from client
-  selectedUsers: Pick<AppUser, "id" | "email" | "displayName" | "fcmTokens">[];
+  selectedUserIds: string[]; // Changed from selectedUsers
   adminCreator: Pick<UserProfile, "uid" | "name" | "email">;
 }
 
@@ -88,20 +88,20 @@ export const sendNotification = onCall(
         imageUrl,
         deepLink,
         scheduleAt,
-        selectedUsers,
+        selectedUserIds,
         adminCreator,
       } = request.data;
 
       if (
         !title ||
         !body ||
-        !selectedUsers ||
-        !Array.isArray(selectedUsers) ||
-        selectedUsers.length === 0
+        !selectedUserIds ||
+        !Array.isArray(selectedUserIds) ||
+        selectedUserIds.length === 0
       ) {
         throw new HttpsError(
           "invalid-argument",
-          "Missing required fields: title, body, and selectedUsers."
+          "Missing required fields: title, body, and selectedUserIds."
         );
       }
 
@@ -126,21 +126,40 @@ export const sendNotification = onCall(
         };
       }
 
+      // Fetch latest user data to get fresh FCM tokens
+      const usersRef = db.collection("users");
+      const userDocs = selectedUserIds.length > 0 ? await db.getAll(...selectedUserIds.map((id) => usersRef.doc(id))) : [];
+
       const tokensToSend: string[] = [];
-      const targetsForLog: NotificationTargetForLog[] = [];
-      const tokenToUserMap = new Map<string, AppUser>();
+      const tokenToUserMap = new Map<string, { id: string; email?: string; displayName?: string; }>();
 
-      selectedUsers.forEach((user) => {
-        if (user.fcmTokens && user.fcmTokens.length > 0) {
-          user.fcmTokens.forEach((token: string) => {
-            if (token && !tokenToUserMap.has(token)) {
-              tokensToSend.push(token);
-              tokenToUserMap.set(token, user);
-            }
-          });
-        }
-      });
+      for (const userDoc of userDocs) {
+          if (userDoc.exists) {
+              const userData = userDoc.data()!;
+              const userTokens: string[] = [];
 
+              if (userData.fcmToken && typeof userData.fcmToken === 'string') {
+                  userTokens.push(userData.fcmToken);
+              } else if (Array.isArray(userData.fcmTokens)) {
+                  userTokens.push(...userData.fcmTokens.filter(t => typeof t === 'string' && t));
+              }
+
+              if (userTokens.length > 0) {
+                  const userInfo = {
+                      id: userDoc.id,
+                      email: userData.email,
+                      displayName: userData.displayName,
+                  };
+                  userTokens.forEach((token) => {
+                      if (token && !tokenToUserMap.has(token)) {
+                          tokensToSend.push(token);
+                          tokenToUserMap.set(token, userInfo);
+                      }
+                  });
+              }
+          }
+      }
+      
       if (tokensToSend.length === 0) {
         const noTokenLog: Partial<NotificationLog> = {
           title,
@@ -157,7 +176,7 @@ export const sendNotification = onCall(
         };
       }
 
-      // Ensure all necessary data is in the data payload for client-side processing
+      // **FIX**: Ensure all necessary data is in the data payload for client-side processing
       const dataPayload: { [key: string]: string } = {
         _internalMessageId: new Date().getTime().toString() + Math.random().toString(),
         title: title,
@@ -184,6 +203,7 @@ export const sendNotification = onCall(
       const response = await messaging.sendEachForMulticast(messagePayload);
       const currentTimestamp = admin.firestore.Timestamp.now();
 
+      const targetsForLog: NotificationTargetForLog[] = [];
       response.responses.forEach((result, index) => {
         const token = tokensToSend[index];
         const user = tokenToUserMap.get(token);
@@ -279,31 +299,6 @@ export const updateAdminAuthDetails = onCall(
     }
 
     const callerUid = request.auth.uid;
-    try {
-      const callerAdminDoc = await db
-        .collection(ADMINS_COLLECTION)
-        .doc(callerUid)
-        .get();
-      if (
-        !callerAdminDoc.exists ||
-        callerAdminDoc.data()?.role !== UserRole.SUPER_ADMIN
-      ) {
-        throw new HttpsError(
-          "permission-denied",
-          "Caller does not have Super Admin privileges."
-        );
-      }
-    } catch (error) {
-      logger.error("Error checking caller permissions:", error);
-      if (error instanceof HttpsError) {
-        throw error;
-      }
-      throw new HttpsError(
-        "internal",
-        "Could not verify caller permissions."
-      );
-    }
-
     const {
       targetUserId,
       name,
@@ -318,20 +313,44 @@ export const updateAdminAuthDetails = onCall(
     if (!targetUserId) {
       throw new HttpsError("invalid-argument", "targetUserId is required.");
     }
+    
+    const isEditingSelf = callerUid === targetUserId;
 
-    try {
-      const targetUserRecord = await fAuth.getUser(targetUserId);
-      if (
-        targetUserRecord.email === "super@example.com" &&
-        (email && email !== "super@example.com" || role && role !== UserRole.SUPER_ADMIN)
-      ) {
-        throw new HttpsError(
-          "permission-denied",
-          "Cannot change the email or role of the primary super admin account."
-        );
-      }
-    } catch (error: unknown) {
-      logger.error("Error fetching target user for pre-check:", error);
+    // Get caller's role for permission checks
+    const callerAdminDoc = await db.collection(ADMINS_COLLECTION).doc(callerUid).get();
+    if (!callerAdminDoc.exists()) {
+        throw new HttpsError("permission-denied", "Caller is not a valid admin.");
+    }
+    const isCallerSuperAdmin = callerAdminDoc.data()?.role === UserRole.SUPER_ADMIN;
+
+    // --- PERMISSION CHECKS ---
+    // If not a super admin, can only edit self, and only limited fields.
+    if (!isCallerSuperAdmin) {
+        if (!isEditingSelf) {
+            throw new HttpsError("permission-denied", "You do not have permissions to edit other users.");
+        }
+        // Sub-admins can't change email, password, role, or permissions for themselves
+        if (email || newPassword || role || allowedCategoryIds !== undefined || canSendNotifications !== undefined) {
+             throw new HttpsError("permission-denied", "You can only update your name and avatar.");
+        }
+    }
+    
+    // Super-admin specific checks (e.g. protecting the main super admin account)
+    if (isCallerSuperAdmin) {
+        try {
+            const targetUserRecord = await fAuth.getUser(targetUserId);
+            if (
+                targetUserRecord.email === "super@example.com" &&
+                (email && email !== "super@example.com" || role && role !== UserRole.SUPER_ADMIN)
+            ) {
+                throw new HttpsError(
+                "permission-denied",
+                "Cannot change the email or role of the primary super admin account."
+                );
+            }
+        } catch (error: unknown) {
+            logger.error("Error fetching target user for pre-check:", error);
+        }
     }
 
     try {
@@ -363,28 +382,34 @@ export const updateAdminAuthDetails = onCall(
       if (email) updatePayloadFirestore.email = email;
       if (name) updatePayloadFirestore.name = name;
       if (avatar) updatePayloadFirestore.avatar = avatar;
-      if (role) updatePayloadFirestore.role = role;
-      if (role === UserRole.SUB_ADMIN) {
-        if (allowedCategoryIds !== undefined) {
-          updatePayloadFirestore.allowedCategoryIds = allowedCategoryIds;
+      
+      // Only allow role/permission changes if the caller is a Super Admin
+      if (isCallerSuperAdmin) {
+        if (role) updatePayloadFirestore.role = role;
+        if (role === UserRole.SUB_ADMIN) {
+            if (allowedCategoryIds !== undefined) {
+            updatePayloadFirestore.allowedCategoryIds = allowedCategoryIds;
+            }
+            if (canSendNotifications !== undefined) {
+            updatePayloadFirestore.canSendNotifications = canSendNotifications;
+            }
+        } else if (role === UserRole.SUPER_ADMIN) {
+            updatePayloadFirestore.allowedCategoryIds = [];
+            updatePayloadFirestore.canSendNotifications = true;
         }
-        if (canSendNotifications !== undefined) {
-          updatePayloadFirestore.canSendNotifications = canSendNotifications;
-        }
-      } else if (role === UserRole.SUPER_ADMIN) {
-        updatePayloadFirestore.allowedCategoryIds = [];
-        updatePayloadFirestore.canSendNotifications = true;
       }
 
-      // Update Firestore
-      await db
-        .collection(ADMINS_COLLECTION)
-        .doc(targetUserId)
-        .update(updatePayloadFirestore);
-      logger.info(
-        `Successfully updated Firestore for user: ${targetUserId}`,
-        updatePayloadFirestore
-      );
+      // Update Firestore if there is more than just the timestamp
+      if(Object.keys(updatePayloadFirestore).length > 1){
+        await db
+          .collection(ADMINS_COLLECTION)
+          .doc(targetUserId)
+          .update(updatePayloadFirestore);
+        logger.info(
+          `Successfully updated Firestore for user: ${targetUserId}`,
+          updatePayloadFirestore
+        );
+      }
 
       return {
         success: true,
