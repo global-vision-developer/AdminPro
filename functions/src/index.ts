@@ -248,18 +248,23 @@ export const sendNotification = onCall(
   }
 );
 
-// --- V2 Callable Function: Update Admin Auth Details ---
+// --- V2 Callable Function: Update Admin User Details ---
 const ADMINS_COLLECTION = "admins";
 
-interface UpdateAdminAuthDetailsData {
+interface UpdateAdminUserData {
   targetUserId: string;
-  newEmail?: string;
+  name?: string;
+  email?: string;
   newPassword?: string;
+  role?: UserRole;
+  avatar?: string;
+  allowedCategoryIds?: string[];
+  canSendNotifications?: boolean;
 }
 
 export const updateAdminAuthDetails = onCall(
   {region: "us-central1"},
-  async (request: CallableRequest<UpdateAdminAuthDetailsData>) => {
+  async (request: CallableRequest<UpdateAdminUserData>) => {
     if (!request.auth) {
       throw new HttpsError(
         "unauthenticated",
@@ -293,27 +298,30 @@ export const updateAdminAuthDetails = onCall(
       );
     }
 
-    const {targetUserId, newEmail, newPassword} = request.data;
+    const {
+      targetUserId,
+      name,
+      email,
+      newPassword,
+      role,
+      avatar,
+      allowedCategoryIds,
+      canSendNotifications,
+    } = request.data;
+
     if (!targetUserId) {
       throw new HttpsError("invalid-argument", "targetUserId is required.");
-    }
-    if (!newEmail && !newPassword) {
-      throw new HttpsError(
-        "invalid-argument",
-        "Either newEmail or newPassword must be provided."
-      );
     }
 
     try {
       const targetUserRecord = await fAuth.getUser(targetUserId);
       if (
         targetUserRecord.email === "super@example.com" &&
-        newEmail &&
-        newEmail !== "super@example.com"
+        (email && email !== "super@example.com" || role && role !== UserRole.SUPER_ADMIN)
       ) {
         throw new HttpsError(
           "permission-denied",
-          "Cannot change the email of the primary super admin account."
+          "Cannot change the email or role of the primary super admin account."
         );
       }
     } catch (error: unknown) {
@@ -321,34 +329,19 @@ export const updateAdminAuthDetails = onCall(
     }
 
     try {
-      const updatePayloadAuth: {email?: string; password?: string} = {};
-      const updatePayloadFirestore: {
+      // Prepare Auth update payload
+      const updatePayloadAuth: {
         email?: string;
-        updatedAt: FirebaseFirestore.FieldValue;
-      } = {
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      };
+        password?: string;
+        displayName?: string;
+        photoURL?: string;
+      } = {};
+      if (email) updatePayloadAuth.email = email;
+      if (newPassword) updatePayloadAuth.password = newPassword;
+      if (name) updatePayloadAuth.displayName = name;
+      if (avatar) updatePayloadAuth.photoURL = avatar;
 
-      if (newEmail) {
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
-          throw new HttpsError(
-            "invalid-argument",
-            "The new email address is not valid."
-          );
-        }
-        updatePayloadAuth.email = newEmail;
-        updatePayloadFirestore.email = newEmail;
-      }
-      if (newPassword) {
-        if (newPassword.length < 6) {
-          throw new HttpsError(
-            "invalid-argument",
-            "New password must be at least 6 characters long."
-          );
-        }
-        updatePayloadAuth.password = newPassword;
-      }
-
+      // Update Auth if there's anything to update
       if (Object.keys(updatePayloadAuth).length > 0) {
         await fAuth.updateUser(targetUserId, updatePayloadAuth);
         logger.info(
@@ -357,6 +350,27 @@ export const updateAdminAuthDetails = onCall(
         );
       }
 
+      // Prepare Firestore update payload
+      const updatePayloadFirestore: Record<string, any> = {
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      };
+      if (email) updatePayloadFirestore.email = email;
+      if (name) updatePayloadFirestore.name = name;
+      if (avatar) updatePayloadFirestore.avatar = avatar;
+      if (role) updatePayloadFirestore.role = role;
+      if (role === UserRole.SUB_ADMIN) {
+        if (allowedCategoryIds !== undefined) {
+          updatePayloadFirestore.allowedCategoryIds = allowedCategoryIds;
+        }
+        if (canSendNotifications !== undefined) {
+          updatePayloadFirestore.canSendNotifications = canSendNotifications;
+        }
+      } else if (role === UserRole.SUPER_ADMIN) {
+        updatePayloadFirestore.allowedCategoryIds = [];
+        updatePayloadFirestore.canSendNotifications = true;
+      }
+
+      // Update Firestore
       await db
         .collection(ADMINS_COLLECTION)
         .doc(targetUserId)
@@ -368,19 +382,18 @@ export const updateAdminAuthDetails = onCall(
 
       return {
         success: true,
-        message: "Admin authentication and Firestore details updated successfully.",
+        message: "Admin details updated successfully in Auth and Firestore.",
       };
     } catch (error: unknown) {
-      logger.error("Error updating admin auth details:", error);
+      logger.error("Error updating admin details:", error);
       let errorCode: HttpsError["code"] = "unknown";
-      let errorMessage = "Failed to update admin authentication details.";
+      let errorMessage = "Failed to update admin details.";
       if (error && typeof error === "object" && "code" in error) {
         const firebaseErrorCode = (error as {code: string}).code;
         switch (firebaseErrorCode) {
           case "auth/email-already-exists":
             errorCode = "already-exists";
-            errorMessage =
-              "The new email address is already in use by another account.";
+            errorMessage = "The new email address is already in use by another account.";
             break;
           case "auth/invalid-email":
             errorCode = "invalid-argument";
@@ -396,16 +409,13 @@ export const updateAdminAuthDetails = onCall(
             break;
           default:
             errorCode = "internal";
-            errorMessage =
-              (error as unknown as Error).message ||
-              "An internal error occurred during auth update.";
+            errorMessage = (error as Error).message || "An internal error occurred during update.";
         }
         throw new HttpsError(errorCode, errorMessage, {
           originalCode: firebaseErrorCode,
         });
       } else {
-        errorMessage =
-          (error as unknown as Error).message || "An unknown error occurred.";
+        errorMessage = (error as Error).message || "An unknown error occurred.";
         throw new HttpsError("internal", errorMessage);
       }
     }
@@ -618,3 +628,5 @@ export const deleteAdminUser = onCall(
     }
   }
 );
+
+    
