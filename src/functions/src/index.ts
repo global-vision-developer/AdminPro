@@ -168,7 +168,8 @@ export const sendNotification = onCall(
         };
       }
 
-      // **FIX**: Ensure all necessary data is in the data payload for client-side processing
+      // **FIX**: Send both a 'notification' payload for the OS to handle
+      // and a 'data' payload for the client app to process for history logging.
       const dataPayload: { [key: string]: string } = {
         _internalMessageId: new Date().getTime().toString() + Math.random().toString(),
         title: title,
@@ -181,9 +182,12 @@ export const sendNotification = onCall(
         dataPayload.imageUrl = imageUrl;
       }
 
-      // **FIX**: Send a data-only message to give the client app full control
-      // over notification display and logging. The 'notification' key is removed.
       const messagePayload: admin.messaging.MulticastMessage = {
+        notification: {
+          title: title,
+          body: body,
+          ...(imageUrl && {imageUrl: imageUrl}),
+        },
         tokens: tokensToSend,
         data: dataPayload,
       };
