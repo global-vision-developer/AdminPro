@@ -157,11 +157,17 @@ export const sendNotification = onCall(
         };
       }
 
+      // Ensure all necessary data is in the data payload for client-side processing
       const dataPayload: { [key: string]: string } = {
         _internalMessageId: new Date().getTime().toString() + Math.random().toString(),
+        title: title,
+        body: body,
       };
       if (deepLink) {
         dataPayload.deepLink = deepLink;
+      }
+      if (imageUrl) {
+        dataPayload.imageUrl = imageUrl;
       }
 
       const messagePayload: admin.messaging.MulticastMessage = {
