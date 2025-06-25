@@ -67,7 +67,7 @@ export default function EditUserPage() {
       return { error: "Main super admin email and role cannot be changed." };
     }
 
-    const updatePayload: Partial<Pick<UserProfile, "name" | "email" | "role" | "allowedCategoryIds">> & { newPassword?: string } = {
+    const updatePayload: Partial<Pick<UserProfile, "name" | "email" | "role" | "allowedCategoryIds" | "canSendNotifications">> & { newPassword?: string } = {
       name: data.name,
       email: data.email, 
       role: data.role,
@@ -75,8 +75,10 @@ export default function EditUserPage() {
 
     if (data.role === UserRole.SUB_ADMIN) {
       updatePayload.allowedCategoryIds = data.allowedCategoryIds || [];
+      updatePayload.canSendNotifications = data.canSendNotifications || false;
     } else {
       updatePayload.allowedCategoryIds = [];
+      updatePayload.canSendNotifications = true; 
     }
 
     if (data.newPassword && data.newPassword.length > 0) {

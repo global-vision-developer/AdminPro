@@ -50,7 +50,7 @@ const navItems: NavItem[] = [
       { href: "/admin/banners", label: "Баннер", icon: ImageIcon, roles: [UserRole.SUPER_ADMIN, UserRole.SUB_ADMIN] },
     ]
   },
-  { href: "/admin/notifications", label: "Мэдэгдэл", icon: Bell }, // Roles handled customly
+  { href: "/admin/notifications", label: "Мэдэгдэл", icon: Bell }, // Custom check will be applied
   { href: "/admin/users", label: "Хэрэглэгчид", icon: Users, roles: [UserRole.SUPER_ADMIN] },
   {
     href: "/admin/settings", label: "Тохиргоо", icon: Settings,
