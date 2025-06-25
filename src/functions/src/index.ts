@@ -168,6 +168,7 @@ export const sendNotification = onCall(
         };
       }
 
+      // **FIX**: Ensure all necessary data is in the data payload for client-side processing
       const dataPayload: { [key: string]: string } = {
         _internalMessageId: new Date().getTime().toString() + Math.random().toString(),
         title: title,
@@ -659,5 +660,3 @@ export const deleteAdminUser = onCall(
     }
   }
 );
-
-    
