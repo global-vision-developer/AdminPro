@@ -144,17 +144,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await signInWithEmailAndPassword(auth, email, password);
     } catch (error: any) {
       console.error("AuthContext: Firebase login error:", error);
-      let friendlyMessage = "Login failed. Please check your email or password.";
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-email') {
-        friendlyMessage = "User not found or email is invalid. Please check your registered email address.";
-      } else if (error.code === 'auth/wrong-password') {
-        friendlyMessage = "Incorrect password. Please check your password.";
-      } else if (error.code === 'auth/invalid-credential') {
-        friendlyMessage = "Invalid email or password. Please ensure you have created a user in your Firebase project Authentication section and that Email/Password sign-in method is enabled.";
+      let friendlyMessage = "Нэвтрэхэд алдаа гарлаа. И-мэйл эсвэл нууц үгээ шалгана уу.";
+      if (error.code === 'auth/invalid-credential') {
+        friendlyMessage = "И-мэйл эсвэл нууц үг буруу байна. Та Firebase Authentication хэсэгт бүртгэлтэй эсэхээ шалгана уу.";
       } else if (error.code === 'auth/too-many-requests') {
-        friendlyMessage = "Too many failed login attempts. Please try again later.";
+        friendlyMessage = "Хэт олон удаа буруу оролдлого хийлээ. Түр хүлээгээд дахин оролдоно уу.";
       } else if (error.message) {
-        friendlyMessage = `Error: ${error.message} (Code: ${error.code})`;
+        friendlyMessage = `Алдаа: ${error.message} (Код: ${error.code})`;
       }
       toast({ title: "Нэвтрэлт амжилтгүй", description: friendlyMessage, variant: "destructive", duration: 10000 });
       setLoading(false); 
