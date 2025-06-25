@@ -168,8 +168,6 @@ export const sendNotification = onCall(
         };
       }
 
-      // **FIX**: Send both a 'notification' payload for the OS to handle
-      // and a 'data' payload for the client app to process for history logging.
       const dataPayload: { [key: string]: string } = {
         _internalMessageId: new Date().getTime().toString() + Math.random().toString(),
         title: title,
@@ -184,9 +182,18 @@ export const sendNotification = onCall(
 
       const messagePayload: admin.messaging.MulticastMessage = {
         notification: {
-          title: title,
-          body: body,
-          ...(imageUrl && {imageUrl: imageUrl}),
+          title,
+          body,
+          ...(imageUrl && { imageUrl }),
+        },
+        webpush: {
+          notification: {
+            title,
+            body,
+            ...(imageUrl && { image: imageUrl }), // Use 'image' for the web standard
+            icon: "https://placehold.co/96x96.png?text=AP&bg=FF5733&txt=FFFFFF",
+            badge: "https://placehold.co/96x96.png?text=AP&bg=FF5733&txt=FFFFFF",
+          },
         },
         tokens: tokensToSend,
         data: dataPayload,
