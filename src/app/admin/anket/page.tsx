@@ -2,7 +2,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { unstable_noStore as noStore } from 'next/cache';
-import { Eye, Filter, Clock, CheckCircle, XCircle, FileText, Info } from 'lucide-react';
+import { Eye, Filter, Clock, CheckCircle, XCircle, FileText, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { PageHeader } from '@/components/admin/page-header';
@@ -61,7 +61,7 @@ export default async function AnketsPage({
                   <TableRow>
                     <TableHead>Нэр</TableHead>
                     <TableHead className="hidden md:table-cell">Имэйл</TableHead>
-                    <TableHead className="hidden sm:table-cell">Утас</TableHead>
+                    <TableHead className="hidden sm:table-cell">Үнэлгээ</TableHead>
                     <TableHead className="text-center">Илгээсэн огноо</TableHead>
                     <TableHead className="text-center">Статус</TableHead>
                     <TableHead className="text-right">Үйлдэл</TableHead>
@@ -75,7 +75,12 @@ export default async function AnketsPage({
                         <p className="text-xs text-muted-foreground md:hidden">{anket.email}</p>
                       </TableCell>
                       <TableCell className="hidden md:table-cell">{anket.email}</TableCell>
-                      <TableCell className="hidden sm:table-cell">{anket.phoneNumber || "N/A"}</TableCell>
+                      <TableCell className="hidden sm:table-cell">
+                        <div className="flex items-center gap-1">
+                          <Star className="h-4 w-4 text-yellow-400" />
+                          {anket.averageRating?.toFixed(1) || "N/A"}
+                        </div>
+                      </TableCell>
                       <TableCell className="text-center">
                         {format(new Date(anket.submittedAt), "yyyy-MM-dd HH:mm")}
                       </TableCell>

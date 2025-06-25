@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/admin/page-header';
@@ -15,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, XCircle, Clock, ArrowLeft, Download, FileText, User, Mail, Phone, MessageSquare, CalendarDays, Loader2, Check, AlertTriangle } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, ArrowLeft, Download, FileText, User, Mail, Phone, MessageSquare, CalendarDays, Loader2, Check, AlertTriangle, Star, Briefcase, Camera } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function AnketDetailPage() {
@@ -118,19 +118,20 @@ export default function AnketDetailPage() {
     }
   };
 
-  const detailItem = (IconComponent: React.ElementType, label: string, value?: string | null) => {
-    if (!value) return null;
+  const detailItem = (IconComponent: React.ElementType, label: string, value?: string | number | null) => {
+    if (!value && typeof value !== 'number') return null;
     return (
       <div className="flex items-start space-x-3 py-2 border-b border-border/50 last:border-b-0">
         <IconComponent className="h-5 w-5 text-muted-foreground mt-0.5" />
         <div>
           <p className="text-sm font-medium text-foreground">{label}</p>
-          {label === "CV/Resume" && value.startsWith("http") ? (
+          {(label.includes("Зураг") || label.includes("CV")) && typeof value === 'string' && value.startsWith("http") ? (
             <a href={value} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline flex items-center">
-              {value} <Download className="ml-1 h-3 w-3" />
+              <Image src={value} alt={label} width={100} height={60} className="rounded-md object-cover mr-2" data-ai-hint="document image" />
+              Линк үзэх <Download className="ml-1 h-3 w-3" />
             </a>
           ) : (
-            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{value}</p>
+            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{String(value)}</p>
           )}
         </div>
       </div>
@@ -163,7 +164,10 @@ export default function AnketDetailPage() {
         <CardContent className="divide-y divide-border/50">
           {detailItem(User, "Нэр", anket.name)}
           {detailItem(Mail, "Имэйл", anket.email)}
-          {detailItem(Phone, "Утасны дугаар", anket.phoneNumber)}
+          {detailItem(Phone, "Хятад дахь утасны дугаар", anket.chinaPhoneNumber)}
+          {detailItem(Star, "Дундаж үнэлгээ", anket.averageRating?.toFixed(1))}
+          {detailItem(Briefcase, "Өдрийн үнэлгээ", anket.dailyRate)}
+          {detailItem(Camera, "Иргэний үнэмлэхний ар талын зураг", anket.idCardBackImageUrl)}
           {detailItem(FileText, "CV/Resume", anket.cvLink)}
           {detailItem(MessageSquare, "Нэмэлт мэдээлэл", anket.message)}
           {detailItem(CalendarDays, "Илгээсэн огноо", format(new Date(anket.submittedAt), "yyyy-MM-dd HH:mm:ss"))}
@@ -176,7 +180,7 @@ export default function AnketDetailPage() {
               onClick={() => handleUpdateStatus(AnketStatus.REJECTED)}
               disabled={isProcessing}
             >
-              {isProcessing && anket.status === AnketStatus.PENDING ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <XCircle className="mr-2 h-4 w-4" />}
+              {isProcessing && anket.status === AnketStatus.REJECTED ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <XCircle className="mr-2 h-4 w-4" />}
               Татгалзах
             </Button>
             <Button
@@ -185,7 +189,7 @@ export default function AnketDetailPage() {
               onClick={() => handleUpdateStatus(AnketStatus.APPROVED)}
               disabled={isProcessing}
             >
-              {isProcessing && anket.status === AnketStatus.PENDING ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
+              {isProcessing && anket.status === AnketStatus.APPROVED ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
               Зөвшөөрөх
             </Button>
           </CardFooter>
@@ -194,4 +198,3 @@ export default function AnketDetailPage() {
     </>
   );
 }
-

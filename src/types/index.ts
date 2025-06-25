@@ -128,6 +128,11 @@ export interface Anket {
   status: AnketStatus;
   processedBy?: string;
   processedAt?: string;
+  // Fields from the new structure, now added
+  averageRating?: number | null;
+  chinaPhoneNumber?: string;
+  idCardBackImageUrl?: string;
+  dailyRate?: string;
 }
 
 

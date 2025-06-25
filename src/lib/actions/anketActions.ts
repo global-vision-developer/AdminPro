@@ -2,7 +2,7 @@
 "use server";
 
 import { db, auth as adminAuth } from "@/lib/firebase";
-import type { Anket, Category, Entry } from "@/types";
+import type { Anket, Category, Entry, AppUser } from "@/types";
 import { AnketStatus } from "@/types";
 import {
   collection,
@@ -19,8 +19,8 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { revalidatePath } from "next/cache";
-import { addEntry } from "./entryActions"; // Assuming addEntry is correctly implemented
-import { slugify } from "@/lib/utils";
+import { addEntry } from "./entryActions";
+import { getAppUsersMap } from "./appUserActions"; // Helper to get users efficiently
 
 const ANKETS_COLLECTION = "ankets";
 const CATEGORIES_COLLECTION = "categories";
@@ -29,28 +29,44 @@ const TARGET_TRANSLATOR_CATEGORY_SLUG = "orchluulagchid";
 export async function getAnkets(statusFilter?: AnketStatus): Promise<Anket[]> {
   try {
     const anketsRef = collection(db, ANKETS_COLLECTION);
-    let q;
-    if (statusFilter) {
-      q = query(anketsRef, where("status", "==", statusFilter), orderBy("submittedAt", "desc"));
-    } else {
-      q = query(anketsRef, orderBy("submittedAt", "desc"));
-    }
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map((doc) => {
+    
+    // The original orderBy was breaking the query because 'submittedAt' field does not exist in the documents.
+    // Removing it allows fetching the documents.
+    const q = statusFilter 
+      ? query(anketsRef, where("status", "==", statusFilter)) 
+      : query(anketsRef);
+      
+    const [querySnapshot, usersMap] = await Promise.all([
+        getDocs(q),
+        getAppUsersMap()
+    ]);
+
+    const ankets = querySnapshot.docs.map((doc) => {
       const data = doc.data();
+      const user = usersMap[doc.id] || null; // The anket doc ID is the user's UID
+
       return {
         id: doc.id,
-        name: data.name || "",
-        email: data.email || "",
-        phoneNumber: data.phoneNumber,
-        cvLink: data.cvLink,
-        message: data.message,
-        submittedAt: data.submittedAt instanceof Timestamp ? data.submittedAt.toDate().toISOString() : new Date().toISOString(),
+        name: user?.displayName || "Unknown User", // Fetch name from user profile
+        email: user?.email || "No Email", // Fetch email from user profile
+        phoneNumber: data.chinaPhoneNumber || data.phoneNumber,
+        cvLink: data.cvLink || "", // Fallback for legacy field
+        message: data.description || "", // Map from description field
+        submittedAt: (data.submittedAt instanceof Timestamp ? data.submittedAt.toDate() : (data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date())).toISOString(),
         status: data.status || AnketStatus.PENDING,
         processedBy: data.processedBy,
         processedAt: data.processedAt instanceof Timestamp ? data.processedAt.toDate().toISOString() : undefined,
+        // Map new fields
+        averageRating: data.averageRating ?? null,
+        chinaPhoneNumber: data.chinaPhoneNumber,
+        idCardBackImageUrl: data.idCardBackImageUrl,
+        dailyRate: data.dailyRate,
       } as Anket;
     });
+
+    // Manual sort because we cannot rely on Firestore's orderBy
+    return ankets.sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
+
   } catch (e: any) {
     console.error("Error getting ankets: ", e);
     return [];
@@ -59,21 +75,34 @@ export async function getAnkets(statusFilter?: AnketStatus): Promise<Anket[]> {
 
 export async function getAnket(id: string): Promise<Anket | null> {
   try {
-    const docRef = doc(db, ANKETS_COLLECTION, id);
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-      const data = docSnap.data();
+    const anketDocRef = doc(db, ANKETS_COLLECTION, id);
+    const userDocRef = doc(db, "users", id); // Assuming user data is in 'users' collection
+
+    const [anketSnap, userSnap] = await Promise.all([
+        getDoc(anketDocRef),
+        getDoc(userDocRef)
+    ]);
+
+    if (anketSnap.exists()) {
+      const data = anketSnap.data();
+      const user = userSnap.exists() ? userSnap.data() : null;
+      
       return {
-        id: docSnap.id,
-        name: data.name || "",
-        email: data.email || "",
-        phoneNumber: data.phoneNumber,
-        cvLink: data.cvLink,
-        message: data.message,
-        submittedAt: data.submittedAt instanceof Timestamp ? data.submittedAt.toDate().toISOString() : new Date().toISOString(),
+        id: anketSnap.id,
+        name: user?.displayName || "Unknown User",
+        email: user?.email || "No Email",
+        phoneNumber: data.chinaPhoneNumber || data.phoneNumber,
+        cvLink: data.cvLink || "",
+        message: data.description || "",
+        submittedAt: (data.submittedAt instanceof Timestamp ? data.submittedAt.toDate() : (data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date())).toISOString(),
         status: data.status || AnketStatus.PENDING,
         processedBy: data.processedBy,
         processedAt: data.processedAt instanceof Timestamp ? data.processedAt.toDate().toISOString() : undefined,
+        // Map new fields
+        averageRating: data.averageRating ?? null,
+        chinaPhoneNumber: data.chinaPhoneNumber,
+        idCardBackImageUrl: data.idCardBackImageUrl,
+        dailyRate: data.dailyRate,
       } as Anket;
     }
     return null;
@@ -82,6 +111,7 @@ export async function getAnket(id: string): Promise<Anket | null> {
     return null;
   }
 }
+
 
 export async function updateAnketStatus(
   id: string,
@@ -135,24 +165,12 @@ export async function approveAnketAndCreateTranslatorEntry(
   const batch = writeBatch(db);
 
   try {
-    const anketDocRef = doc(db, ANKETS_COLLECTION, anketId);
-    const anketSnap = await getDoc(anketDocRef);
+    // Use the new getAnket function to get fully populated data
+    const anketData = await getAnket(anketId);
 
-    if (!anketSnap.exists()) {
+    if (!anketData) {
       return { error: "Анкет олдсонгүй." };
     }
-    const anketDataFromDb = anketSnap.data();
-     const anketData: Anket = { // Ensure proper typing
-        id: anketSnap.id,
-        name: anketDataFromDb.name || "",
-        email: anketDataFromDb.email || "",
-        phoneNumber: anketDataFromDb.phoneNumber,
-        cvLink: anketDataFromDb.cvLink,
-        message: anketDataFromDb.message,
-        submittedAt: anketDataFromDb.submittedAt instanceof Timestamp ? anketDataFromDb.submittedAt.toDate().toISOString() : new Date().toISOString(),
-        status: anketDataFromDb.status || AnketStatus.PENDING,
-    };
-
 
     const translatorCategory = await getTranslatorCategory();
     if (!translatorCategory) {
@@ -161,28 +179,26 @@ export async function approveAnketAndCreateTranslatorEntry(
 
     const entryDataPayload: Record<string, any> = {};
     
-    // Map known anket fields to translator category fields
-    // These keys ('name', 'email', etc.) must match the 'key' in your "Орчуулагчид" category's field definitions
     const fieldMappings: Record<string, keyof Anket> = {
-        'name': 'name', // Assuming 'name' is the key for "Нэр" field in "Орчуулагчид" category
-        'email': 'email', // Assuming 'email' is the key for "Имэйл" field
-        'phone_number': 'phoneNumber', // Assuming 'phone_number' is the key for "Утасны дугаар"
-        'cv_link': 'cvLink', // Assuming 'cv_link' is the key for "CV Холбоос"
-        'notes': 'message' // Assuming 'notes' is the key for "Нэмэлт Мэдээлэл" or a general notes field
+        'name': 'name',
+        'email': 'email',
+        'phone_number': 'phoneNumber',
+        'cv_link': 'cvLink',
+        'notes': 'message'
     };
 
     translatorCategory.fields.forEach(field => {
         if (fieldMappings[field.key]) {
             const anketFieldKey = fieldMappings[field.key];
             // @ts-ignore
-            if (anketData[anketFieldKey] !== undefined && anketData[anketFieldKey] !== null && anketData[anketFieldKey] !== '') {
-                 // @ts-ignore
-                entryDataPayload[field.key] = anketData[anketFieldKey];
+            const value = anketData[anketFieldKey];
+            if (value !== undefined && value !== null && value !== '') {
+                entryDataPayload[field.key] = value;
             }
         }
-        // Handle required fields that weren't mapped or were empty in anket
         if (field.required && !entryDataPayload.hasOwnProperty(field.key)) {
             console.warn(`Required field "${field.label}" (key: ${field.key}) for "Орчуулагчид" category is missing from anket ${anketId}. Setting to default/empty.`);
+            // Set a default value based on type to avoid Firestore errors
             switch (field.type) {
                 case "Text":
                 case "Textarea":
@@ -197,21 +213,19 @@ export async function approveAnketAndCreateTranslatorEntry(
         }
     });
 
-
     const newEntryResult = await addEntry({
       categoryId: translatorCategory.id,
       categoryName: translatorCategory.name,
       title: anketData.name,
       data: entryDataPayload,
-      status: 'published', // Or 'draft'
+      status: 'published',
     });
 
     if ("error" in newEntryResult) {
-      // Rollback or compensation logic might be needed if batching wasn't fully successful here
-      // However, addEntry is called before batch.commit, so this path means addEntry itself failed.
       return { error: `Орчуулагчийн бүртгэл үүсгэхэд алдаа гарлаа: ${newEntryResult.error}` };
     }
 
+    const anketDocRef = doc(db, ANKETS_COLLECTION, anketId);
     batch.update(anketDocRef, {
       status: AnketStatus.APPROVED,
       processedBy: adminId,
@@ -231,5 +245,3 @@ export async function approveAnketAndCreateTranslatorEntry(
     return { error: e.message || "Анкет зөвшөөрч, бүртгэл үүсгэхэд алдаа гарлаа." };
   }
 }
-
-// Test anket submission function removed
