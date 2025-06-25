@@ -39,7 +39,7 @@ interface SendNotificationPayload {
   imageUrl?: string | null;
   deepLink?: string | null;
   scheduleAt?: string | null; // ISO string from client
-  selectedUsers: Pick<AppUser, "id" | "email" | "displayName" | "fcmTokens">[];
+  selectedUserIds: string[]; // Changed from selectedUsers
   adminCreator: Pick<UserProfile, "uid" | "name" | "email">;
 }
 
@@ -88,20 +88,20 @@ export const sendNotification = onCall(
         imageUrl,
         deepLink,
         scheduleAt,
-        selectedUsers,
+        selectedUserIds,
         adminCreator,
       } = request.data;
 
       if (
         !title ||
         !body ||
-        !selectedUsers ||
-        !Array.isArray(selectedUsers) ||
-        selectedUsers.length === 0
+        !selectedUserIds ||
+        !Array.isArray(selectedUserIds) ||
+        selectedUserIds.length === 0
       ) {
         throw new HttpsError(
           "invalid-argument",
-          "Missing required fields: title, body, and selectedUsers."
+          "Missing required fields: title, body, and selectedUserIds."
         );
       }
 
@@ -126,21 +126,40 @@ export const sendNotification = onCall(
         };
       }
 
+      // Fetch latest user data to get fresh FCM tokens
+      const usersRef = db.collection("users");
+      const userDocs = selectedUserIds.length > 0 ? await db.getAll(...selectedUserIds.map((id) => usersRef.doc(id))) : [];
+
       const tokensToSend: string[] = [];
-      const targetsForLog: NotificationTargetForLog[] = [];
-      const tokenToUserMap = new Map<string, AppUser>();
+      const tokenToUserMap = new Map<string, { id: string; email?: string; displayName?: string; }>();
 
-      selectedUsers.forEach((user) => {
-        if (user.fcmTokens && user.fcmTokens.length > 0) {
-          user.fcmTokens.forEach((token: string) => {
-            if (token && !tokenToUserMap.has(token)) {
-              tokensToSend.push(token);
-              tokenToUserMap.set(token, user);
-            }
-          });
-        }
-      });
+      for (const userDoc of userDocs) {
+          if (userDoc.exists) {
+              const userData = userDoc.data()!;
+              const userTokens: string[] = [];
 
+              if (userData.fcmToken && typeof userData.fcmToken === 'string') {
+                  userTokens.push(userData.fcmToken);
+              } else if (Array.isArray(userData.fcmTokens)) {
+                  userTokens.push(...userData.fcmTokens.filter(t => typeof t === 'string' && t));
+              }
+
+              if (userTokens.length > 0) {
+                  const userInfo = {
+                      id: userDoc.id,
+                      email: userData.email,
+                      displayName: userData.displayName,
+                  };
+                  userTokens.forEach((token) => {
+                      if (token && !tokenToUserMap.has(token)) {
+                          tokensToSend.push(token);
+                          tokenToUserMap.set(token, userInfo);
+                      }
+                  });
+              }
+          }
+      }
+      
       if (tokensToSend.length === 0) {
         const noTokenLog: Partial<NotificationLog> = {
           title,
@@ -157,11 +176,17 @@ export const sendNotification = onCall(
         };
       }
 
+      // **FIX**: Ensure all necessary data is in the data payload for client-side processing
       const dataPayload: { [key: string]: string } = {
         _internalMessageId: new Date().getTime().toString() + Math.random().toString(),
+        title: title,
+        body: body,
       };
       if (deepLink) {
         dataPayload.deepLink = deepLink;
+      }
+      if (imageUrl) {
+        dataPayload.imageUrl = imageUrl;
       }
 
       const messagePayload: admin.messaging.MulticastMessage = {
@@ -178,11 +203,12 @@ export const sendNotification = onCall(
       const response = await messaging.sendEachForMulticast(messagePayload);
       const currentTimestamp = admin.firestore.Timestamp.now();
 
+      const targetsForLog: NotificationTargetForLog[] = [];
       response.responses.forEach((result, index) => {
         const token = tokensToSend[index];
         const user = tokenToUserMap.get(token);
 
-        const targetLog: NotificationTargetForLog = {
+        const targetLog: Partial<NotificationTargetForLog> = {
           userId: user?.id || "unknown",
           token: token,
           status: result.success ? "success" : "failed",
@@ -205,7 +231,7 @@ export const sendNotification = onCall(
             targetLog.error = result.error.message;
           }
         }
-        targetsForLog.push(targetLog);
+        targetsForLog.push(targetLog as NotificationTargetForLog);
       });
 
       const finalProcessingStatus =
@@ -232,7 +258,7 @@ export const sendNotification = onCall(
         success: true,
         message: `Мэдэгдэл илгээгдлээ. ${response.successCount} амжилттай, ${response.failureCount} амжилтгүй.`,
       };
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Error in sendNotification function:", error);
       if (error instanceof HttpsError) {
         throw error;
@@ -248,18 +274,23 @@ export const sendNotification = onCall(
   }
 );
 
-// --- V2 Callable Function: Update Admin Auth Details ---
+// --- V2 Callable Function: Update Admin User Details ---
 const ADMINS_COLLECTION = "admins";
 
-interface UpdateAdminAuthDetailsData {
+interface UpdateAdminUserData {
   targetUserId: string;
-  newEmail?: string;
+  name?: string;
+  email?: string;
   newPassword?: string;
+  role?: UserRole;
+  avatar?: string;
+  allowedCategoryIds?: string[];
+  canSendNotifications?: boolean;
 }
 
 export const updateAdminAuthDetails = onCall(
   {region: "us-central1"},
-  async (request: CallableRequest<UpdateAdminAuthDetailsData>) => {
+  async (request: CallableRequest<UpdateAdminUserData>) => {
     if (!request.auth) {
       throw new HttpsError(
         "unauthenticated",
@@ -293,27 +324,30 @@ export const updateAdminAuthDetails = onCall(
       );
     }
 
-    const {targetUserId, newEmail, newPassword} = request.data;
+    const {
+      targetUserId,
+      name,
+      email,
+      newPassword,
+      role,
+      avatar,
+      allowedCategoryIds,
+      canSendNotifications,
+    } = request.data;
+
     if (!targetUserId) {
       throw new HttpsError("invalid-argument", "targetUserId is required.");
-    }
-    if (!newEmail && !newPassword) {
-      throw new HttpsError(
-        "invalid-argument",
-        "Either newEmail or newPassword must be provided."
-      );
     }
 
     try {
       const targetUserRecord = await fAuth.getUser(targetUserId);
       if (
         targetUserRecord.email === "super@example.com" &&
-        newEmail &&
-        newEmail !== "super@example.com"
+        (email && email !== "super@example.com" || role && role !== UserRole.SUPER_ADMIN)
       ) {
         throw new HttpsError(
           "permission-denied",
-          "Cannot change the email of the primary super admin account."
+          "Cannot change the email or role of the primary super admin account."
         );
       }
     } catch (error: unknown) {
@@ -321,34 +355,19 @@ export const updateAdminAuthDetails = onCall(
     }
 
     try {
-      const updatePayloadAuth: {email?: string; password?: string} = {};
-      const updatePayloadFirestore: {
+      // Prepare Auth update payload
+      const updatePayloadAuth: {
         email?: string;
-        updatedAt: FirebaseFirestore.FieldValue;
-      } = {
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      };
+        password?: string;
+        displayName?: string;
+        photoURL?: string;
+      } = {};
+      if (email) updatePayloadAuth.email = email;
+      if (newPassword) updatePayloadAuth.password = newPassword;
+      if (name) updatePayloadAuth.displayName = name;
+      if (avatar) updatePayloadAuth.photoURL = avatar;
 
-      if (newEmail) {
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
-          throw new HttpsError(
-            "invalid-argument",
-            "The new email address is not valid."
-          );
-        }
-        updatePayloadAuth.email = newEmail;
-        updatePayloadFirestore.email = newEmail;
-      }
-      if (newPassword) {
-        if (newPassword.length < 6) {
-          throw new HttpsError(
-            "invalid-argument",
-            "New password must be at least 6 characters long."
-          );
-        }
-        updatePayloadAuth.password = newPassword;
-      }
-
+      // Update Auth if there's anything to update
       if (Object.keys(updatePayloadAuth).length > 0) {
         await fAuth.updateUser(targetUserId, updatePayloadAuth);
         logger.info(
@@ -357,6 +376,27 @@ export const updateAdminAuthDetails = onCall(
         );
       }
 
+      // Prepare Firestore update payload
+      const updatePayloadFirestore: Record<string, any> = {
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      };
+      if (email) updatePayloadFirestore.email = email;
+      if (name) updatePayloadFirestore.name = name;
+      if (avatar) updatePayloadFirestore.avatar = avatar;
+      if (role) updatePayloadFirestore.role = role;
+      if (role === UserRole.SUB_ADMIN) {
+        if (allowedCategoryIds !== undefined) {
+          updatePayloadFirestore.allowedCategoryIds = allowedCategoryIds;
+        }
+        if (canSendNotifications !== undefined) {
+          updatePayloadFirestore.canSendNotifications = canSendNotifications;
+        }
+      } else if (role === UserRole.SUPER_ADMIN) {
+        updatePayloadFirestore.allowedCategoryIds = [];
+        updatePayloadFirestore.canSendNotifications = true;
+      }
+
+      // Update Firestore
       await db
         .collection(ADMINS_COLLECTION)
         .doc(targetUserId)
@@ -368,44 +408,40 @@ export const updateAdminAuthDetails = onCall(
 
       return {
         success: true,
-        message: "Admin authentication and Firestore details updated successfully.",
+        message: "Admin details updated successfully in Auth and Firestore.",
       };
     } catch (error: unknown) {
-      logger.error("Error updating admin auth details:", error);
+      logger.error("Error updating admin details:", error);
       let errorCode: HttpsError["code"] = "unknown";
-      let errorMessage = "Failed to update admin authentication details.";
+      let errorMessage = "Failed to update admin details.";
       if (error && typeof error === "object" && "code" in error) {
         const firebaseErrorCode = (error as {code: string}).code;
         switch (firebaseErrorCode) {
-        case "auth/email-already-exists":
-          errorCode = "already-exists";
-          errorMessage =
-              "The new email address is already in use by another account.";
-          break;
-        case "auth/invalid-email":
-          errorCode = "invalid-argument";
-          errorMessage = "The new email address is not valid.";
-          break;
-        case "auth/user-not-found":
-          errorCode = "not-found";
-          errorMessage = "Target user not found in Firebase Authentication.";
-          break;
-        case "auth/weak-password":
-          errorCode = "invalid-argument";
-          errorMessage = "The new password is too weak.";
-          break;
-        default:
-          errorCode = "internal";
-          errorMessage =
-              (error as unknown as Error).message ||
-              "An internal error occurred during auth update.";
+          case "auth/email-already-exists":
+            errorCode = "already-exists";
+            errorMessage = "The new email address is already in use by another account.";
+            break;
+          case "auth/invalid-email":
+            errorCode = "invalid-argument";
+            errorMessage = "The new email address is not valid.";
+            break;
+          case "auth/user-not-found":
+            errorCode = "not-found";
+            errorMessage = "Target user not found in Firebase Authentication.";
+            break;
+          case "auth/weak-password":
+            errorCode = "invalid-argument";
+            errorMessage = "The new password is too weak.";
+            break;
+          default:
+            errorCode = "internal";
+            errorMessage = (error as unknown as Error).message || "An internal error occurred during update.";
         }
         throw new HttpsError(errorCode, errorMessage, {
           originalCode: firebaseErrorCode,
         });
       } else {
-        errorMessage =
-          (error as unknown as Error).message || "An unknown error occurred.";
+        errorMessage = (error as unknown as Error).message || "An unknown error occurred.";
         throw new HttpsError("internal", errorMessage);
       }
     }
@@ -524,22 +560,22 @@ export const createAdminUser = onCall(
       if (error && typeof error === "object" && "code" in error) {
         const firebaseErrorCode = (error as {code: string}).code;
         switch (firebaseErrorCode) {
-        case "auth/email-already-exists":
-          errorCode = "already-exists";
-          errorMessage =
+          case "auth/email-already-exists":
+            errorCode = "already-exists";
+            errorMessage =
               "The email address is already in use by another account.";
-          break;
-        case "auth/invalid-email":
-          errorCode = "invalid-argument";
-          errorMessage = "The email address is not valid.";
-          break;
-        case "auth/weak-password":
-          errorCode = "invalid-argument";
-          errorMessage = "The new password is too weak.";
-          break;
-        default:
-          errorCode = "internal";
-          errorMessage =
+            break;
+          case "auth/invalid-email":
+            errorCode = "invalid-argument";
+            errorMessage = "The email address is not valid.";
+            break;
+          case "auth/weak-password":
+            errorCode = "invalid-argument";
+            errorMessage = "The new password is too weak.";
+            break;
+          default:
+            errorCode = "internal";
+            errorMessage =
               (error as unknown as Error).message ||
               "An internal error occurred during auth user creation.";
         }

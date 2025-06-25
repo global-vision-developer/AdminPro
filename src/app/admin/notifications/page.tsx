@@ -22,6 +22,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/hooks/use-auth';
 import { getFunctions, httpsCallable, HttpsCallableResult } from 'firebase/functions';
 import { app as clientApp } from '@/lib/firebase';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function NotificationsPage() {
   const [appUsers, setAppUsers] = useState<AppUser[]>([]);
@@ -95,11 +96,6 @@ export default function NotificationsPage() {
       toast({ title: "Хэрэглэгч сонгоогүй", description: "Мэдэгдэл илгээхийн тулд дор хаяж нэг хэрэглэгч сонгоно уу.", variant: "destructive" });
       return;
     }
-    const usersWithTokens = Object.values(selectedUsers).filter(u => u.fcmTokens && u.fcmTokens.length > 0);
-    if (usersWithTokens.length === 0) {
-        toast({ title: "FCM Token байхгүй", description: "Сонгосон хэрэглэгчдийн хэн нь ч бүртгэгдсэн FCM token-гүй байна. Мэдэгдэл илгээх боломжгүй.", variant: "destructive", duration: 7000 });
-        return;
-    }
     setIsSendNotificationDialogOpen(true);
   };
 
@@ -112,19 +108,17 @@ export default function NotificationsPage() {
         return;
     }
 
-    const usersToSend = Object.values(selectedUsers).filter(u => u.fcmTokens && u.fcmTokens.length > 0);
-
-    if (usersToSend.length === 0) {
-        toast({ title: "Алдаа", description: "Идэвхтэй FCM token-той хэрэглэгч олдсонгүй.", variant: "destructive" });
+    const selectedUserIds = Object.keys(selectedUsers);
+    if (selectedUserIds.length === 0) {
+        toast({ title: "Алдаа", description: "Мэдэгдэл илгээхийн тулд хэрэглэгч сонгоно уу.", variant: "destructive" });
         setIsSubmittingNotification(false);
-        setIsSendNotificationDialogOpen(false);
         return;
     }
 
     const payload = {
         ...formData,
         scheduleAt: formData.scheduleAt ? formData.scheduleAt.toISOString() : null,
-        selectedUsers: usersToSend.map(u => ({ id: u.id, email: u.email, displayName: u.displayName, fcmTokens: u.fcmTokens })), // Ensure payload is serializable
+        selectedUserIds: selectedUserIds,
         adminCreator: {
             uid: currentUser.id,
             name: currentUser.name,
@@ -203,48 +197,59 @@ export default function NotificationsPage() {
             </div>
           ) : (
             <ScrollArea className="h-[calc(100vh-520px)]">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[50px]">
-                      <Checkbox
-                        checked={isAllFilteredSelected}
-                        onCheckedChange={(checked) => handleSelectAll(Boolean(checked))}
-                        aria-label="Бүх хэрэглэгчийг сонгох"
-                      />
-                    </TableHead>
-                    <TableHead>Нэр</TableHead>
-                    <TableHead>Имэйл</TableHead>
-                    <TableHead className="text-center">FCM Tokens</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredAppUsers.map((user) => (
-                    <TableRow key={user.id} data-state={selectedUsers[user.id] ? "selected" : ""}>
-                      <TableCell>
+              <TooltipProvider>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[50px]">
                         <Checkbox
-                          checked={!!selectedUsers[user.id]}
-                          onCheckedChange={(checked) => handleSelectUser(user, Boolean(checked))}
-                          aria-label={`${user.displayName || user.email} хэрэглэгчийг сонгох`}
+                          checked={isAllFilteredSelected}
+                          onCheckedChange={(checked) => handleSelectAll(Boolean(checked))}
+                          aria-label="Бүх хэрэглэгчийг сонгох"
                         />
-                      </TableCell>
-                      <TableCell className="font-medium">{user.displayName || <span className="italic text-muted-foreground">Нэргүй</span>}</TableCell>
-                      <TableCell>{user.email}</TableCell>
-                      <TableCell className="text-center">
-                        {user.fcmTokens && user.fcmTokens.length > 0 ? (
-                           <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-300">
-                            {user.fcmTokens.length}
-                          </Badge>
-                        ) : (
-                           <Badge variant="outline" className="border-amber-400 text-amber-600">
-                            <MailWarning className="mr-1 h-3 w-3" /> 0
-                          </Badge>
-                        )}
-                      </TableCell>
+                      </TableHead>
+                      <TableHead>Нэр</TableHead>
+                      <TableHead>Имэйл</TableHead>
+                      <TableHead className="text-center">FCM Tokens</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredAppUsers.map((user) => (
+                      <TableRow key={user.id} data-state={selectedUsers[user.id] ? "selected" : ""}>
+                        <TableCell>
+                          <Checkbox
+                            checked={!!selectedUsers[user.id]}
+                            onCheckedChange={(checked) => handleSelectUser(user, Boolean(checked))}
+                            aria-label={`${user.displayName || user.email} хэрэглэгчийг сонгох`}
+                          />
+                        </TableCell>
+                        <TableCell className="font-medium">{user.displayName || <span className="italic text-muted-foreground">Нэргүй</span>}</TableCell>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell className="text-center">
+                          {user.fcmTokens && user.fcmTokens.length > 0 ? (
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-300">
+                                  {user.fcmTokens.length}
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-sm break-all">
+                                {user.fcmTokens.map((token, index) => (
+                                    <p key={index} className="text-xs font-mono">{token.substring(0,30)}...</p>
+                                ))}
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : (
+                            <Badge variant="outline" className="border-amber-400 text-amber-600">
+                              <MailWarning className="mr-1 h-3 w-3" /> 0
+                            </Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TooltipProvider>
             </ScrollArea>
           )}
         </CardContent>
