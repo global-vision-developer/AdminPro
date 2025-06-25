@@ -168,38 +168,55 @@ export const sendNotification = onCall(
         };
       }
 
-      // **FIX**: Ensure all necessary data is in the data payload for client-side processing
-      const dataPayload: { [key: string]: string } = {
-        title: title,
-        body: body,
+      // **FIX**: The client app expects a specific data payload to build the in-app notification history.
+      // We will now structure the `data` payload to match the format the client app expects,
+      // using the raw title and body from the form for the `titleKey` and `descriptionKey` fields.
+      const dataPayload: { [key: string]: any } = {
+        // The client expects keys for localization. We'll pass the raw strings.
+        // The client app should be designed to display the key itself if a localization isn't found.
+        titleKey: title,
+        descriptionKey: body,
+        
+        // The client expects an `itemType` to categorize the notification.
         itemType: "general",
+
+        // These fields are for navigation and display.
+        link: deepLink || null,
+        imageUrl: imageUrl || null,
+        
+        // The client might expect these fields, even if they are empty for a general notification.
+        descriptionPlaceholders: {}, // Sending as empty map
+        dataAiHint: null,
+
+        // The client also seems to add these fields, but sending them might ensure consistency.
         isGlobal: "false",
         read: "false",
+        
+        // Keep a unique ID for debugging or other client-side purposes
         _internalMessageId: new Date().getTime().toString() + Math.random().toString(),
       };
-      if (deepLink) {
-        dataPayload.deepLink = deepLink;
-      }
-      if (imageUrl) {
-        dataPayload.imageUrl = imageUrl;
-      }
+
 
       const messagePayload: admin.messaging.MulticastMessage = {
+        // This 'notification' part is for the OS to handle and display when the app is in the background.
         notification: {
           title,
           body,
           ...(imageUrl && { imageUrl }),
         },
+        // This is for web push notifications specifically.
         webpush: {
           notification: {
             title,
             body,
-            ...(imageUrl && { image: imageUrl }), // Use 'image' for the web standard
+            ...(imageUrl && { image: imageUrl }),
             icon: "https://placehold.co/96x96.png?text=AP&bg=FF5733&txt=FFFFFF",
             badge: "https://placehold.co/96x96.png?text=AP&bg=FF5733&txt=FFFFFF",
           },
         },
         tokens: tokensToSend,
+        // This 'data' part is delivered to the app's message handler for custom logic,
+        // like saving to Firestore.
         data: dataPayload,
       };
 
