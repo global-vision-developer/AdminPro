@@ -1,8 +1,8 @@
 
 "use server";
 
-import { db, auth as adminAuth } from "@/lib/firebase";
-import type { Anket, Category, Entry, AppUser } from "@/types";
+import { db } from "@/lib/firebase";
+import type { Anket, Category } from "@/types";
 import { AnketStatus } from "@/types";
 import {
   collection,
@@ -20,7 +20,8 @@ import {
 } from "firebase/firestore";
 import { revalidatePath } from "next/cache";
 import { addEntry } from "./entryActions";
-import { getAppUsersMap } from "./appUserActions"; // Helper to get users efficiently
+import { getAppUsersMap } from "./appUserActions";
+import { getCitiesMap } from "./cityActions";
 
 const ANKETS_COLLECTION = "ankets";
 const CATEGORIES_COLLECTION = "categories";
@@ -30,11 +31,10 @@ export async function getAnkets(statusFilter?: AnketStatus): Promise<Anket[]> {
   try {
     const anketsRef = collection(db, ANKETS_COLLECTION);
     
-    // The original orderBy was breaking the query because 'submittedAt' field does not exist in the documents.
-    // Removing it allows fetching the documents.
+    // Order by 'createdAt' field, which should exist if serverTimestamp() is used on creation.
     const q = statusFilter 
-      ? query(anketsRef, where("status", "==", statusFilter)) 
-      : query(anketsRef);
+      ? query(anketsRef, where("status", "==", statusFilter), orderBy("createdAt", "desc")) 
+      : query(anketsRef, orderBy("createdAt", "desc"));
       
     const [querySnapshot, usersMap] = await Promise.all([
         getDocs(q),
@@ -43,32 +43,26 @@ export async function getAnkets(statusFilter?: AnketStatus): Promise<Anket[]> {
 
     const ankets = querySnapshot.docs.map((doc) => {
       const data = doc.data();
-      const user = usersMap[doc.id] || null; // The anket doc ID is the user's UID
+      const user = usersMap[data.uid || doc.id] || null;
 
       return {
         id: doc.id,
-        name: user?.displayName || "Unknown User", // Fetch name from user profile
-        email: user?.email || "No Email", // Fetch email from user profile
-        phoneNumber: data.chinaPhoneNumber || data.phoneNumber,
-        cvLink: data.cvLink || "", // Fallback for legacy field
-        message: data.description || "", // Map from description field
-        submittedAt: (data.submittedAt instanceof Timestamp ? data.submittedAt.toDate() : (data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date())).toISOString(),
+        uid: data.uid || doc.id,
+        name: data.name || user?.displayName || "Unknown User",
+        email: user?.email || "No Email",
+        submittedAt: (data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date()).toISOString(),
         status: data.status || AnketStatus.PENDING,
-        processedBy: data.processedBy,
-        processedAt: data.processedAt instanceof Timestamp ? data.processedAt.toDate().toISOString() : undefined,
-        // Map new fields
         averageRating: data.averageRating ?? null,
-        chinaPhoneNumber: data.chinaPhoneNumber,
-        idCardBackImageUrl: data.idCardBackImageUrl,
-        dailyRate: data.dailyRate,
       } as Anket;
     });
-
-    // Manual sort because we cannot rely on Firestore's orderBy
-    return ankets.sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
+    
+    return ankets;
 
   } catch (e: any) {
     console.error("Error getting ankets: ", e);
+    if (e.code === 'failed-precondition' && e.message?.includes('index')) {
+        console.error("Firestore index missing for 'ankets' query. Please create a composite index for 'status' and 'createdAt' in the Firebase console.");
+    }
     return [];
   }
 }
@@ -76,33 +70,59 @@ export async function getAnkets(statusFilter?: AnketStatus): Promise<Anket[]> {
 export async function getAnket(id: string): Promise<Anket | null> {
   try {
     const anketDocRef = doc(db, ANKETS_COLLECTION, id);
-    const userDocRef = doc(db, "users", id); // Assuming user data is in 'users' collection
+    const userDocRef = doc(db, "users", id);
 
-    const [anketSnap, userSnap] = await Promise.all([
+    const [anketSnap, userSnap, citiesMap] = await Promise.all([
         getDoc(anketDocRef),
-        getDoc(userDocRef)
+        getDoc(userDocRef),
+        getCitiesMap()
     ]);
 
     if (anketSnap.exists()) {
       const data = anketSnap.data();
       const user = userSnap.exists() ? userSnap.data() : null;
       
+      const currentCityInChinaName = data.currentCityInChina ? citiesMap[data.currentCityInChina] || data.currentCityInChina : undefined;
+      const canWorkInOtherCitiesNames = Array.isArray(data.canWorkInOtherCities) 
+        ? data.canWorkInOtherCities.map((cityId: string) => citiesMap[cityId] || cityId) 
+        : [];
+
       return {
         id: anketSnap.id,
-        name: user?.displayName || "Unknown User",
+        uid: data.uid || anketSnap.id,
+        name: data.name || user?.displayName || "Unknown User",
         email: user?.email || "No Email",
-        phoneNumber: data.chinaPhoneNumber || data.phoneNumber,
-        cvLink: data.cvLink || "",
-        message: data.description || "",
-        submittedAt: (data.submittedAt instanceof Timestamp ? data.submittedAt.toDate() : (data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date())).toISOString(),
         status: data.status || AnketStatus.PENDING,
+        submittedAt: (data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date()).toISOString(),
         processedBy: data.processedBy,
         processedAt: data.processedAt instanceof Timestamp ? data.processedAt.toDate().toISOString() : undefined,
-        // Map new fields
-        averageRating: data.averageRating ?? null,
-        chinaPhoneNumber: data.chinaPhoneNumber,
+        
+        photoUrl: data.photoUrl,
+        selfieImageUrl: data.selfieImageUrl,
+        idCardFrontImageUrl: data.idCardFrontImageUrl,
         idCardBackImageUrl: data.idCardBackImageUrl,
+        wechatId: data.wechatId,
+        wechatQrImageUrl: data.wechatQrImageUrl,
+        chinaPhoneNumber: data.chinaPhoneNumber,
+        inChinaNow: data.inChinaNow,
+        currentCityInChina: data.currentCityInChina,
+        currentCityInChinaName: currentCityInChinaName,
+        canWorkInOtherCities: data.canWorkInOtherCities || [],
+        canWorkInOtherCitiesNames: canWorkInOtherCitiesNames,
+        yearsInChina: data.yearsInChina,
+        nationality: data.nationality,
+        speakingLevel: data.speakingLevel,
+        writingLevel: data.writingLevel,
+        chineseExamTaken: data.chineseExamTaken,
+        workedAsTranslator: data.workedAsTranslator,
+        translationFields: data.translationFields || [],
         dailyRate: data.dailyRate,
+        isActive: data.isActive,
+        isProfileComplete: data.isProfileComplete,
+        itemType: data.itemType,
+        message: data.description || "",
+        cvLink: data.cvLink, // For legacy compatibility
+        averageRating: data.averageRating, // For legacy compatibility
       } as Anket;
     }
     return null;
@@ -165,9 +185,7 @@ export async function approveAnketAndCreateTranslatorEntry(
   const batch = writeBatch(db);
 
   try {
-    // Use the new getAnket function to get fully populated data
     const anketData = await getAnket(anketId);
-
     if (!anketData) {
       return { error: "Анкет олдсонгүй." };
     }
@@ -179,36 +197,24 @@ export async function approveAnketAndCreateTranslatorEntry(
 
     const entryDataPayload: Record<string, any> = {};
     
-    const fieldMappings: Record<string, keyof Anket> = {
-        'name': 'name',
-        'email': 'email',
-        'phone_number': 'phoneNumber',
-        'cv_link': 'cvLink',
-        'notes': 'message'
-    };
-
+    // Map anket data to entry fields based on key mappings or direct matches
     translatorCategory.fields.forEach(field => {
-        if (fieldMappings[field.key]) {
-            const anketFieldKey = fieldMappings[field.key];
-            // @ts-ignore
-            const value = anketData[anketFieldKey];
-            if (value !== undefined && value !== null && value !== '') {
-                entryDataPayload[field.key] = value;
-            }
-        }
-        if (field.required && !entryDataPayload.hasOwnProperty(field.key)) {
-            console.warn(`Required field "${field.label}" (key: ${field.key}) for "Орчуулагчид" category is missing from anket ${anketId}. Setting to default/empty.`);
-            // Set a default value based on type to avoid Firestore errors
-            switch (field.type) {
-                case "Text":
-                case "Textarea":
-                    entryDataPayload[field.key] = ""; break;
-                case "Number":
-                    entryDataPayload[field.key] = 0; break;
-                case "Boolean":
-                    entryDataPayload[field.key] = false; break;
-                default:
-                    entryDataPayload[field.key] = null;
+        const value = (anketData as Record<string, any>)[field.key];
+        if (value !== undefined && value !== null) {
+            entryDataPayload[field.key] = value;
+        } else {
+            // For keys that don't match directly, use a mapping
+            const keyMap: Record<string, keyof Anket> = {
+                'name': 'name',
+                'email': 'email',
+                'phone_number': 'chinaPhoneNumber',
+                'notes': 'message',
+            };
+            if (keyMap[field.key]) {
+                const mappedValue = anketData[keyMap[field.key]];
+                if (mappedValue !== undefined && mappedValue !== null) {
+                    entryDataPayload[field.key] = mappedValue;
+                }
             }
         }
     });
@@ -235,7 +241,7 @@ export async function approveAnketAndCreateTranslatorEntry(
     await batch.commit();
 
     revalidatePath("/admin/anket");
-    revalidatePath(`/admin/anket/${anketId}`);
+    revalidatePath(`/admin/anket/${id}`);
     revalidatePath("/admin/entries");
     revalidatePath(`/admin/entries?category=${translatorCategory.id}`);
 

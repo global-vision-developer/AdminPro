@@ -77,6 +77,19 @@ export async function getCities(): Promise<City[]> {
   }
 }
 
+export async function getCitiesMap(): Promise<Record<string, string>> {
+  try {
+    const cities = await getCities();
+    return cities.reduce((acc, city) => {
+      acc[city.id] = city.name;
+      return acc;
+    }, {} as Record<string, string>);
+  } catch (error) {
+    console.error("Error creating cities map:", error);
+    return {};
+  }
+}
+
 export async function getCity(id: string): Promise<City | null> {
   try {
     const docRef = doc(db, CITIES_COLLECTION, id);

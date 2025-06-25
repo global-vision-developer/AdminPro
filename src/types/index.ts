@@ -121,18 +121,41 @@ export interface Anket {
   id: string;
   name: string;
   email: string;
-  phoneNumber?: string;
-  cvLink: string;
-  message: string;
-  submittedAt: string;
   status: AnketStatus;
+  submittedAt: string;
   processedBy?: string;
   processedAt?: string;
-  // Fields from the new structure, now added
-  averageRating?: number | null;
-  chinaPhoneNumber?: string;
+
+  // New fields from user's provided data
+  uid: string;
+  photoUrl?: string;
+  selfieImageUrl?: string;
+  idCardFrontImageUrl?: string;
   idCardBackImageUrl?: string;
+  wechatId?: string;
+  wechatQrImageUrl?: string;
+  chinaPhoneNumber?: string;
+  inChinaNow?: boolean;
+  currentCityInChina?: string; // The city ID
+  currentCityInChinaName?: string; // The resolved city name
+  canWorkInOtherCities?: string[]; // Array of city IDs
+  canWorkInOtherCitiesNames?: string[]; // Array of resolved city names
+  yearsInChina?: number | null;
+  nationality?: string;
+  speakingLevel?: string;
+  writingLevel?: string;
+  chineseExamTaken?: boolean;
+  workedAsTranslator?: boolean;
+  translationFields?: string[];
   dailyRate?: string;
+  isActive?: boolean;
+  isProfileComplete?: boolean;
+  itemType?: string;
+  message?: string; // from description field
+  
+  // Legacy fields for compatibility
+  cvLink?: string;
+  averageRating?: number | null;
 }
 
 
