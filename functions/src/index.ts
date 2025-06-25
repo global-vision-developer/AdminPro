@@ -19,14 +19,6 @@ const db = admin.firestore();
 const messaging = admin.messaging();
 const fAuth = admin.auth(); // Firebase Admin Auth instance
 
-// Client-аас ирэх payload-ийн төрөл
-interface AppUser {
-  id: string;
-  email: string;
-  displayName?: string;
-  fcmTokens?: string[];
-}
-
 interface UserProfile {
   uid: string;
   name: string;
@@ -318,7 +310,7 @@ export const updateAdminAuthDetails = onCall(
 
     // Get caller's role for permission checks
     const callerAdminDoc = await db.collection(ADMINS_COLLECTION).doc(callerUid).get();
-    if (!callerAdminDoc.exists()) {
+    if (!callerAdminDoc.exists) {
         throw new HttpsError("permission-denied", "Caller is not a valid admin.");
     }
     const isCallerSuperAdmin = callerAdminDoc.data()?.role === UserRole.SUPER_ADMIN;
@@ -659,3 +651,5 @@ export const deleteAdminUser = onCall(
     }
   }
 );
+
+    
