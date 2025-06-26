@@ -1,3 +1,5 @@
+// This file is now intended for client-side use to interact with Firebase services.
+// It calls Cloud Functions for protected actions like creating/updating users.
 
 import { db, auth as clientAuth, app as clientApp } from "@/lib/firebase";
 import type { UserProfile } from "@/types";
@@ -40,7 +42,6 @@ export async function addAdminUser(
         const result = await callCreateAdmin(payload) as HttpsCallableResult<{success?: boolean; message?: string; error?: string; userId?: string}>;
 
         if (result.data.success) {
-            // revalidatePath("/admin/users"); // Cannot be used on client, UI must refresh
             return { success: true, message: result.data.message || `Админ хэрэглэгч "${data.name}" амжилттай үүслээ.` };
         } else {
             return { error: result.data.error || "Cloud Function-оос тодорхойгүй алдаа гарлаа." };
@@ -49,7 +50,7 @@ export async function addAdminUser(
         let errorMessage = error.message || "Админ хэрэглэгч нэмэхэд алдаа гарлаа.";
         if (error.code === 'functions/unavailable' || error.code === 'functions/not-found') {
             errorMessage = "Cloud Function-тэй холбогдож чадсангүй. Firebase төлөвлөгөө болон функцээ deploy хийсэн эсэхээ шалгана уу.";
-        } else if (error.code === 'functions/unauthenticated' || (error.details && error.details.code === 'unauthenticated')) {
+        } else if (error.code === 'unauthenticated' || (error.details && error.details.code === 'unauthenticated')) {
             errorMessage = "Authentication required. The function must be called while authenticated.";
         }
         return { error: errorMessage };
@@ -70,9 +71,6 @@ export async function updateAdminUser(
     const result = await callUpdateUser(payload) as HttpsCallableResult<{success?: boolean; message?: string; error?: string}>;
 
     if (result.data.success) {
-        // revalidatePath("/admin/users"); // Cannot be used on client
-        // revalidatePath(`/admin/users/${userId}/edit`);
-        // revalidatePath(`/admin/profile`);
         return { success: true, message: result.data.message || "Хэрэглэгчийн мэдээлэл амжилттай шинэчлэгдлээ." };
     } else {
         return { error: result.data.error || "Cloud Function-оос хэрэглэгч шинэчлэхэд алдаа гарлаа." };
@@ -148,7 +146,6 @@ export async function deleteAdminUser(id: string): Promise<{ success?: boolean; 
         const result = await callDeleteAdmin({ targetUserId: id }) as HttpsCallableResult<{success?: boolean; message?: string; error?: string}>;
         
         if (result.data.success) {
-            // revalidatePath("/admin/users"); // Cannot be used on client
             return { success: true, message: result.data.message };
         } else {
             return { error: result.data.error || "Cloud функц алдаа буцаалаа." };

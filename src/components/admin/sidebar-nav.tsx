@@ -36,7 +36,6 @@ interface NavItem {
   icon: React.ElementType;
   roles?: UserRole[];
   subItems?: NavItem[];
-  hideIfSubAdmin?: boolean;
 }
 
 const navItems: NavItem[] = [
@@ -87,10 +86,6 @@ export function SidebarNav() {
       return null;
     }
     
-    if (item.hideIfSubAdmin && currentUser.role === UserRole.SUB_ADMIN) {
-        return null;
-    }
-    
     let itemIsActive = pathname === item.href || (item.href !== "/admin/dashboard" && pathname.startsWith(item.href));
     if (item.subItems && !itemIsActive) {
         itemIsActive = item.subItems.some(sub => {
@@ -104,7 +99,6 @@ export function SidebarNav() {
     if (item.subItems) {
       const visibleSubItems = item.subItems.filter(subItem => {
         if (subItem.roles && !subItem.roles.includes(currentUser.role)) return false;
-        if (subItem.hideIfSubAdmin && currentUser.role === UserRole.SUB_ADMIN) return false;
         return true;
       });
 
