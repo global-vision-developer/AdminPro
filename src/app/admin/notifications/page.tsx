@@ -229,14 +229,12 @@ export default function NotificationsPage() {
                           {user.fcmTokens && user.fcmTokens.length > 0 ? (
                             <Tooltip>
                               <TooltipTrigger>
-                                <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-300">
-                                  {user.fcmTokens.length}
-                                </Badge>
+                                <span className="font-mono text-xs text-muted-foreground" title={user.fcmTokens[0]}>
+                                  {`${user.fcmTokens[0].substring(0, 20)}...`}
+                                </span>
                               </TooltipTrigger>
                               <TooltipContent className="max-w-sm break-all">
-                                {user.fcmTokens.map((token, index) => (
-                                    <p key={index} className="text-xs font-mono">{token.substring(0,30)}...</p>
-                                ))}
+                                <p className="text-xs font-mono">{user.fcmTokens[0]}</p>
                               </TooltipContent>
                             </Tooltip>
                           ) : (
