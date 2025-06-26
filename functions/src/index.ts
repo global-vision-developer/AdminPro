@@ -201,6 +201,14 @@ export const sendNotification = onCall(
             badge: "https://placehold.co/96x96.png?text=AP&bg=FF5733&txt=FFFFFF",
           },
         },
+        // This is for native Android apps.
+        android: {
+            notification: {
+                title,
+                body,
+                ...(imageUrl && { imageUrl }),
+            }
+        },
         tokens: tokensToSend,
         // This 'data' part is delivered to the app's message handler for custom logic,
         // like saving to Firestore.
@@ -667,5 +675,3 @@ export const deleteAdminUser = onCall(
     }
   }
 );
-
-    
