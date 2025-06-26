@@ -1,4 +1,3 @@
-
 // functions/src/index.ts
 
 import {
@@ -168,50 +167,52 @@ export const sendNotification = onCall(
         };
       }
 
-      // **FIX**: Corrected the data payload to only contain strings as required by FCM.
-      // All values are now guaranteed to be strings.
+      // This is the data payload that the client app uses to save notification history.
+      // It must contain only string values.
       const dataPayloadForFCM: { [key:string]: string } = {
         titleKey: title,
         descriptionKey: body,
         itemType: "general",
-        link: deepLink || '', // Ensure string
-        imageUrl: imageUrl || '', // Ensure string
-        descriptionPlaceholders: JSON.stringify({}), // Stringify object
-        dataAiHint: '', // Use empty string for null
+        link: deepLink || '', 
+        imageUrl: imageUrl || '', 
+        descriptionPlaceholders: JSON.stringify({}), 
+        dataAiHint: '', 
         isGlobal: "false",
         read: "false",
         _internalMessageId: new Date().getTime().toString() + Math.random().toString(),
       };
 
-
+      // This is the main notification payload sent to FCM.
       const messagePayload: admin.messaging.MulticastMessage = {
-        // This 'notification' part is for the OS to handle and display when the app is in the background.
+        // Generic notification for fallback
         notification: {
           title,
           body,
           ...(imageUrl && { imageUrl }),
         },
-        // This is for web push notifications specifically.
+        // Web push specific configuration
         webpush: {
           notification: {
             title,
             body,
-            ...(imageUrl && { image: imageUrl }),
+            ...(imageUrl && { image: imageUrl }), // Use 'image' for the web standard
             icon: "https://placehold.co/96x96.png?text=AP&bg=FF5733&txt=FFFFFF",
             badge: "https://placehold.co/96x96.png?text=AP&bg=FF5733&txt=FFFFFF",
           },
         },
-        // This is for native Android apps.
+        // Android specific configuration
         android: {
-            notification: {
-                title,
-                body,
-                ...(imageUrl && { imageUrl }),
-            }
+          priority: 'high', // Set priority to high for heads-up notifications
+          notification: {
+              title,
+              body,
+              ...(imageUrl && { imageUrl }),
+              // For Android 8.0+, a channel with high importance must be created in the app.
+              // If your app has one, you would specify its ID here. e.g., channelId: 'high_priority_notifications'
+              sound: 'default',
+          }
         },
         tokens: tokensToSend,
-        // This 'data' part is delivered to the app's message handler for custom logic,
-        // like saving to Firestore.
         data: dataPayloadForFCM,
       };
 
