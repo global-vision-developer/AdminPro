@@ -27,13 +27,15 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { v4 as uuidv4 } from 'uuid';
 import ImageUploader from '@/components/admin/image-uploader';
+import { useAuth } from '@/hooks/use-auth';
 
 interface EntryFormProps {
   initialData?: Entry | null;
   categories: Category[];
   selectedCategory: Category;
-  cities: City[]; // Added cities prop
+  cities: City[];
   onSubmitSuccess?: () => void;
+  sourceAnketId?: string;
 }
 
 const USER_ONLY_FIELD_MARKER = "This field is for app users, not admins.";
@@ -121,11 +123,11 @@ const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, a
             fieldSchema = z.array(imageGalleryItemSchema).optional().default([]);
         }
         break;
-      case FieldType.CITY_PICKER: // Added schema for City Picker
+      case FieldType.CITY_PICKER: 
         if (field.required) {
           fieldSchema = z.string().min(1, { message: `${field.label} is required.` });
         } else {
-          fieldSchema = z.string().optional().nullable(); // Stores city ID
+          fieldSchema = z.string().optional().nullable();
         }
         break;
       default:
@@ -148,9 +150,10 @@ const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, a
 };
 
 
-export function EntryForm({ initialData, categories, selectedCategory, cities, onSubmitSuccess }: EntryFormProps) {
+export function EntryForm({ initialData, categories, selectedCategory, cities, onSubmitSuccess, sourceAnketId }: EntryFormProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const { currentUser } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
   const [isSuggesting, setIsSuggesting] = useState(false);
@@ -181,8 +184,8 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
                 defaultDataValues[field.key] = Array.isArray(initialValueFromData)
                     ? initialValueFromData.map((item: ImageGalleryItemStored) => ({ ...item, clientId: uuidv4(), imageUrl: item.imageUrl || null }))
                     : [];
-            } else if (field.type === FieldType.CITY_PICKER) { // Added for City Picker
-                defaultDataValues[field.key] = initialValueFromData || undefined; // Stores city ID
+            } else if (field.type === FieldType.CITY_PICKER) {
+                defaultDataValues[field.key] = initialValueFromData || undefined;
             } else {
                 defaultDataValues[field.key] = initialValueFromData;
             }
@@ -192,7 +195,7 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
             else if (field.type === FieldType.DATE) defaultDataValues[field.key] = undefined;
             else if (field.type === FieldType.IMAGE_GALLERY) defaultDataValues[field.key] = [];
             else if (field.type === FieldType.IMAGE) defaultDataValues[field.key] = null;
-            else if (field.type === FieldType.CITY_PICKER) defaultDataValues[field.key] = undefined; // Default for City Picker
+            else if (field.type === FieldType.CITY_PICKER) defaultDataValues[field.key] = undefined; 
             else defaultDataValues[field.key] = '';
         }
     });
@@ -298,7 +301,7 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
           break;
         case FieldType.TEXT:
         case FieldType.TEXTAREA:
-        case FieldType.CITY_PICKER: // City Picker stores string (ID) or null
+        case FieldType.CITY_PICKER: 
           valueToSave = (typeof valueFromForm === 'string') ? valueFromForm : (valueFromForm === null ? null : '');
           break;
         case FieldType.IMAGE:
@@ -328,15 +331,22 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
     };
 
     let result;
+    const adminId = currentUser?.id;
+
     if (initialData?.id) {
         result = await updateEntry(initialData.id, submissionPayload);
     } else {
-        result = await addEntry(submissionPayload);
+        if (!adminId && sourceAnketId) {
+            toast({ title: "Error", description: "Admin user not authenticated. Cannot process anket approval.", variant: "destructive" });
+            setIsSubmitting(false);
+            return;
+        }
+        result = await addEntry(submissionPayload, sourceAnketId, adminId);
     }
     setIsSubmitting(false);
 
     if (result && "id" in result && result.id) {
-        toast({ title: "Success", description: `Entry ${initialData ? 'updated' : 'created'}.`});
+        toast({ title: "Success", description: `Entry ${initialData || sourceAnketId ? 'updated/created' : 'created'}.`});
         if (onSubmitSuccess) onSubmitSuccess();
         else router.push(`/admin/entries?category=${selectedCategory.id}`);
 

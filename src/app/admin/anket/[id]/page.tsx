@@ -4,12 +4,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Image from 'next/image';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/admin/page-header';
 import type { Anket } from '@/types';
 import { AnketStatus } from '@/types';
-import { getAnket, updateAnketStatus, approveAnketAndCreateTranslatorEntry } from '@/lib/actions/anketActions';
+import { getAnket, updateAnketStatus } from '@/lib/actions/anketActions';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -22,7 +23,6 @@ import {
 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
-// Helper component for displaying an information row
 const InfoRow = ({ icon: Icon, label, children }: { icon: React.ElementType, label: string, children?: React.ReactNode }) => {
   if (children === null || children === undefined || (typeof children === 'string' && children.trim() === '') || (Array.isArray(children) && children.length === 0)) {
     return null;
@@ -38,7 +38,6 @@ const InfoRow = ({ icon: Icon, label, children }: { icon: React.ElementType, lab
   );
 };
 
-// Helper for image display
 const ImageRow = ({ icon: Icon, label, src }: { icon: React.ElementType, label: string, src?: string | null }) => {
   if (!src) return null;
   return (
@@ -79,24 +78,19 @@ export default function AnketDetailPage() {
     fetchAnket();
   }, [fetchAnket]);
 
-  const handleUpdateStatus = async (status: AnketStatus.APPROVED | AnketStatus.REJECTED) => {
+  const handleReject = async () => {
     if (!anket || !currentUser) return;
     setProcessingError(null);
     setIsProcessing(true);
 
-    let result;
-    if (status === AnketStatus.APPROVED) {
-      result = await approveAnketAndCreateTranslatorEntry(anket.id, currentUser.id);
-    } else {
-      result = await updateAnketStatus(anket.id, status, currentUser.id);
-    }
+    const result = await updateAnketStatus(anket.id, AnketStatus.REJECTED, currentUser.id);
 
     if (result && "success" in result && result.success) {
       toast({
         title: "Амжилттай",
-        description: `Анкет ${status === AnketStatus.APPROVED ? "зөвшөөрөгдөж, орчуулагчийн бүртгэл үүслээ" : "татгалзлаа"}.`,
+        description: `Анкетээс татгалзлаа.`,
       });
-      fetchAnket(); // Refresh anket data
+      fetchAnket(); 
     } else if (result && "error" in result && result.error) {
       setProcessingError(result.error);
       toast({ title: "Алдаа", description: result.error, variant: "destructive" });
@@ -223,20 +217,17 @@ export default function AnketDetailPage() {
           <CardFooter className="flex justify-end space-x-2 pt-6 border-t">
             <Button
               variant="destructive"
-              onClick={() => handleUpdateStatus(AnketStatus.REJECTED)}
+              onClick={handleReject}
               disabled={isProcessing}
             >
-              {isProcessing && anket.status === AnketStatus.REJECTED ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <XCircle className="mr-2 h-4 w-4" />}
+              {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <XCircle className="mr-2 h-4 w-4" />}
               Татгалзах
             </Button>
-            <Button
-              variant="default"
-              className="bg-green-500 hover:bg-green-600"
-              onClick={() => handleUpdateStatus(AnketStatus.APPROVED)}
-              disabled={isProcessing}
-            >
-              {isProcessing && anket.status === AnketStatus.APPROVED ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-              Зөвшөөрөх
+            <Button asChild className="bg-green-500 hover:bg-green-600">
+              <Link href={`/admin/entries/new?fromAnket=${anket.id}`}>
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Бүртгэл үүсгэж зөвшөөрөх
+              </Link>
             </Button>
           </CardFooter>
         )}

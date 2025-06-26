@@ -3,6 +3,7 @@
 
 import { db } from "@/lib/firebase";
 import type { Entry } from "@/types";
+import { AnketStatus } from "@/types";
 import {
   collection,
   addDoc,
@@ -16,15 +17,12 @@ import {
   where,
   orderBy,
   Timestamp,
+  writeBatch,
 } from "firebase/firestore";
 import { revalidatePath } from "next/cache";
 
 const ENTRIES_COLLECTION = "entries";
 
-// Type for data payload when adding an entry.
-// It should align with the Entry type in src/types/index.ts,
-// excluding server-generated fields like id, createdAt, updatedAt.
-// It also needs categoryName which is denormalized.
 type AddEntryData = {
   categoryId: string;
   categoryName: string;
@@ -35,22 +33,43 @@ type AddEntryData = {
 };
 
 export async function addEntry(
-  entryData: AddEntryData
+  entryData: AddEntryData,
+  sourceAnketId?: string,
+  adminId?: string
 ): Promise<{ id: string } | { error: string }> {
   try {
+    const batch = writeBatch(db);
+    const entriesCollectionRef = collection(db, ENTRIES_COLLECTION);
+    const newEntryRef = doc(entriesCollectionRef);
+
     const dataToSave = {
       ...entryData,
-      publishAt: entryData.publishAt || null, // Firestore handles undefined as not set, but null is explicit
+      publishAt: entryData.publishAt || null,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };
+    batch.set(newEntryRef, dataToSave);
 
-    const docRef = await addDoc(collection(db, ENTRIES_COLLECTION), dataToSave);
+    if (sourceAnketId && adminId) {
+      const anketDocRef = doc(db, "ankets", sourceAnketId);
+      batch.update(anketDocRef, {
+        status: AnketStatus.APPROVED,
+        processedBy: adminId,
+        processedAt: serverTimestamp(),
+      });
+    }
+
+    await batch.commit();
+
     revalidatePath("/admin/entries");
     revalidatePath(`/admin/entries?category=${entryData.categoryId}`);
-    return { id: docRef.id };
+    if (sourceAnketId) {
+      revalidatePath("/admin/anket");
+      revalidatePath(`/admin/anket/${sourceAnketId}`);
+    }
+    return { id: newEntryRef.id };
   } catch (e: any) {
-    console.error("Error adding entry: ", e);
+    console.error("Error adding entry and updating anket: ", e);
     return { error: e.message || "Error adding entry." };
   }
 }
@@ -70,16 +89,15 @@ export async function getEntries(categoryId?: string): Promise<Entry[]> {
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map((doc) => {
         const data = doc.data();
-        // Ensure all fields from the Entry type are present with fallbacks
         return {
             id: doc.id,
             categoryId: data.categoryId,
-            categoryName: data.categoryName || "Unknown Category", // Fallback for categoryName
-            title: data.title || "", // Fallback for title
+            categoryName: data.categoryName || "Unknown Category", 
+            title: data.title || "", 
             data: data.data || {},
-            status: data.status || 'draft', // Fallback for status
+            status: data.status || 'draft', 
             publishAt: data.publishAt instanceof Timestamp ? data.publishAt.toDate().toISOString() : (typeof data.publishAt === 'string' ? data.publishAt : undefined),
-            createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : (typeof data.createdAt === 'string' ? data.createdAt : new Date().toISOString()), // Fallback for createdAt
+            createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : (typeof data.createdAt === 'string' ? data.createdAt : new Date().toISOString()), 
             updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().toISOString() : (typeof data.updatedAt === 'string' ? data.updatedAt : undefined),
         } as Entry;
     });
@@ -118,14 +136,11 @@ export async function getEntry(id: string): Promise<Entry | null> {
   }
 }
 
-// Type for data payload when updating an entry.
-// Only include fields that are actually updatable by this action.
-// categoryId and categoryName are not updatable here.
 type UpdateEntryData = Partial<Omit<Entry, "id" | "createdAt" | "updatedAt" | "categoryId" | "categoryName">>;
 
 export async function updateEntry(
   id: string,
-  entryData: UpdateEntryData // This should contain title, data, status, publishAt
+  entryData: UpdateEntryData 
 ): Promise<{ success: boolean } | { error: string }> {
   try {
     const docRef = doc(db, ENTRIES_COLLECTION, id);
@@ -138,11 +153,6 @@ export async function updateEntry(
 
     const dataToUpdate: Record<string, any> = {};
 
-    // Iterate over selectedCategory.fields to ensure all admin-editable fields are considered
-    // This assumes selectedCategory is available or passed to this scope, which it isn't directly.
-    // For now, we rely on entryData providing all necessary keys.
-    // A more robust solution might involve fetching category fields if this becomes an issue.
-
     Object.keys(entryData).forEach(key => {
       if (key === 'title' || key === 'data' || key === 'status' || key === 'publishAt') {
         // @ts-ignore
@@ -150,17 +160,12 @@ export async function updateEntry(
       }
     });
     
-    // Handle publishAt for Firestore (null vs undefined)
     if (dataToUpdate.hasOwnProperty('publishAt')) {
       dataToUpdate.publishAt = dataToUpdate.publishAt || null;
     }
     
     if (Object.keys(dataToUpdate).length === 0) {
-      // If only fields not in the allowed list were passed, dataToUpdate might be empty.
-      // However, the type UpdateEntryData already restricts what can be passed.
       console.log("No updatable data provided for entry.");
-      // Consider if an error should be returned or just a success if no *valid* fields changed.
-      // For now, proceed if entryData itself was not empty.
     }
     
     dataToUpdate.updatedAt = serverTimestamp();
