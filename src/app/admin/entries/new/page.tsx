@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import { AlertTriangle, Info, Loader2 } from 'lucide-react'; 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'; 
 
-const TARGET_TRANSLATOR_CATEGORY_SLUG = "orchluulagchid";
+const TARGET_TRANSLATOR_CATEGORY_SLUG = "translators";
 
 function mapAnketToEntryData(anket: Anket, category: Category): Record<string, any> {
     const entryData: Record<string, any> = {};
