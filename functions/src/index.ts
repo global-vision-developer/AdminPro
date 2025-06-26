@@ -209,6 +209,7 @@ export const sendNotification = onCall(
               ...(imageUrl && { imageUrl }),
               // For Android 8.0+, a channel with high importance must be created in the app.
               // If your app has one, you would specify its ID here. e.g., channelId: 'high_priority_notifications'
+              channelId: 'high_priority_notifications', // Specify the channel ID here
               sound: 'default',
           }
         },
@@ -676,3 +677,5 @@ export const deleteAdminUser = onCall(
     }
   }
 );
+
+    
