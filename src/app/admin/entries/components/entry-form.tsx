@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -658,7 +657,7 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
                 <CardContent className="space-y-4">
                   <Button type="button" variant="outline" onClick={handleGetSuggestions} disabled={isSuggesting || !selectedCategory}>
                     {isSuggesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                    энэ ажиллахгүй байна
+                    Надад санал болго
                   </Button>
                   {aiError && (
                     <Alert variant="destructive">
