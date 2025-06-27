@@ -155,3 +155,34 @@
     *   `genkit.ts`: Genkit-ийн үндсэн тохиргоог хийдэг файл.
 
 ---
+
+## 6. Deployment (Байршуулалт)
+
+Энэхүү төслийг продакшн орчинд байршуулахдаа frontend (Next.js) болон backend (Firebase Cloud Functions) хоёрыг тусад нь байршуулна.
+
+### 6.1. Frontend (Vercel дээр байршуулах)
+
+Next.js аппликейшныг байршуулахад **Vercel** платформ хамгийн тохиромжтой.
+
+1.  **Vercel данс үүсгэх:** Хэрэв байхгүй бол [vercel.com](https://vercel.com/) дээр данс нээнэ.
+2.  **GitHub репозиторитой холбох:** Vercel дээр шинэ төсөл үүсгэж, өөрийн GitHub данстай холбон, энэхүү "Админ Про" төслийн репозиторийг сонгоно.
+3.  **Орчны хувьсагчдыг (Environment Variables) тохируулах:**
+    *   Энэ бол хамгийн чухал алхам. Таны локал дээрх `.env` файлд байгаа бүх нууц хувьсагчдыг (жишээ нь, `NEXT_PUBLIC_FIREBASE_API_KEY`) Vercel төслийн **Settings -> Environment Variables** хэсэгт нэг бүрчлэн хуулж оруулах шаардлагатай. Vercel нь таны `.env` файлыг уншихгүй.
+4.  **Deploy хийх:** Дээрх тохиргоог хийсний дараа **Deploy** товчийг дарна. Vercel нь Next.js төслийг автоматаар таньж, build хийж, байршуулна. Таны `main` (эсвэл `master`) branch-д push хийх болгонд Vercel автоматаар шинэ хувилбарыг байршуулна.
+
+### 6.2. Backend (Firebase Cloud Functions)
+
+Сервер талын логик болох Cloud Functions-г Firebase дээр байршуулна.
+
+1.  **Firebase CLI суулгах:** Хэрэв суулгаагүй бол `npm install -g firebase-tools` коммандаар суулгана.
+2.  **Firebase-д нэвтрэх:** Терминал дээр `firebase login` коммандыг ажиллуулж, өөрийн Google дансаар нэвтэрнэ.
+3.  **Зөв төсөл сонгох:** `firebase use <project-id>` коммандаар өөрийн Firebase төслийн ID-г оруулан сонгоно. (`<project-id>` хэсгийг `mbad-c532e` гэх мэтээр солино).
+4.  **Функц байршуулах:** Төслийн үндсэн хавтаст (root) байрлаж байгаад дараах коммандыг ажиллуулна:
+    ```bash
+    firebase deploy --only functions
+    ```
+    Энэ комманд нь `functions` хавтас доторх кодыг build хийж (`npm run build` скриптийг ажиллуулсны дараа) Firebase Cloud Functions үйлчилгээнд байршуулна.
+
+5.  **Функцийн Environment Variables:** Хэрэв таны функц ямар нэгэн нууц түлхүүр ашигладаг бол (одоогийн байдлаар тийм зүйл бага), түүнийг `firebase functions:config:set service.key="secret-value"` гэх мэт коммандаар тохируулж өгдөг.
+
+---
