@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Client-side actions for managing "Admin User" data.
+ * These functions call Cloud Functions for protected operations (create, update, delete)
+ * and interact with Firebase Auth and Firestore for reading data.
+ */
 // This file is now intended for client-side use to interact with Firebase services.
 // It calls Cloud Functions for protected actions like creating/updating users.
 

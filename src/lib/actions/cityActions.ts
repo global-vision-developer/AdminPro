@@ -1,4 +1,7 @@
-
+/**
+ * @fileoverview Server-side actions for managing "City" data in Firestore.
+ * Provides CRUD (Create, Read, Update, Delete) operations for cities.
+ */
 "use server";
 
 import { db } from "@/lib/firebase";

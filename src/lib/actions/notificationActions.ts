@@ -1,4 +1,6 @@
-
+/**
+ * @fileoverview Server-side action for fetching notification history logs from Firestore.
+ */
 "use server";
 
 import { db } from "@/lib/firebase";
@@ -48,5 +50,3 @@ export async function getNotificationLogs(): Promise<NotificationLog[]> {
     return [];
   }
 }
-
-    

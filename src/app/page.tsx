@@ -1,4 +1,8 @@
-
+/**
+ * @fileoverview This is the main landing page for unauthenticated users, serving as the login portal.
+ * It handles the user login form, authentication logic via the `useAuth` hook, and redirects
+ * authenticated users to the admin dashboard. It also includes the password reset functionality.
+ */
 "use client";
 
 import { Button } from "@/components/ui/button";

@@ -1,3 +1,9 @@
+/**
+ * @fileoverview Initializes and exports Firebase services for client-side use.
+ * This file configures Firebase using environment variables and exports instances of
+ * Authentication, Firestore, and Storage for use throughout the application.
+ * It ensures Firebase is initialized only once.
+ */
 // src/lib/firebase.ts
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';

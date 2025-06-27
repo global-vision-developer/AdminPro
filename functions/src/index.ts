@@ -1,3 +1,10 @@
+/**
+ * @fileoverview This file contains the backend logic for the application, implemented as
+ * Google Cloud Functions for Firebase. These functions handle protected operations
+ * that require admin privileges, such as sending notifications, creating/updating/deleting
+ * admin users, and other server-side tasks. They are called from the client-side
+ * actions using the Firebase SDK.
+ */
 // functions/src/index.ts
 
 import {
@@ -167,8 +174,6 @@ export const sendNotification = onCall(
         };
       }
 
-      // This is the data payload that the client app uses to save notification history.
-      // It must contain only string values.
       const dataPayloadForFCM: { [key:string]: string } = {
         titleKey: title,
         descriptionKey: body,
@@ -182,15 +187,12 @@ export const sendNotification = onCall(
         _internalMessageId: new Date().getTime().toString() + Math.random().toString(),
       };
 
-      // This is the main notification payload sent to FCM.
       const messagePayload: admin.messaging.MulticastMessage = {
-        // Generic notification for fallback
         notification: {
           title,
           body,
           ...(imageUrl && { imageUrl }),
         },
-        // Web push specific configuration
         webpush: {
           notification: {
             title,
@@ -200,17 +202,10 @@ export const sendNotification = onCall(
             badge: "https://placehold.co/96x96.png?text=AP&bg=FF5733&txt=FFFFFF",
           },
         },
-        // Android specific configuration
         android: {
-          priority: 'high', // Set priority to high for heads-up notifications
+          priority: "high",
           notification: {
-              title,
-              body,
-              ...(imageUrl && { imageUrl }),
-              // For Android 8.0+, a channel with high importance must be created in the app.
-              // If your app has one, you would specify its ID here. e.g., channelId: 'high_priority_notifications'
-              channelId: 'high_priority_notifications', // Specify the channel ID here
-              sound: 'default',
+            channel_id: "default_channel"
           }
         },
         tokens: tokensToSend,
@@ -677,5 +672,3 @@ export const deleteAdminUser = onCall(
     }
   }
 );
-
-    

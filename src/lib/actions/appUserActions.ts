@@ -1,4 +1,7 @@
-
+/**
+ * @fileoverview Server-side actions for fetching application user data from the 'users' collection in Firestore.
+ * This is distinct from admin users.
+ */
 "use server";
 
 import { db } from "@/lib/firebase";

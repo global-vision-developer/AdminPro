@@ -1,4 +1,8 @@
-
+/**
+ * @fileoverview This is the root layout for the authenticated admin section of the application.
+ * It enforces authentication, provides a consistent sidebar and header structure for all admin pages,
+ * and handles the loading state while checking user authentication.
+ */
 "use client";
 
 import React, { useEffect } from 'react';

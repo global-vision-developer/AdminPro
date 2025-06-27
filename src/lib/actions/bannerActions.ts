@@ -1,4 +1,7 @@
-
+/**
+ * @fileoverview Server-side actions for managing "Banner" data in Firestore.
+ * Provides CRUD (Create, Read, Update, Delete) operations for banners.
+ */
 "use server";
 
 import { db } from "@/lib/firebase";

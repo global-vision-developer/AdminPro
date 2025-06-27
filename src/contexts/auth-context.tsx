@@ -1,4 +1,9 @@
-
+/**
+ * @fileoverview This file defines the authentication context for the application.
+ * It provides a `AuthProvider` component that wraps the application and handles all
+ * authentication logic, including login, logout, and maintaining the current user's state.
+ * The `useAuth` hook is used to access this context from any client component.
+ */
 "use client";
 
 import type { UserProfile } from '@/types';

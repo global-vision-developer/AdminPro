@@ -1,4 +1,7 @@
-
+/**
+ * @fileoverview Server-side actions for managing "Category" data in Firestore.
+ * Provides CRUD (Create, Read, Update, Delete) operations for content categories and their fields.
+ */
 "use server";
 
 import { db } from "@/lib/firebase";

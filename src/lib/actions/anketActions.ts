@@ -1,4 +1,7 @@
-
+/**
+ * @fileoverview Server-side actions for managing "Anket" (application form) data in Firestore.
+ * Includes functions for fetching, retrieving a single anket, and updating status.
+ */
 "use server";
 
 import { db } from "@/lib/firebase";

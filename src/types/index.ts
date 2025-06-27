@@ -1,3 +1,9 @@
+/**
+ * @fileoverview Centralized type definitions for the entire Admin Pro application.
+ * This file contains all the core data structures, enums, and interfaces used across
+ * both the client-side (Next.js) and server-side (Firebase Functions) code,
+ * ensuring type safety and consistency.
+ */
 
 export enum UserRole {
   SUPER_ADMIN = 'Super Admin',
