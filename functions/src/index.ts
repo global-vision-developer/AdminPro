@@ -6,6 +6,13 @@
  * actions using the Firebase SDK.
  */
 // functions/src/index.ts
+import * as dotenv from "dotenv";
+import * as path from "path";
+
+// For local development, load environment variables from the root .env file
+if (process.env.FUNCTIONS_EMULATOR) {
+  dotenv.config({ path: path.resolve(__dirname, "..", "..", ".env") });
+}
 
 import {
   onCall,
