@@ -1,10 +1,9 @@
 /**
- * @fileoverview Client-side actions for managing "Admin User" data.
+ * @fileoverview Client-side functions for managing "Admin User" data.
  * These functions call Cloud Functions for protected operations (create, update, delete)
  * and interact with Firebase Auth and Firestore for reading data.
  */
-// This file is now intended for client-side use to interact with Firebase services.
-// It calls Cloud Functions for protected actions like creating/updating users.
+"use server";
 
 import { db, auth as clientAuth, app as clientApp } from "@/lib/firebase";
 import type { UserProfile } from "@/types";
@@ -22,6 +21,7 @@ import {
   sendPasswordResetEmail
 } from "firebase/auth";
 import { getFunctions, httpsCallable, type HttpsCallableResult } from 'firebase/functions';
+import { revalidatePath } from "next/cache";
 
 const ADMINS_COLLECTION = "admins";
 
@@ -47,6 +47,7 @@ export async function addAdminUser(
         const result = await callCreateAdmin(payload) as HttpsCallableResult<{success?: boolean; message?: string; error?: string; userId?: string}>;
 
         if (result.data.success) {
+            revalidatePath("/admin/users");
             return { success: true, message: result.data.message || `Админ хэрэглэгч "${data.name}" амжилттай үүслээ.` };
         } else {
             return { error: result.data.error || "Cloud Function-оос тодорхойгүй алдаа гарлаа." };
@@ -76,6 +77,9 @@ export async function updateAdminUser(
     const result = await callUpdateUser(payload) as HttpsCallableResult<{success?: boolean; message?: string; error?: string}>;
 
     if (result.data.success) {
+        revalidatePath("/admin/users");
+        revalidatePath(`/admin/users/${userId}/edit`);
+        revalidatePath(`/admin/profile`);
         return { success: true, message: result.data.message || "Хэрэглэгчийн мэдээлэл амжилттай шинэчлэгдлээ." };
     } else {
         return { error: result.data.error || "Cloud Function-оос хэрэглэгч шинэчлэхэд алдаа гарлаа." };
@@ -151,6 +155,7 @@ export async function deleteAdminUser(id: string): Promise<{ success?: boolean; 
         const result = await callDeleteAdmin({ targetUserId: id }) as HttpsCallableResult<{success?: boolean; message?: string; error?: string}>;
         
         if (result.data.success) {
+            revalidatePath("/admin/users");
             return { success: true, message: result.data.message };
         } else {
             return { error: result.data.error || "Cloud функц алдаа буцаалаа." };

@@ -28,7 +28,7 @@ import { getCitiesMap } from "./cityActions";
 
 const ANKETS_COLLECTION = "ankets";
 const CATEGORIES_COLLECTION = "categories";
-const TARGET_TRANSLATOR_CATEGORY_SLUG = "orchluulagchid";
+const TARGET_TRANSLATOR_CATEGORY_SLUG = "translators";
 
 export async function getAnkets(statusFilter?: AnketStatus): Promise<Anket[]> {
   try {

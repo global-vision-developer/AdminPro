@@ -171,7 +171,6 @@ export default function LoginPage() {
           </Form>
         </CardContent>
         <CardFooter className="flex flex-col items-center text-xs text-muted-foreground pt-4">
-           {/* Demo user info removed */}
         </CardFooter>
       </Card>
       <p className="mt-8 text-center text-sm text-muted-foreground">

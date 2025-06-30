@@ -87,7 +87,6 @@ export default function DashboardPage() {
       roles: [UserRole.SUPER_ADMIN],
       isLoading: loadingCounts 
     },
-    // { title: "Recent Activity", value: "12", icon: Activity, href: "#" },
   ];
 
   if (!currentUser) return null;
@@ -116,7 +115,6 @@ export default function DashboardPage() {
                   ) : (
                     <div className="text-3xl font-bold text-foreground">{card.value}</div>
                   )}
-                  {/* "демо дата(жишиг)" text removed */}
                 </CardContent>
               </Card>
           </Link>

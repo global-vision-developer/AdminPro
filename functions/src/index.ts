@@ -1,13 +1,4 @@
-/**
- * @fileoverview This file contains the backend logic for the application, implemented as
- * Google Cloud Functions for Firebase. These functions handle protected operations
- * that require admin privileges, such as sending notifications, creating/updating/deleting
- * admin users, and other server-side tasks. They are called from the client-side
- * actions using the Firebase SDK.
- */
 // functions/src/index.ts
-// Local environment variables for the emulator should be set directly in the shell
-// or via the functions emulator config. Using dotenv in Cloud Functions can cause deployment issues.
 
 import {
   onCall,
