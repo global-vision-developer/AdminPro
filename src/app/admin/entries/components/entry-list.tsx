@@ -223,14 +223,14 @@ export function EntryList({ entries, categoriesMap, allCategories }: EntryListPr
               <TableBody>
                 {filteredEntriesForSubAdmin.map((entry) => {
                   const category = categoriesMap[entry.categoryId];
-                  const previewFields = category?.fields?.filter(f => !f.description?.includes("This field is for app users, not admins.")).slice(0, 2) || []; 
+                  const previewFields = category?.fields?.filter(f => !f.description?.includes("Энэ талбарыг админ биш, аппын хэрэглэгчид бөглөнө.")).slice(0, 2) || []; 
                   return (
                     <TableRow key={entry.id}>
                       <TableCell className="font-medium">
                         <Link href={`/admin/entries/${entry.id}/edit`} className="hover:underline text-primary">
                           {entry.title || 'Гарчиггүй бүртгэл'} 
                         </Link>
-                        <p className="text-xs text-muted-foreground md:hidden mt-1">{entry.categoryName || categoriesMap[entry.categoryId]?.name || 'N/A'}</p>
+                        <p className="text-xs text-muted-foreground md:hidden mt-1">{entry.categoryName || categoriesMap[entry.categoryId]?.name || 'Үл мэдэгдэх категори'}</p>
                       </TableCell>
                       <TableCell className="hidden md:table-cell">{entry.categoryName || categoriesMap[entry.categoryId]?.name || <span className="italic text-muted-foreground">N/A</span>}</TableCell>
                       <TableCell>

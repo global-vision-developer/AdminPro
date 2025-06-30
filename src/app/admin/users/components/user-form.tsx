@@ -161,7 +161,7 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
                 <FormItem>
                   <FormLabel>И-мэйл Хаяг</FormLabel>
                   <FormControl>
-                    <Input type="email" placeholder="user@example.com" {...field} disabled={isEditing && initialData?.email === 'super@example.com'} />
+                    <Input type="email" placeholder="user@example.com" {...field} disabled={isEditing && initialData?.email === 'admin@pro.com'} />
                   </FormControl>
                    {isEditing && <FormDescription>Энэ и-мэйлийг солих нь Firebase Authentication болон Firestore-г хоёуланг нь шинэчилнэ.</FormDescription>}
                   <FormMessage />
@@ -245,7 +245,7 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
                       }
                     }}
                     defaultValue={field.value}
-                    disabled={isEditing && (initialData?.email === 'super@example.com' || initialData?.id === currentUser?.id)}
+                    disabled={isEditing && (initialData?.email === 'admin@pro.com' || initialData?.id === currentUser?.id)}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -264,7 +264,7 @@ export function UserForm({ initialData, onSubmit, isSubmitting, isEditing = fals
                       })}
                     </SelectContent>
                   </Select>
-                   {(isEditing && (initialData?.email === 'super@example.com' || initialData?.id === currentUser?.id)) && (
+                   {(isEditing && (initialData?.email === 'admin@pro.com' || initialData?.id === currentUser?.id)) && (
                     <FormDescription>Өөрийн болон үндсэн сүпер админы эрхийг өөрчлөх боломжгүй.</FormDescription>
                   )}
                   <FormMessage />

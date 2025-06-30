@@ -123,5 +123,5 @@ export default async function BannersPage() {
 }
 
 export const metadata = {
-  title: "Banners | Admin Pro",
+  title: "Баннер | Админ Про",
 };

@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview Server-side actions for managing "Entry" data in Firestore.
  * Provides CRUD (Create, Read, Update, Delete) operations for content entries based on categories.
@@ -73,7 +74,7 @@ export async function addEntry(
     return { id: newEntryRef.id };
   } catch (e: any) {
     console.error("Error adding entry and updating anket: ", e);
-    return { error: e.message || "Error adding entry." };
+    return { error: e.message || "Бүртгэл нэмэхэд алдаа гарлаа." };
   }
 }
 
@@ -150,7 +151,7 @@ export async function updateEntry(
 
     const existingEntrySnap = await getDoc(docRef);
     if (!existingEntrySnap.exists()) {
-        return { error: "Entry to update not found." };
+        return { error: "Шинэчлэх бүртгэл олдсонгүй." };
     }
     const categoryId = existingEntrySnap.data().categoryId;
 
@@ -183,7 +184,7 @@ export async function updateEntry(
     return { success: true };
   } catch (e: any) {
     console.error("Error updating entry: ", e);
-    return { error: e.message || "Error updating entry." };
+    return { error: e.message || "Бүртгэл шинэчлэхэд алдаа гарлаа." };
   }
 }
 
@@ -205,6 +206,6 @@ export async function deleteEntry(id: string): Promise<{ success: boolean } | { 
     return { success: true };
   } catch (e: any) {
     console.error("Error deleting entry: ", e);
-    return { error: e.message || "Error deleting entry." };
+    return { error: e.message || "Бүртгэл устгахад алдаа гарлаа." };
   }
 }

@@ -63,12 +63,12 @@ export default function EditUserPage() {
     if (superAdminUser?.id === userToEdit.id && data.role !== UserRole.SUPER_ADMIN && superAdminUser.role === UserRole.SUPER_ADMIN) {
         toast({ title: "Үйлдэл хориглогдсон", description: "Сүпер Админ өөрийн эрхийг өөрчлөх/доошлуулах боломжгүй.", variant: "destructive"});
         setIsSubmitting(false);
-        return { error: "Super Admins cannot change or downgrade their own role." };
+        return { error: "Сүпер Админ өөрийн эрхийг өөрчлөх/доошлуулах боломжгүй." };
     }
-    if (userToEdit.email === 'super@example.com' && (data.email !== 'super@example.com' || data.role !== UserRole.SUPER_ADMIN)) {
-      toast({ title: "Үйлдэл хориглогдсон", description: "Үндсэн сүпер админы (super@example.com) и-мэйл болон эрхийг өөрчлөх боломжгүй.", variant: "destructive" });
+    if (userToEdit.email === 'admin@pro.com' && (data.email !== 'admin@pro.com' || data.role !== UserRole.SUPER_ADMIN)) {
+      toast({ title: "Үйлдэл хориглогдсон", description: "Үндсэн сүпер админы (admin@pro.com) и-мэйл болон эрхийг өөрчлөх боломжгүй.", variant: "destructive" });
       setIsSubmitting(false);
-      return { error: "Main super admin email and role cannot be changed." };
+      return { error: "Үндсэн сүпер админы и-мэйл болон эрхийг өөрчлөх боломжгүй." };
     }
 
     const updatePayload: Partial<Pick<UserProfile, "name" | "email" | "role" | "allowedCategoryIds" | "canSendNotifications">> & { newPassword?: string } = {

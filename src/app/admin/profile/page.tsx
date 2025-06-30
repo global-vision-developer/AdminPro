@@ -50,7 +50,7 @@ export default function ProfilePage() {
   
   const handleSubmit = async (data: ProfileFormValues) => {
     if (!currentUser) {
-      toast({ title: "Error", description: "Not authenticated.", variant: "destructive" });
+      toast({ title: "Алдаа", description: "Баталгаажаагүй байна.", variant: "destructive" });
       return;
     }
     setIsSubmitting(true);

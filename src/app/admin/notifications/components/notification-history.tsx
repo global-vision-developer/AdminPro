@@ -91,7 +91,7 @@ export function NotificationHistory({ logs, isLoading }: NotificationHistoryProp
                                 </TooltipTrigger>
                                 <TooltipContent>
                                     <p>{new Date(log.createdAt).toLocaleString()}</p>
-                                    {log.scheduleAt && <p>Scheduled for: {new Date(log.scheduleAt).toLocaleString()}</p>}
+                                    {log.scheduleAt && <p>Хуваарьт огноо: {new Date(log.scheduleAt).toLocaleString()}</p>}
                                 </TooltipContent>
                                 </Tooltip>
                             </TableCell>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -37,12 +38,12 @@ interface EntryFormProps {
   sourceAnketId?: string;
 }
 
-const USER_ONLY_FIELD_MARKER = "This field is for app users, not admins.";
+const USER_ONLY_FIELD_MARKER = "Энэ талбарыг админ биш, аппын хэрэглэгчид бөглөнө.";
 const EMPTY_CITY_PICKER_VALUE = "_EMPTY_"; // Sentinel value for "no selection"
 
 const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, any> => {
   const shape: Record<string, z.ZodTypeAny> = {
-    title: z.string().trim().min(1, { message: "Entry title is required." }),
+    title: z.string().trim().min(1, { message: "Бүртгэлийн гарчиг хоосон байж болохгүй." }),
     status: z.enum(['draft', 'published', 'scheduled']).default('draft'),
     publishAt: z.date().optional().nullable(),
     data: z.object({}).passthrough(),
@@ -59,21 +60,21 @@ const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, a
     switch (field.type) {
       case FieldType.TEXT:
         if (field.required) {
-          fieldSchema = z.string().trim().min(1, { message: `${field.label} field is required.` });
+          fieldSchema = z.string().trim().min(1, { message: `${field.label} талбарыг заавал бөглөнө үү.` });
         } else {
           fieldSchema = z.string().optional().nullable().transform(val => val ?? '');
         }
         break;
       case FieldType.TEXTAREA:
         if (field.required) {
-          fieldSchema = z.string().trim().min(1, { message: `${field.label} field is required.` });
+          fieldSchema = z.string().trim().min(1, { message: `${field.label} талбарыг заавал бөглөнө үү.` });
         } else {
           fieldSchema = z.string().optional().nullable().transform(val => val ?? '');
         }
         break;
       case FieldType.IMAGE:
         if (field.required) {
-            fieldSchema = z.string().min(1, { message: `${field.label} is required.` });
+            fieldSchema = z.string().min(1, { message: `${field.label} заавал оруулна уу.` });
         } else {
             fieldSchema = z.string().nullable().optional();
         }
@@ -81,11 +82,11 @@ const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, a
       case FieldType.NUMBER:
         const baseNumberPreprocessor = (val: unknown) => (val === "" || val === undefined || val === null) ? undefined : String(val);
         const numberValidation = z.string()
-          .refine((val) => val === undefined || val === null || val === '' || !isNaN(parseFloat(val)), { message: `${field.label} must be a number.` })
+          .refine((val) => val === undefined || val === null || val === '' || !isNaN(parseFloat(val)), { message: `${field.label} талбар тоо байх ёстой.` })
           .transform(val => (val === undefined || val === null || val === '') ? null : Number(val));
 
         if (field.required) {
-          fieldSchema = z.preprocess(baseNumberPreprocessor, z.string().nonempty({ message: `${field.label} field is required.` }).pipe(numberValidation));
+          fieldSchema = z.preprocess(baseNumberPreprocessor, z.string().nonempty({ message: `${field.label} талбарыг заавал бөглөнө үү.` }).pipe(numberValidation));
         } else {
           fieldSchema = z.preprocess(baseNumberPreprocessor, z.string().optional().nullable().pipe(numberValidation.optional().nullable()));
         }
@@ -93,12 +94,12 @@ const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, a
       case FieldType.DATE:
         if (field.required) {
           fieldSchema = z.date({
-            required_error: `${field.label} field is required.`,
-            invalid_type_error: `${field.label} must be a valid date.`,
+            required_error: `${field.label} талбарыг заавал бөглөнө үү.`,
+            invalid_type_error: `${field.label} зөв огноо байх ёстой.`,
           });
         } else {
           fieldSchema = z.date({
-            invalid_type_error: `${field.label} must be a valid date.`,
+            invalid_type_error: `${field.label} зөв огноо байх ёстой.`,
           }).optional().nullable();
         }
         break;
@@ -114,9 +115,9 @@ const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, a
 
         if (field.required) {
             fieldSchema = z.array(imageGalleryItemSchema)
-                .min(1, { message: `${field.label}: At least one image is required.` })
+                .min(1, { message: `${field.label}: Дор хаяж нэг зураг оруулах шаардлагатай.` })
                 .refine(items => items.some(item => item.imageUrl !== null && item.imageUrl !== ''), {
-                    message: `${field.label}: At least one image URL/Data is required.`,
+                    message: `${field.label}: Дор хаяж нэг зургийн URL/Дата оруулах шаардлагатай.`,
                 });
         } else {
             fieldSchema = z.array(imageGalleryItemSchema).optional().default([]);
@@ -124,7 +125,7 @@ const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, a
         break;
       case FieldType.CITY_PICKER: 
         if (field.required) {
-          fieldSchema = z.string().min(1, { message: `${field.label} is required.` });
+          fieldSchema = z.string().min(1, { message: `${field.label} талбарыг заавал бөглөнө үү.` });
         } else {
           fieldSchema = z.string().optional().nullable();
         }
@@ -143,7 +144,7 @@ const generateSchema = (fields: FieldDefinition[] = []): z.ZodObject<any, any, a
     }
     return true;
   }, {
-    message: "Please select a publish date and time for scheduled entries.",
+    message: "Хуваарьт бүртгэлийн хувьд нийтлэх огноо, цагийг сонгоно уу.",
     path: ["publishAt"],
   });
 };
@@ -233,7 +234,7 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
 
   const handleGetSuggestions = async () => {
     if (!selectedCategory) {
-      setAiError("Category not selected.");
+      setAiError("Категори сонгогдоогүй байна.");
       return;
     }
     const formDataValues = form.getValues();
@@ -251,7 +252,7 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
     }
 
     if (!entryContent.trim()) {
-      setAiError("Please provide some content (title or other fields).");
+      setAiError("Жаахан контент (гарчиг эсвэл бусад талбар) оруулна уу.");
       return;
     }
 
@@ -263,7 +264,7 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
       setAiSuggestions(result.suggestions);
     } catch (error) {
       console.error("AI suggestion error:", error);
-      setAiError("Failed to get suggestions. Please try again.");
+      setAiError("Санал авахад алдаа гарлаа. Дахин оролдоно уу.");
     }
     setIsSuggesting(false);
   };
@@ -336,7 +337,7 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
         result = await updateEntry(initialData.id, submissionPayload);
     } else {
         if (!adminId && sourceAnketId) {
-            toast({ title: "Error", description: "Admin user not authenticated. Cannot process anket approval.", variant: "destructive" });
+            toast({ title: "Алдаа", description: "Админ хэрэглэгч баталгаажаагүй байна. Анкетыг зөвшөөрөх боломжгүй.", variant: "destructive" });
             setIsSubmitting(false);
             return;
         }
@@ -345,7 +346,7 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
     setIsSubmitting(false);
 
     if (result && "id" in result && result.id) {
-        toast({ title: "Success", description: `Entry ${initialData || sourceAnketId ? 'updated/created' : 'created'}.`});
+        toast({ title: "Амжилттай", description: `Бүртгэл ${initialData || sourceAnketId ? 'шинэчлэгдлээ/үүслээ' : 'үүслээ'}.`});
         if (onSubmitSuccess) onSubmitSuccess();
         else router.push(`/admin/entries?category=${selectedCategory.id}`);
 
@@ -354,7 +355,7 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
         }
 
     } else if (result && "error" in result && result.error) {
-        toast({ title: "Error", description: result.error, variant: "destructive" });
+        toast({ title: "Алдаа", description: result.error, variant: "destructive" });
     }
   };
 
@@ -404,9 +405,9 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
                         </FormLabel>
                         {catField.description && <FormDescription>{catField.description}</FormDescription>}
                         <div className="p-3 mt-1 text-sm text-muted-foreground border rounded-md bg-muted/30 shadow-sm">
-                          This field is not editable by admins. It is populated by application users.
+                          Энэ талбарыг админууд засах боломжгүй. Үүнийг аппликейшны хэрэглэгчид бөглөнө.
                            {initialData?.data?.[catField.key] !== undefined && initialData?.data?.[catField.key] !== null && (
-                            <span className="block mt-1 text-xs italic"> (Current value: {String(initialData.data[catField.key])})</span>
+                            <span className="block mt-1 text-xs italic"> (Одоогийн утга: {String(initialData.data[catField.key])})</span>
                            )}
                         </div>
                       </FormItem>
@@ -447,7 +448,7 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
 
                     return (
                       <FormItem key={catField.id}>
-                        <FormLabel>{catField.label === 'golheseg' ? 'аппын эхний нүүр хэсэг(home page) дээр preview гаргах эсэх' : catField.label}{catField.required && <span className="text-destructive">*</span>}</FormLabel>
+                        <FormLabel>{catField.label}{catField.required && <span className="text-destructive">*</span>}</FormLabel>
                         {catField.description && <FormDescription>{catField.description}</FormDescription>}
                         <div className="space-y-4 p-4 border rounded-md">
                           {galleryFields.map((item, index) => (
@@ -464,7 +465,7 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
                                         updateGalleryItem(index, { ...currentItem, imageUrl: url });
                                       }}
                                       storagePath="entries/"
-                                      label="Image"
+                                      label="Зураг"
                                     />
                                   )}
                                 />
@@ -473,7 +474,7 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
                                   name={`data.${catField.key}.${index}.description` as const}
                                   render={({ field: galleryItemField }) => (
                                     <FormItem>
-                                      <FormLabel className="text-xs">Description (Optional)</FormLabel>
+                                      <FormLabel className="text-xs">Тайлбар (Заавал биш)</FormLabel>
                                       <FormControl>
                                         <Textarea placeholder="Image description" {...galleryItemField} rows={2} />
                                       </FormControl>
@@ -524,7 +525,7 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
                             >
                               <FormControl>
                                 <SelectTrigger>
-                                  <SelectValue placeholder={catField.placeholder || `Select ${catField.label.toLowerCase()}`} />
+                                  <SelectValue placeholder={catField.placeholder || `${catField.label}-г сонгоно уу`} />
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
@@ -557,13 +558,13 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
                         const { formItemId } = useFormField();
                         return (
                             <FormItem>
-                            <FormLabel>{catField.label === 'golheseg' ? 'аппын эхний нүүр хэсэг(home page) дээр preview гаргах эсэх' : catField.label}{catField.required && <span className="text-destructive">*</span>}</FormLabel>
+                            <FormLabel>{catField.label}{catField.required && <span className="text-destructive">*</span>}</FormLabel>
                             {catField.description && <FormDescription>{catField.description}</FormDescription>}
 
                             {catField.type === FieldType.TEXT && (
                                 <FormControl>
                                 <Input
-                                    placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`}
+                                    placeholder={catField.placeholder || `${catField.label}-г оруулна уу`}
                                     {...formHookField}
                                     value={formHookField.value === null ? '' : formHookField.value}
                                 />
@@ -572,7 +573,7 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
                             {catField.type === FieldType.TEXTAREA && (
                                 <FormControl>
                                 <Textarea
-                                    placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`}
+                                    placeholder={catField.placeholder || `${catField.label}-г оруулна уу`}
                                     {...formHookField}
                                     rows={5}
                                 />
@@ -584,7 +585,7 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
                                     type="text"
                                     inputMode="numeric"
                                     pattern="[0-9]*\.?[0-9]*"
-                                    placeholder={catField.placeholder || `Enter ${catField.label.toLowerCase()}`}
+                                    placeholder={catField.placeholder || `${catField.label}-г оруулна уу`}
                                     {...formHookField}
                                     value={formHookField.value === undefined || formHookField.value === null ? '' : String(formHookField.value)}
                                     onChange={e => {
@@ -608,7 +609,7 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
                                         htmlFor={formItemId}
                                         className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                                     >
-                                        {catField.placeholder || 'Enable'}
+                                        {catField.placeholder || 'Идэвхжүүлэх'}
                                     </label>
                                 </div>
                             )}
@@ -624,7 +625,7 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
                                         )}
                                     >
                                         <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {formHookField.value ? format(formHookField.value instanceof Date ? formHookField.value : parseISO(formHookField.value as unknown as string), "PPP") : <span>{catField.placeholder || 'Pick a date'}</span>}
+                                        {formHookField.value ? format(formHookField.value instanceof Date ? formHookField.value : parseISO(formHookField.value as unknown as string), "PPP") : <span>{catField.placeholder || 'Огноо сонгох'}</span>}
                                     </Button>
                                     </FormControl>
                                 </PopoverTrigger>
@@ -662,14 +663,14 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
                   {aiError && (
                     <Alert variant="destructive">
                       <AlertTriangle className="h-4 w-4" />
-                      <AlertTitle>Error</AlertTitle>
+                      <AlertTitle>Алдаа</AlertTitle>
                       <AlertDescription>{aiError}</AlertDescription>
                     </Alert>
                   )}
                   {aiSuggestions.length > 0 && (
                     <Alert variant="default" className="border-primary/50">
                       <Info className="h-4 w-4 text-primary" />
-                      <AlertTitle className="text-primary">Suggestions Received</AlertTitle>
+                      <AlertTitle className="text-primary">Саналууд</AlertTitle>
                       <AlertDescription>
                         <ScrollArea className="h-40 mt-2">
                           <ul className="list-disc pl-5 space-y-1 text-sm">
@@ -699,7 +700,7 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select status" />
+                            <SelectValue placeholder="Төлөв сонгох" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -718,7 +719,7 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
                     name="publishAt"
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
-                        <FormLabel>Publish Date & Time</FormLabel>
+                        <FormLabel>Нийтлэх Огноо & Цаг</FormLabel>
                         <Popover>
                           <PopoverTrigger asChild>
                             <FormControl>
@@ -732,7 +733,7 @@ export function EntryForm({ initialData, categories, selectedCategory, cities, o
                                 {field.value ? (
                                   format(field.value, "PPP HH:mm")
                                 ) : (
-                                  <span>Pick a date and time</span>
+                                  <span>Огноо, цаг сонгох</span>
                                 )}
                                 <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                               </Button>

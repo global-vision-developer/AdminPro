@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview Client-side functions for managing "Admin User" data.
  * These functions call Cloud Functions for protected operations (create, update, delete)
@@ -57,7 +58,7 @@ export async function addAdminUser(
         if (error.code === 'functions/unavailable' || error.code === 'functions/not-found') {
             errorMessage = "Cloud Function-тэй холбогдож чадсангүй. Firebase төлөвлөгөө болон функцээ deploy хийсэн эсэхээ шалгана уу.";
         } else if (error.code === 'unauthenticated' || (error.details && error.details.code === 'unauthenticated')) {
-            errorMessage = "Authentication required. The function must be called while authenticated.";
+            errorMessage = "Баталгаажуулалт шаардлагатай. Энэ функцийг нэвтэрсэн үед дуудах ёстой.";
         }
         return { error: errorMessage };
     }
@@ -88,7 +89,7 @@ export async function updateAdminUser(
     console.error("Error calling 'updateAdminAuthDetails' Cloud Function:", error);
     let errorMessage = error.message || "Админ хэрэглэгчийн мэдээллийг шинэчлэхэд ерөнхий алдаа гарлаа.";
      if (error.code === 'unauthenticated' || (error.details && error.details.code === 'unauthenticated')) {
-        errorMessage = "Authentication required. The function must be called while authenticated.";
+        errorMessage = "Баталгаажуулалт шаардлагатай. Энэ функцийг нэвтэрсэн үед дуудах ёстой.";
      }
     return { error: errorMessage };
   }
@@ -164,7 +165,7 @@ export async function deleteAdminUser(id: string): Promise<{ success?: boolean; 
         console.error("Error calling 'deleteAdminUser' Cloud Function:", error);
          let errorMessage = error.message || "Хэрэглэгч устгах функцийг дуудахад алдаа гарлаа.";
          if (error.code === 'unauthenticated' || (error.details && error.details.code === 'unauthenticated')) {
-            errorMessage = "Authentication required. The function must be called while authenticated.";
+            errorMessage = "Баталгаажуулалт шаардлагатай. Энэ функцийг нэвтэрсэн үед дуудах ёстой.";
          }
         return { error: errorMessage };
     }

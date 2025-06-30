@@ -121,7 +121,7 @@ export default function NotificationsPage() {
     setIsSubmittingNotification(true);
 
     if (!currentUser) {
-        toast({ title: "Алдаа", description: "Admin not authenticated. Please log in again.", variant: "destructive" });
+        toast({ title: "Алдаа", description: "Админ баталгаажаагүй байна. Дахин нэвтэрнэ үү.", variant: "destructive" });
         setIsSubmittingNotification(false);
         return;
     }
@@ -162,9 +162,9 @@ export default function NotificationsPage() {
         console.error("Error calling 'sendNotification' Cloud Function:", error);
         let errorMessage = error.message || "Мэдэгдэл илгээхэд алдаа гарлаа.";
         if (error.code === 'functions/unauthenticated') {
-            errorMessage = "Authentication error. Please log out and log back in.";
+            errorMessage = "Баталгаажуулалтын алдаа. Гараад дахин нэвтэрнэ үү.";
         } else if (error.code === 'functions/unavailable' || error.code === 'functions/not-found') {
-            errorMessage = "The notification service is currently unavailable. Please try again later.";
+            errorMessage = "Мэдэгдлийн үйлчилгээ одоогоор боломжгүй байна. Дараа дахин оролдоно уу.";
         }
         toast({ title: "Алдаа", description: errorMessage, variant: "destructive" });
     } finally {
@@ -194,7 +194,7 @@ export default function NotificationsPage() {
             <Button onClick={handleOpenSendDialog} disabled={selectedUserCount === 0 || isLoading}>
                 <Send className="mr-2 h-4 w-4" /> Мэдэгдэл илгээх ({selectedUserCount})
             </Button>
-            <Button onClick={fetchData} variant="outline" size="icon" disabled={isLoading} aria-label="Refresh Data">
+            <Button onClick={fetchData} variant="outline" size="icon" disabled={isLoading} aria-label="Сэргээх">
                 {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             </Button>
         </div>

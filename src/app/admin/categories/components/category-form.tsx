@@ -101,7 +101,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
         type: FieldType.NUMBER,
         required: false,
         placeholder: 'e.g., 1-5',
-        description: 'User rating (number). This field is for app users, not admins.'
+        description: 'Энэ талбарыг админ биш, аппын хэрэглэгчид бөглөнө.'
       },
       {
         id: uuidv4(),
@@ -110,7 +110,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
         type: FieldType.TEXTAREA,
         required: false,
         placeholder: 'Write user comment here.',
-        description: 'Comments left by users. This field is for app users, not admins.'
+        description: 'Энэ талбарыг админ биш, аппын хэрэглэгчид бөглөнө.'
       }
   ];
 
@@ -436,7 +436,7 @@ export function CategoryForm({ initialData, onSubmit, isSubmittingGlobal, onForm
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select a field type" />
+                          <SelectValue placeholder="Талбарын төрөл сонгох" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>

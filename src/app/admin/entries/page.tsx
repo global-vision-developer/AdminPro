@@ -100,5 +100,5 @@ export default async function EntriesPage({
 }
 
 export const metadata = {
-  title: "Entries | Admin Pro",
+  title: "Бүртгэлүүд | Админ Про",
 };

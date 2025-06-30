@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview Server-side actions for managing "Category" data in Firestore.
  * Provides CRUD (Create, Read, Update, Delete) operations for content categories and their fields.
@@ -58,7 +59,7 @@ export async function addCategory(
     return { id: docRef.id };
   } catch (e: any) {
     console.error("Error adding category: ", e);
-    return { error: e.message || "Error adding category." };
+    return { error: e.message || "Категори нэмэхэд алдаа гарлаа." };
   }
 }
 
@@ -147,7 +148,7 @@ export async function updateCategory(
     return { success: true };
   } catch (e: any) {
     console.error("Error updating category: ", e);
-    return { error: e.message || "Error updating category." };
+    return { error: e.message || "Категори шинэчлэхэд алдаа гарлаа." };
   }
 }
 
@@ -173,8 +174,8 @@ export async function deleteCategory(id: string): Promise<{ success: boolean } |
   } catch (e: any) {
     console.error("Error deleting category and its entries: ", e);
     if (e.message && e.message.includes("maximum 500 writes")) {
-        return { error: "Error deleting category: The number of entries to delete at once exceeds the limit. Reduce the number of entries or contact support." };
+        return { error: "Категори устгахад алдаа гарлаа: Нэг дор устгах бүртгэлийн тоо хэтэрсэн байна. Бүртгэлийн тоог цөөлөх эсвэл админтай холбогдоно уу." };
     }
-    return { error: e.message || "Error deleting category and its associated entries." };
+    return { error: e.message || "Категори болон түүнтэй холбоотой бүртгэлүүдийг устгахад алдаа гарлаа." };
   }
 }

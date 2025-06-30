@@ -213,7 +213,7 @@ const Sidebar = React.forwardRef<
             side={side}
           >
             <SheetHeader className="sr-only">
-              <SheetTitle>Main Navigation</SheetTitle>
+              <SheetTitle>Үндсэн цэс</SheetTitle>
             </SheetHeader>
             {/* The original children, which form the visible content including its own visual header */}
             {children}
