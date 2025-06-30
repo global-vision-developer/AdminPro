@@ -39,7 +39,7 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
-export default function LoginPage() {
+export default function LoginPage() { 
   const { login, currentUser, loading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
