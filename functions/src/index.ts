@@ -6,13 +6,8 @@
  * actions using the Firebase SDK.
  */
 // functions/src/index.ts
-import * as dotenv from "dotenv";
-import * as path from "path";
-
-// For local development, load environment variables from the root .env file
-if (process.env.FUNCTIONS_EMULATOR) {
-  dotenv.config({ path: path.resolve(__dirname, "..", "..", ".env") });
-}
+// Local environment variables for the emulator should be set directly in the shell
+// or via the functions emulator config. Using dotenv in Cloud Functions can cause deployment issues.
 
 import {
   onCall,
@@ -686,5 +681,3 @@ export const deleteAdminUser = onCall(
     }
   }
 );
-
-    
