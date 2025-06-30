@@ -23,6 +23,8 @@ import { useAuth } from '@/hooks/use-auth';
 import { getFunctions, httpsCallable, HttpsCallableResult } from 'firebase/functions';
 import { app as clientApp } from '@/lib/firebase';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { UserRole } from '@/types';
+import { useRouter } from 'next/navigation';
 
 export default function NotificationsPage() {
   const [appUsers, setAppUsers] = useState<AppUser[]>([]);
@@ -33,7 +35,8 @@ export default function NotificationsPage() {
   const [isSubmittingNotification, setIsSubmittingNotification] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
-  const { currentUser } = useAuth();
+  const { currentUser, loading: authLoading } = useAuth();
+  const router = useRouter();
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -53,8 +56,23 @@ export default function NotificationsPage() {
   }, [toast]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (authLoading) return; // Wait until auth state is resolved
+
+    if (!currentUser) {
+        // This case should be handled by the layout, but as a safeguard.
+        router.push('/');
+        return;
+    }
+    
+    const hasPermission = currentUser.role === UserRole.SUPER_ADMIN || (currentUser.role === UserRole.SUB_ADMIN && !!currentUser.canSendNotifications);
+
+    if (hasPermission) {
+        fetchData();
+    } else {
+        toast({ title: "Хандалт хориглогдсон", description: "Та мэдэгдэл илгээх хэсэгт хандах эрхгүй байна.", variant: "destructive" });
+        router.push('/admin/dashboard');
+    }
+  }, [currentUser, authLoading, router, toast, fetchData]);
 
   const filteredAppUsers = useMemo(() => {
     if (!searchTerm) return appUsers;
@@ -153,6 +171,21 @@ export default function NotificationsPage() {
         setIsSubmittingNotification(false);
     }
   };
+
+  const pageIsLoading = authLoading || isLoading;
+  const hasPermission = currentUser && (currentUser.role === UserRole.SUPER_ADMIN || (currentUser.role === UserRole.SUB_ADMIN && !!currentUser.canSendNotifications));
+
+  if (pageIsLoading || !hasPermission) {
+      return (
+        <>
+            <PageHeader title="Мэдэгдэл Илгээх" />
+            <div className="flex items-center justify-center py-10">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="ml-2 text-muted-foreground">Ачаалж байна...</p>
+            </div>
+        </>
+      );
+  }
 
   return (
     <>
