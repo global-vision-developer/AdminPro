@@ -2,6 +2,9 @@
 /**
  * @fileoverview Server-side actions for managing "Category" data in Firestore.
  * Provides CRUD (Create, Read, Update, Delete) operations for content categories and their fields.
+ * 
+ * Энэ файл нь Firestore дахь "Категори"-той холбоотой сервер талын үйлдлүүдийг агуулна.
+ * Контентийн категори, түүний талбаруудыг үүсгэх, унших, шинэчлэх, устгах (CRUD) үйлдлүүдийг хангадаг.
  */
 "use server";
 
@@ -28,6 +31,7 @@ import { slugify } from "@/lib/utils";
 const CATEGORIES_COLLECTION = "categories";
 const ENTRIES_COLLECTION = "entries";
 
+// Firestore-д хадгалах категорийн өгөгдлийн бүтэц
 interface CategoryFirestoreData {
   name: string;
   slug: string;
@@ -38,7 +42,11 @@ interface CategoryFirestoreData {
   updatedAt: Timestamp | ReturnType<typeof serverTimestamp>;
 }
 
-
+/**
+ * Firestore-д шинэ категори нэмэх.
+ * @param categoryData - Шинэ категорийн мэдээлэл (нэр, slug, талбарууд гэх мэт).
+ * @returns Үүссэн категорийн ID эсвэл алдааны мэдээлэл.
+ */
 export async function addCategory(
   categoryData: Pick<Category, "name" | "slug" | "description" | "fields" | "coverImageUrl">
 ): Promise<{ id: string } | { error: string }> {
@@ -63,6 +71,10 @@ export async function addCategory(
   }
 }
 
+/**
+ * Firestore-оос бүх категорийн жагсаалтыг авах.
+ * @returns Категориудын массив.
+ */
 export async function getCategories(): Promise<Category[]> {
   try {
     const q = query(collection(db, CATEGORIES_COLLECTION), orderBy("name", "asc"));
@@ -90,6 +102,11 @@ export async function getCategories(): Promise<Category[]> {
   }
 }
 
+/**
+ * Тодорхой нэг категорийн мэдээллийг ID-гаар нь авах.
+ * @param id - Авах гэж буй категорийн ID.
+ * @returns Категорийн мэдээлэл эсвэл олдсонгүй бол `null`.
+ */
 export async function getCategory(id: string): Promise<Category | null> {
   try {
     const docRef = doc(db, CATEGORIES_COLLECTION, id);
@@ -118,6 +135,12 @@ export async function getCategory(id: string): Promise<Category | null> {
   }
 }
 
+/**
+ * Одоо байгаа категорийн мэдээллийг шинэчлэх.
+ * @param id - Шинэчлэх гэж буй категорийн ID.
+ * @param categoryData - Шинэчлэх мэдээлэл.
+ * @returns Амжилттай болсон эсвэл алдааны мэдээлэл.
+ */
 export async function updateCategory(
   id: string,
   categoryData: Partial<Pick<Category, "name" | "slug" | "description" | "fields" | "coverImageUrl">>
@@ -152,20 +175,30 @@ export async function updateCategory(
   }
 }
 
+/**
+ * Категорийг болон түүнд хамаарах бүх бүртгэлийг (entries) устгах.
+ * @param id - Устгах категорийн ID.
+ * @returns Амжилттай болсон эсвэл алдааны мэдээлэл.
+ */
 export async function deleteCategory(id: string): Promise<{ success: boolean } | { error: string }> {
   try {
     const categoryDocRef = doc(db, CATEGORIES_COLLECTION, id);
     const batch = writeBatch(db);
 
+    // Энэ категорид хамаарах бүх бүртгэлийг олох
     const entriesRef = collection(db, ENTRIES_COLLECTION);
     const entriesQuery = query(entriesRef, where("categoryId", "==", id));
     const entriesSnapshot = await getDocs(entriesQuery);
 
+    // Олдсон бүх бүртгэлийг batch delete-д нэмэх
     entriesSnapshot.forEach((entryDoc) => {
       batch.delete(doc(db, ENTRIES_COLLECTION, entryDoc.id));
     });
 
+    // Категорийг өөрийг нь устгах
     batch.delete(categoryDocRef);
+
+    // Бүх устгах үйлдлийг нэг дор гүйцэтгэх
     await batch.commit();
 
     revalidatePath("/admin/categories");

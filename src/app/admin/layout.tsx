@@ -2,6 +2,8 @@
  * @fileoverview This is the root layout for the authenticated admin section of the application.
  * It enforces authentication, provides a consistent sidebar and header structure for all admin pages,
  * and handles the loading state while checking user authentication.
+ * Энэ файл нь админ хэсгийн үндсэн layout-г тодорхойлно. Энэ нь нэвтэрсэн хэрэглэгчдэд зориулсан
+ * sidebar, header зэргийг агуулж, нэвтрээгүй хэрэглэгчийг нэвтрэх хуудас руу автоматаар чиглүүлдэг.
  */
 "use client";
 
@@ -28,12 +30,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const { currentUser, loading, logout } = useAuth();
   const router = useRouter();
 
+  // Нэвтрэлтийн төлөвийг шалгах
+  // Хэрэв loading дууссан боловч currentUser байхгүй бол нэвтрэх хуудас руу үсэргэх
   useEffect(() => {
     if (!loading && !currentUser) {
       router.push('/');
     }
   }, [currentUser, loading, router]);
 
+  // Хэрэглэгчийн мэдээллийг ачаалж байх үед харуулах Skeleton UI
   if (loading) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background">
@@ -46,10 +51,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
+  // Хэрэглэгч нэвтрээгүй бол юу ч харуулахгүй (учир нь router.push хийгдэж байгаа)
   if (!currentUser) {
     return null; 
   }
 
+  // Нэвтэрсэн хэрэглэгчид зориулсан үндсэн layout
   return (
     <SidebarProvider defaultOpen={true}>
       <Sidebar variant="sidebar" collapsible="icon" className="border-r">

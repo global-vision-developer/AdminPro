@@ -7,11 +7,16 @@
  * - suggestContent - A function that takes entry content and suggests improvements.
  * - SuggestContentInput - The input type for the suggestContent function.
  * - SuggestContentOutput - The return type for the suggestContent function.
+ * 
+ * Энэ файл нь Genkit ашиглан хиймэл оюуны "flow" тодорхойлдог.
+ * `suggestContent` функц нь оруулсан контентын агуулга, категорид үндэслэн
+ * сайжруулах саналуудыг үүсгэдэг.
  */
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
+// Хиймэл оюуны функцийн оролтын төрлийг `zod` ашиглан тодорхойлох
 const SuggestContentInputSchema = z.object({
   entryContent: z
     .string()
@@ -20,6 +25,7 @@ const SuggestContentInputSchema = z.object({
 });
 export type SuggestContentInput = z.infer<typeof SuggestContentInputSchema>;
 
+// Хиймэл оюуны функцийн гаралтын төрлийг `zod` ашиглан тодорхойлох
 const SuggestContentOutputSchema = z.object({
   suggestions: z
     .array(z.string())
@@ -27,10 +33,16 @@ const SuggestContentOutputSchema = z.object({
 });
 export type SuggestContentOutput = z.infer<typeof SuggestContentOutputSchema>;
 
+/**
+ * Оруулсан контент болон категорид үндэслэн сайжруулах саналуудыг буцаана.
+ * @param input - Оролтын өгөгдөл (entryContent, category).
+ * @returns Сайжруулах саналуудын жагсаалт.
+ */
 export async function suggestContent(input: SuggestContentInput): Promise<SuggestContentOutput> {
   return suggestContentFlow(input);
 }
 
+// Хиймэл оюуны загварт өгөх зааварчилгааг (prompt) тодорхойлох
 const prompt = ai.definePrompt({
   name: 'suggestContentPrompt',
   input: {schema: SuggestContentInputSchema},
@@ -43,9 +55,10 @@ const prompt = ai.definePrompt({
   Category: {{{category}}}
   Entry Content: {{{entryContent}}}
 
-  Suggestions:`, // Removed Handlebars {{each}} loop here because the model handles producing a list directly.
+  Suggestions:`,
 });
 
+// Genkit flow-г тодорхойлох. Энэ нь prompt-г дуудаж, үр дүнг буцаадаг.
 const suggestContentFlow = ai.defineFlow(
   {
     name: 'suggestContentFlow',

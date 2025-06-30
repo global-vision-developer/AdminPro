@@ -2,6 +2,9 @@
  * @fileoverview This is the main landing page for unauthenticated users, serving as the login portal.
  * It handles the user login form, authentication logic via the `useAuth` hook, and redirects
  * authenticated users to the admin dashboard. It also includes the password reset functionality.
+ * Энэ файл нь нэвтрээгүй хэрэглэгчдэд зориулсан нэвтрэх хуудас юм. Энд нэвтрэх форм, 
+ * нууц үг сэргээх логик, мөн нэвтэрсэн хэрэглэгчийг админы самбар руу автоматаар 
+ * шилжүүлэх үйлдлийг хийдэг.
  */
 "use client";
 
@@ -32,6 +35,7 @@ import { sendAdminPasswordResetEmail } from "@/lib/actions/userActions";
 import { Label } from "@/components/ui/label";
 
 
+// Нэвтрэх формын validation schema
 const loginSchema = z.object({
   email: z.string().email({ message: "И-мэйл хаяг буруу байна." }), 
   password: z.string().min(6, { message: "Нууц үг дор хаяж 6 тэмдэгттэй байх ёстой." }), 
@@ -58,12 +62,14 @@ export default function LoginPage() {
     },
   });
   
+  // Хэрэв хэрэглэгч аль хэдийн нэвтэрсэн бол админы самбар руу шилжүүлэх
   useEffect(() => {
     if (!loading && currentUser) {
       router.push('/admin/dashboard');
     }
   }, [currentUser, loading, router]);
 
+  // Нууц үг сэргээх и-мэйл илгээх функц
   const handlePasswordReset = async () => {
     if (!resetEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(resetEmail)) {
         toast({ title: "И-мэйл хаяг буруу байна", description: "Нууц үг сэргээх и-мэйл илгээхийн тулд зөв хаяг оруулна уу.", variant: "destructive" });
@@ -83,6 +89,7 @@ export default function LoginPage() {
   };
 
 
+  // Нэвтрэлтийн төлөвийг шалгаж байх үед харуулах loading state
   if (loading || (!loading && currentUser)) {
      return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary/10 via-background to-background p-4">
@@ -91,6 +98,7 @@ export default function LoginPage() {
     );
   }
 
+  // Форм submit хийх үед ажиллах функц
   const onSubmit = async (data: LoginFormValues) => {
     setIsSubmitting(true);
     await login(data.email, data.password); 

@@ -2,6 +2,9 @@
 /**
  * @fileoverview Server-side actions for managing "Entry" data in Firestore.
  * Provides CRUD (Create, Read, Update, Delete) operations for content entries based on categories.
+ * 
+ * Энэ файл нь Firestore дахь "Бүртгэл" (Entry)-тэй холбоотой сервер талын үйлдлүүдийг агуулна.
+ * Категорид суурилсан контентийн бүртгэлийг үүсгэх, унших, шинэчлэх, устгах (CRUD) үйлдлүүдийг хангадаг.
  */
 "use server";
 
@@ -27,6 +30,7 @@ import { revalidatePath } from "next/cache";
 
 const ENTRIES_COLLECTION = "entries";
 
+// Шинэ бүртгэл нэмэхэд шаардлагатай өгөгдлийн төрөл
 type AddEntryData = {
   categoryId: string;
   categoryName: string;
@@ -36,6 +40,13 @@ type AddEntryData = {
   publishAt?: string | null;
 };
 
+/**
+ * Firestore-д шинэ бүртгэл нэмэх. Хэрэв анкеттай холбоотой бол анкетын статусыг шинэчилнэ.
+ * @param entryData - Шинэ бүртгэлийн мэдээлэл.
+ * @param sourceAnketId - (Сонголтоор) Энэ бүртгэлийг үүсгэхэд ашигласан анкетын ID.
+ * @param adminId - (Сонголтоор) Анкетыг боловсруулсан админы ID.
+ * @returns Үүссэн бүртгэлийн ID эсвэл алдааны мэдээлэл.
+ */
 export async function addEntry(
   entryData: AddEntryData,
   sourceAnketId?: string,
@@ -54,6 +65,7 @@ export async function addEntry(
     };
     batch.set(newEntryRef, dataToSave);
 
+    // Хэрэв анкет-аас үүсгэж байгаа бол, тухайн анкетын статусыг "Зөвшөөрсөн" болгох
     if (sourceAnketId && adminId) {
       const anketDocRef = doc(db, "ankets", sourceAnketId);
       batch.update(anketDocRef, {
@@ -65,6 +77,7 @@ export async function addEntry(
 
     await batch.commit();
 
+    // Холбогдох хуудсуудын кэшийг цэвэрлэх
     revalidatePath("/admin/entries");
     revalidatePath(`/admin/entries?category=${entryData.categoryId}`);
     if (sourceAnketId) {
@@ -78,17 +91,26 @@ export async function addEntry(
   }
 }
 
+/**
+ * Бүртгэлүүдийг Firestore-оос авах. Категориор шүүх боломжтой.
+ * @param categoryId - (Сонголтоор) Шүүх гэж буй категорийн ID.
+ * @returns Бүртгэлүүдийн массив.
+ */
 export async function getEntries(categoryId?: string): Promise<Entry[]> {
   try {
     let q;
+    const entriesRef = collection(db, ENTRIES_COLLECTION);
+
+    // Хэрэв categoryId байвал тухайн категорийн бүртгэлүүдийг шүүж авна
     if (categoryId && categoryId !== "all") {
       q = query(
-        collection(db, ENTRIES_COLLECTION),
+        entriesRef,
         where("categoryId", "==", categoryId),
         orderBy("createdAt", "desc")
       );
     } else {
-      q = query(collection(db, ENTRIES_COLLECTION), orderBy("createdAt", "desc"));
+      // Үгүй бол бүх бүртгэлийг авна
+      q = query(entriesRef, orderBy("createdAt", "desc"));
     }
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map((doc) => {
@@ -114,7 +136,11 @@ export async function getEntries(categoryId?: string): Promise<Entry[]> {
   }
 }
 
-
+/**
+ * Тодорхой нэг бүртгэлийн мэдээллийг ID-гаар нь авах.
+ * @param id - Авах гэж буй бүртгэлийн ID.
+ * @returns Бүртгэлийн мэдээлэл эсвэл олдсонгүй бол `null`.
+ */
 export async function getEntry(id: string): Promise<Entry | null> {
   try {
     const docRef = doc(db, ENTRIES_COLLECTION, id);
@@ -140,8 +166,15 @@ export async function getEntry(id: string): Promise<Entry | null> {
   }
 }
 
+// Бүртгэл шинэчлэхэд шаардлагатай өгөгдлийн төрөл
 type UpdateEntryData = Partial<Omit<Entry, "id" | "createdAt" | "updatedAt" | "categoryId" | "categoryName">>;
 
+/**
+ * Одоо байгаа бүртгэлийн мэдээллийг шинэчлэх.
+ * @param id - Шинэчлэх гэж буй бүртгэлийн ID.
+ * @param entryData - Шинэчлэх мэдээлэл.
+ * @returns Амжилттай болсон эсвэл алдааны мэдээлэл.
+ */
 export async function updateEntry(
   id: string,
   entryData: UpdateEntryData 
@@ -157,6 +190,7 @@ export async function updateEntry(
 
     const dataToUpdate: Record<string, any> = {};
 
+    // Зөвхөн зөвшөөрөгдсөн талбаруудыг шинэчлэхээр бэлтгэх
     Object.keys(entryData).forEach(key => {
       if (key === 'title' || key === 'data' || key === 'status' || key === 'publishAt') {
         // @ts-ignore
@@ -176,6 +210,7 @@ export async function updateEntry(
 
     await updateDoc(docRef, dataToUpdate);
 
+    // Холбогдох хуудсуудын кэшийг цэвэрлэх
     revalidatePath("/admin/entries");
     if (categoryId) {
         revalidatePath(`/admin/entries?category=${categoryId}`);
@@ -188,6 +223,11 @@ export async function updateEntry(
   }
 }
 
+/**
+ * Бүртгэлийг Firestore-оос устгах.
+ * @param id - Устгах бүртгэлийн ID.
+ * @returns Амжилттай болсон эсвэл алдааны мэдээлэл.
+ */
 export async function deleteEntry(id: string): Promise<{ success: boolean } | { error: string }> {
   try {
     const docRef = doc(db, ENTRIES_COLLECTION, id);
@@ -199,6 +239,7 @@ export async function deleteEntry(id: string): Promise<{ success: boolean } | { 
 
     await deleteDoc(docRef);
 
+    // Холбогдох хуудсуудын кэшийг цэвэрлэх
     revalidatePath("/admin/entries");
     if (categoryId) {
         revalidatePath(`/admin/entries?category=${categoryId}`);

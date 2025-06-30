@@ -1,4 +1,9 @@
 // functions/src/index.ts
+/**
+ * Энэ файл нь Firebase Cloud Functions-ийн backend логикийг агуулдаг.
+ * Энд тодорхойлсон функцүүдийг клиент талаас (Next.js апп) аюулгүйгээр дуудаж ажиллуулдаг.
+ * Эдгээр нь админ эрх шаардсан үйлдлүүдийг хийхэд зориулагдсан.
+ */
 
 import {
   onCall,
@@ -24,6 +29,7 @@ interface UserProfile {
   email: string;
 }
 
+// Мэдэгдэл илгээх функцийн оролтын өгөгдлийн бүтэц
 interface SendNotificationPayload {
   title: string;
   body: string;
@@ -62,9 +68,14 @@ interface NotificationLog {
   scheduleAt: FirebaseFirestore.Timestamp | null;
 }
 
+/**
+ * Сонгосон хэрэглэгчид рүү push notification илгээх Cloud Function.
+ * Энэ нь шууд эсвэл хуваарийн дагуу илгээх боломжтой.
+ */
 export const sendNotification = onCall(
   {region: "us-central1"},
   async (request: CallableRequest<SendNotificationPayload>) => {
+    // 1. Нэвтэрсэн эсэхийг шалгах
     if (!request.auth) {
       throw new HttpsError(
         "unauthenticated",
@@ -83,6 +94,7 @@ export const sendNotification = onCall(
         adminCreator,
       } = request.data;
 
+      // 2. Шаардлагатай мэдээлэл байгаа эсэхийг шалгах
       if (
         !title ||
         !body ||
@@ -96,7 +108,7 @@ export const sendNotification = onCall(
         );
       }
 
-      // Scheduling logic
+      // 3. Хуваарьт мэдэгдэл бол Firestore-д хадгалаад функцээс гарах
       if (scheduleAt && new Date(scheduleAt).getTime() > Date.now()) {
         const scheduledLog: NotificationLog = {
           title,
@@ -105,7 +117,7 @@ export const sendNotification = onCall(
           deepLink: deepLink || null,
           adminCreator,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          targets: [], // Targets will be processed by a separate scheduled function
+          targets: [], // Дараа нь өөр функц боловсруулна
           processingStatus: "scheduled",
           scheduleAt: admin.firestore.Timestamp.fromDate(new Date(scheduleAt)),
         };
@@ -117,7 +129,7 @@ export const sendNotification = onCall(
         };
       }
 
-      // Fetch latest user data to get fresh FCM tokens
+      // 4. Шууд илгээх бол хэрэглэгчдийн FCM token-уудыг авах
       const usersRef = db.collection("users");
       const userDocs = selectedUserIds.length > 0 ? await db.getAll(...selectedUserIds.map((id) => usersRef.doc(id))) : [];
 
@@ -151,6 +163,7 @@ export const sendNotification = onCall(
           }
       }
       
+      // 5. Илгээх token байхгүй бол log үүсгээд гарах
       if (tokensToSend.length === 0) {
         const noTokenLog: Partial<NotificationLog> = {
           title,
@@ -167,6 +180,7 @@ export const sendNotification = onCall(
         };
       }
 
+      // 6. Firebase Cloud Messaging (FCM) рүү илгээх payload-г бэлтгэх
       const dataPayloadForFCM: { [key:string]: string } = {
         titleKey: title,
         descriptionKey: body,
@@ -190,7 +204,7 @@ export const sendNotification = onCall(
           notification: {
             title,
             body,
-            ...(imageUrl && { image: imageUrl }), // Use 'image' for the web standard
+            ...(imageUrl && { image: imageUrl }),
             icon: "https://placehold.co/96x96.png?text=AP&bg=FF5733&txt=FFFFFF",
             badge: "https://placehold.co/96x96.png?text=AP&bg=FF5733&txt=FFFFFF",
           },
@@ -205,10 +219,12 @@ export const sendNotification = onCall(
         data: dataPayloadForFCM,
       };
 
+      // 7. Мэдэгдлийг илгээх
       logger.info(`Sending ${tokensToSend.length} messages.`);
       const response = await messaging.sendEachForMulticast(messagePayload);
       const currentTimestamp = admin.firestore.Timestamp.now();
 
+      // 8. Илгээлтийн үр дүнг log болгож хадгалах
       const targetsForLog: NotificationTargetForLog[] = [];
       response.responses.forEach((result, index) => {
         const token = tokensToSend[index];
@@ -280,9 +296,9 @@ export const sendNotification = onCall(
   }
 );
 
-// --- V2 Callable Function: Update Admin User Details ---
 const ADMINS_COLLECTION = "admins";
 
+// Админ хэрэглэгчийн мэдээлэл шинэчлэх оролтын өгөгдлийн бүтэц
 interface UpdateAdminUserData {
   targetUserId: string;
   name?: string;
@@ -294,9 +310,14 @@ interface UpdateAdminUserData {
   canSendNotifications?: boolean;
 }
 
+/**
+ * Админ хэрэглэгчийн мэдээллийг (Firebase Auth болон Firestore) шинэчлэх Cloud Function.
+ * Зөвхөн Сүпер Админ бусад хэрэглэгчийг засах эрхтэй.
+ */
 export const updateAdminAuthDetails = onCall(
   {region: "us-central1"},
   async (request: CallableRequest<UpdateAdminUserData>) => {
+    // 1. Нэвтрэлт болон эрхийн шалгалт
     if (!request.auth) {
       throw new HttpsError(
         "unauthenticated",
@@ -322,26 +343,25 @@ export const updateAdminAuthDetails = onCall(
     
     const isEditingSelf = callerUid === targetUserId;
 
-    // Get caller's role for permission checks
+    // Дуудаж буй хэрэглэгчийн эрхийг шалгах
     const callerAdminDoc = await db.collection(ADMINS_COLLECTION).doc(callerUid).get();
     if (!callerAdminDoc.exists) {
         throw new HttpsError("permission-denied", "Caller is not a valid admin.");
     }
     const isCallerSuperAdmin = callerAdminDoc.data()?.role === UserRole.SUPER_ADMIN;
 
-    // --- PERMISSION CHECKS ---
-    // If not a super admin, can only edit self, and only limited fields.
-    if (!isCallerSuperAdmin) {
-        if (!isEditingSelf) {
+    // --- Эрхийн шалгалтууд ---
+    if (!isCallerSuperAdmin) { // Хэрэв сүпер админ биш бол
+        if (!isEditingSelf) { // Зөвхөн өөрийгөө засах ёстой
             throw new HttpsError("permission-denied", "You do not have permissions to edit other users.");
         }
-        // Sub-admins can't change email, password, role, or permissions for themselves
+        // Дэд админ зөвхөн нэр, аватараа л сольж чадна
         if (email || newPassword || role || allowedCategoryIds !== undefined || canSendNotifications !== undefined) {
              throw new HttpsError("permission-denied", "You can only update your name and avatar.");
         }
     }
     
-    // Super-admin specific checks (e.g. protecting the main super admin account)
+    // Сүпер админд хамаарах тусгай шалгалтууд (үндсэн админыг хамгаалах)
     if (isCallerSuperAdmin) {
         try {
             const targetUserRecord = await fAuth.getUser(targetUserId);
@@ -360,7 +380,7 @@ export const updateAdminAuthDetails = onCall(
     }
 
     try {
-      // Prepare Auth update payload
+      // 2. Firebase Auth-д шинэчлэх payload-г бэлтгэх
       const updatePayloadAuth: {
         email?: string;
         password?: string;
@@ -372,16 +392,12 @@ export const updateAdminAuthDetails = onCall(
       if (name) updatePayloadAuth.displayName = name;
       if (avatar) updatePayloadAuth.photoURL = avatar;
 
-      // Update Auth if there's anything to update
+      // Auth-г шинэчлэх (хэрэв өөрчлөлт байвал)
       if (Object.keys(updatePayloadAuth).length > 0) {
         await fAuth.updateUser(targetUserId, updatePayloadAuth);
-        logger.info(
-          `Successfully updated Firebase Auth for user: ${targetUserId}`,
-          updatePayloadAuth
-        );
       }
 
-      // Prepare Firestore update payload
+      // 3. Firestore-д шинэчлэх payload-г бэлтгэх
       const updatePayloadFirestore: Record<string, any> = {
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       };
@@ -389,7 +405,7 @@ export const updateAdminAuthDetails = onCall(
       if (name) updatePayloadFirestore.name = name;
       if (avatar) updatePayloadFirestore.avatar = avatar;
       
-      // Only allow role/permission changes if the caller is a Super Admin
+      // Эрх, зөвшөөрлийг зөвхөн сүпер админ л өөрчилнө
       if (isCallerSuperAdmin) {
         if (role) updatePayloadFirestore.role = role;
         if (role === UserRole.SUB_ADMIN) {
@@ -405,16 +421,12 @@ export const updateAdminAuthDetails = onCall(
         }
       }
 
-      // Update Firestore if there is more than just the timestamp
+      // Firestore-г шинэчлэх (хэрэв өөрчлөлт байвал)
       if(Object.keys(updatePayloadFirestore).length > 1){
         await db
           .collection(ADMINS_COLLECTION)
           .doc(targetUserId)
           .update(updatePayloadFirestore);
-        logger.info(
-          `Successfully updated Firestore for user: ${targetUserId}`,
-          updatePayloadFirestore
-        );
       }
 
       return {
@@ -422,6 +434,7 @@ export const updateAdminAuthDetails = onCall(
         message: "Admin details updated successfully in Auth and Firestore.",
       };
     } catch (error: unknown) {
+      // 4. Алдааг зохицуулах
       logger.error("Error updating admin details:", error);
       let errorCode: HttpsError["code"] = "unknown";
       let errorMessage = "Failed to update admin details.";
@@ -459,7 +472,7 @@ export const updateAdminAuthDetails = onCall(
   }
 );
 
-// --- V2 Callable Function: Create a new Admin User ---
+// Шинэ админ үүсгэх оролтын өгөгдлийн бүтэц
 interface CreateAdminUserData {
   email: string;
   password?: string;
@@ -468,10 +481,16 @@ interface CreateAdminUserData {
   allowedCategoryIds?: string[];
   canSendNotifications?: boolean;
 }
+
+/**
+ * Шинэ админ хэрэглэгч үүсгэх Cloud Function.
+ * Эхлээд Firestore-д ийм админ байгаа эсэхийг шалгаад, дараа нь Auth-д үүсгэж,
+ * эцэст нь Firestore-д админы профайлыг үүсгэдэг.
+ */
 export const createAdminUser = onCall(
   {region: "us-central1"},
   async (request: CallableRequest<CreateAdminUserData>) => {
-    // 1. Auth and permission checks
+    // 1. Нэвтрэлт болон Сүпер Админ эрхийг шалгах
     if (!request.auth) {
       throw new HttpsError(
         "unauthenticated",
@@ -494,28 +513,19 @@ export const createAdminUser = onCall(
         );
       }
     } catch (error) {
-      logger.error(
-        "Error checking caller permissions for user creation:",
-        error
-      );
+      logger.error("Error checking caller permissions for user creation:", error);
       if (error instanceof HttpsError) {
         throw error;
       }
-      throw new HttpsError(
-        "internal",
-        "Could not verify caller permissions."
-      );
+      throw new HttpsError( "internal", "Could not verify caller permissions.");
     }
 
     const {email, password, name, role, allowedCategoryIds = [], canSendNotifications = false} = request.data;
     if (!email || !name || !role) {
-      throw new HttpsError(
-        "invalid-argument",
-        "Missing required fields: email, name, and role."
-      );
+      throw new HttpsError( "invalid-argument", "Missing required fields: email, name, and role.");
     }
     
-    // 2. Check if admin already exists in Firestore 'admins' collection
+    // 2. Firestore-ийн 'admins' коллекцид и-мэйл давхцаж байгаа эсэхийг шалгах
     const adminsRef = db.collection(ADMINS_COLLECTION);
     const existingAdminQuery = await adminsRef.where("email", "==", email).limit(1).get();
     if (!existingAdminQuery.empty) {
@@ -527,48 +537,33 @@ export const createAdminUser = onCall(
     let newAuthUserUID: string | null = null;
 
     try {
-        // 3. Check if user exists in Firebase Auth
+        // 3. Firebase Auth-д хэрэглэгч байгаа эсэхийг шалгах, байхгүй бол шинээр үүсгэх
         try {
             userRecord = await fAuth.getUserByEmail(email);
-            wasExistingUser = true;
-            logger.info(`User with email ${email} already exists in Auth (UID: ${userRecord.uid}). Promoting to admin.`);
-
-            // Optional: Update existing user's display name if provided one is different
+            wasExistingUser = true; // Хэрэглэгч аль хэдийн Auth-д байсан
             if (name && userRecord.displayName !== name) {
                 await fAuth.updateUser(userRecord.uid, { displayName: name });
-                logger.info(`Updated display name for existing user ${userRecord.uid}.`);
             }
-            
         } catch (error: any) {
             if (error.code === 'auth/user-not-found') {
-                // User does not exist, so create a new one
-                logger.info(`User with email ${email} not found in Auth. Creating new user.`);
+                // Хэрэглэгч Auth-д байхгүй тул шинээр үүсгэх
                 if (!password || password.length < 6) {
                     throw new HttpsError("invalid-argument", "Password must be at least 6 characters long for a new user.");
                 }
-                
                 const photoURL = `https://placehold.co/100x100.png?text=${name.substring(0, 2).toUpperCase()}&bg=FF5733&txt=FFFFFF`;
-                
-                userRecord = await fAuth.createUser({
-                    email: email,
-                    password: password,
-                    displayName: name,
-                    photoURL: photoURL,
-                });
-                newAuthUserUID = userRecord.uid; // Keep track of the new UID for potential rollback
-                logger.info("Successfully created new user in Firebase Auth:", userRecord.uid);
+                userRecord = await fAuth.createUser({ email, password, displayName: name, photoURL });
+                newAuthUserUID = userRecord.uid; // Алдаа гарвал буцаахын тулд UID-г хадгалах
             } else {
-                 // A different, unexpected Auth error occurred
-                throw error;
+                throw error; // Auth-аас өөр алдаа гарвал шууд шидэх
             }
         }
 
-        // 4. Create the document in the 'admins' collection
+        // 4. Firestore-ийн 'admins' коллекцид админы мэдээллийг хадгалах
         const adminDocRef = db.collection(ADMINS_COLLECTION).doc(userRecord.uid);
         const firestoreAdminData = {
             uid: userRecord.uid,
             email: userRecord.email,
-            name: name, // Use the name from the form
+            name: name,
             role: role,
             avatar: userRecord.photoURL || `https://placehold.co/100x100.png?text=${name.substring(0, 2).toUpperCase()}&bg=FF5733&txt=FFFFFF`,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -578,22 +573,17 @@ export const createAdminUser = onCall(
         };
 
         await adminDocRef.set(firestoreAdminData);
-        logger.info("Successfully created Firestore admin document for:", userRecord.uid);
 
         const message = wasExistingUser 
             ? `Одоо байгаа хэрэглэгч ${name}-г админ болгож дэвшүүллээ.`
             : `Админ хэрэглэгч ${name} амжилттай үүслээ.`;
 
-        return {
-            success: true,
-            message: message,
-            userId: userRecord.uid,
-        };
+        return { success: true, message: message, userId: userRecord.uid };
 
     } catch (error: any) {
         logger.error("Error in createAdminUser process:", error);
       
-        // If we created a new Auth user but failed to write to Firestore, roll back Auth creation.
+        // Хэрэв Auth-д шинэ хэрэглэгч үүсгээд Firestore-д бичихэд алдаа гарвал, Auth-д үүсгэсэн хэрэглэгчийг буцааж устгах
         if (newAuthUserUID) {
             logger.warn(`Firestore operation failed. Rolling back Auth user creation for UID: ${newAuthUserUID}`);
             await fAuth.deleteUser(newAuthUserUID).catch(deleteError => {
@@ -610,14 +600,18 @@ export const createAdminUser = onCall(
 );
 
 
-// --- V2 Callable Function: Delete Admin User ---
+// Админ хэрэглэгч устгах оролтын өгөгдлийн бүтэц
 interface DeleteAdminUserData {
   targetUserId: string;
 }
 
+/**
+ * Админ хэрэглэгчийг Firebase Auth болон Firestore-оос устгах Cloud Function.
+ */
 export const deleteAdminUser = onCall(
   {region: "us-central1"},
   async (request: CallableRequest<DeleteAdminUserData>) => {
+    // 1. Нэвтрэлт болон Сүпер Админ эрхийг шалгах
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "The function must be called while authenticated.");
     }
@@ -636,7 +630,6 @@ export const deleteAdminUser = onCall(
     if (!targetUserId) {
       throw new HttpsError("invalid-argument", "targetUserId is required.");
     }
-
     if (callerUid === targetUserId) {
       throw new HttpsError("permission-denied", "You cannot delete your own account.");
     }
@@ -647,21 +640,19 @@ export const deleteAdminUser = onCall(
         throw new HttpsError("permission-denied", "Cannot delete the primary super admin account.");
       }
 
-      // Delete from Auth
+      // 2. Auth-оос устгах
       await fAuth.deleteUser(targetUserId);
-      logger.info(`Successfully deleted user ${targetUserId} from Firebase Auth.`);
       
-      // Delete from Firestore
+      // 3. Firestore-оос устгах
       await db.collection(ADMINS_COLLECTION).doc(targetUserId).delete();
-      logger.info(`Successfully deleted Firestore admin document for ${targetUserId}.`);
       
       return { success: true, message: `Admin user ${targetUserRecord.displayName || targetUserRecord.email} has been deleted successfully.` };
     } catch (error: any) {
+      // 4. Алдааг зохицуулах (жишээ нь, Auth-д байхгүй ч Firestore-д байвал)
       logger.error(`Error deleting admin user ${targetUserId}:`, error);
       if (error.code === "auth/user-not-found") {
         try {
            await db.collection(ADMINS_COLLECTION).doc(targetUserId).delete();
-           logger.info(`Firestore admin document for non-auth user ${targetUserId} deleted.`);
            return { success: true, message: "User not found in Auth, but Firestore document deleted." };
         } catch (firestoreError: any) {
           logger.error(`Error deleting Firestore document for non-auth user ${targetUserId}:`, firestoreError);

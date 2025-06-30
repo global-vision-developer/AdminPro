@@ -10,6 +10,7 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
+// Firebase-ийн тохиргоог .env.local файлаас уншиж авах
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -20,7 +21,7 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-// Initialize Firebase
+// Firebase аппликейшнийг эхлүүлэх (зөвхөн нэг удаа)
 let app;
 if (!getApps().length) {
   app = initializeApp(firebaseConfig);
@@ -28,6 +29,7 @@ if (!getApps().length) {
   app = getApp();
 }
 
+// Firebase-ийн гол үйлчилгээнүүдийг экспортлох
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);

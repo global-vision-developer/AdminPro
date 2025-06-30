@@ -32,14 +32,17 @@ interface AuthContextType {
 
 const ADMINS_COLLECTION = "admins";
 
+// Апп даяар хэрэглэгчийн мэдээллийг дамжуулах Context үүсгэх
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Аппликейшнийг бүхэлд нь ороож, authentication-ий логикийг удирдах Provider компонент
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUserLocal] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
 
+  // Хэрэглэгчийн профайлын мэдээллийг (нэр, аватар) клиент талд шинэчлэх функц
   const updateCurrentUserProfile = useCallback((data: Partial<UserProfile>) => {
     setCurrentUserLocal(prevUser => {
       if (!prevUser) return null;
@@ -47,10 +50,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }, []);
 
+  // Firebase-ийн нэвтрэлтийн төлөв өөрчлөгдөх бүрт ажиллах useEffect
+  // Энэ нь хэрэглэгч нэвтрэх, гарах үед автоматаар ажиллаж, `currentUser`-г тохируулна.
   useEffect(() => {
     setLoading(true);
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
+        // Хэрэглэгч нэвтэрсэн бол Firestore-оос админы дэлгэрэнгүй мэдээллийг (эрх, зөвшөөрөл) авах
         const userDocRef = doc(db, ADMINS_COLLECTION, firebaseUser.uid);
         try {
           const userDocSnap = await getDoc(userDocRef);
@@ -62,6 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           let canSendNotificationsFromFirestore = false;
           
           if (userDocSnap.exists()) {
+            // Firestore-д админ бүртгэлтэй бол мэдээллийг нь ашиглах
             const userData = userDocSnap.data();
             userRoleFromFirestore = userData.role as UserRole || UserRole.SUB_ADMIN; 
             profileName = userData.name || profileName; 
@@ -75,6 +82,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               canSendNotificationsFromFirestore = userData.canSendNotifications === true;
             }
 
+            // Firebase Auth болон Firestore-ийн мэдээллийг синхрончлох
             if (firebaseUser.displayName !== profileName || firebaseUser.photoURL !== profileAvatar) {
               try {
                   await updateProfile(firebaseUser, { displayName: profileName, photoURL: profileAvatar });
@@ -83,6 +91,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               }
             }
           } else {
+            // Хэрэв админ нь Firestore-д бүртгэлгүй бол анхны өгөгдлийг үүсгэх (жишээ нь, Social login-оор орж ирсэн)
             const nameForDoc = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'New Admin';
             const avatarForDoc = firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${nameForDoc.substring(0,2).toUpperCase()}&bg=FF5733&txt=FFFFFF`;
             
@@ -117,6 +126,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           }
 
+          // Апп-д ашиглах хэрэглэгчийн эцсийн профайлыг бүрдүүлэх
           const userProfile: UserProfile = {
             id: firebaseUser.uid,
             uid: firebaseUser.uid,
@@ -141,16 +151,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setCurrentUserLocal(null); 
         }
       } else {
+        // Хэрэглэгч нэвтрээгүй бол `currentUser`-г null болгох
         setCurrentUserLocal(null);
       }
       setLoading(false);
     });
 
+    // Компонент unmount хийгдэхэд listener-г цэвэрлэх
     return () => {
       unsubscribe();
     }
   }, [toast]); 
 
+  // Нэвтрэх функц
   const login = useCallback(async (email: string, password: string) => {
     setLoading(true);
     try {
@@ -170,12 +183,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [toast]);
 
+  // Системээс гарах функц
   const logout = useCallback(async () => {
     setLoading(true);
     try {
       await firebaseSignOut(auth);
       router.push('/'); 
-      toast({ title: "Системээс гарлаа", description: "Та системээс амжилттай гарлаа.", duration: 3000});
+      toast({ title: "Системээс гарлаа", description: "Та системээс амжилттай гарлаa.", duration: 3000});
     } catch (error: any) {
       console.error("AuthContext: Firebase logout error:", error);
       toast({ title: "Гарах үед алдаа гарлаа", description: error.message, variant: "destructive" });

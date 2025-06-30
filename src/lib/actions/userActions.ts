@@ -3,6 +3,10 @@
  * @fileoverview Client-side functions for managing "Admin User" data.
  * These functions call Cloud Functions for protected operations (create, update, delete)
  * and interact with Firebase Auth and Firestore for reading data.
+ * 
+ * Энэ файл нь Админ хэрэглэгчтэй холбоотой үйлдлүүдийг агуулна.
+ * Үүсгэх, засах, устгах зэрэг хамгаалалттай үйлдлүүдийг Cloud Functions-руу дамжуулж,
+ * унших үйлдлийг Firestore-оос шууд хийдэг.
  */
 "use server";
 
@@ -26,6 +30,12 @@ import { revalidatePath } from "next/cache";
 
 const ADMINS_COLLECTION = "admins";
 
+/**
+ * Шинэ админ хэрэглэгч нэмнэ.
+ * Энэ нь `createAdminUser` Cloud Function-г дууддаг.
+ * @param data - Шинэ хэрэглэгчийн мэдээлэл (нэр, и-мэйл, нууц үг, эрх гэх мэт).
+ * @returns Амжилттай болсон эсвэл алдааны мэдээлэл.
+ */
 export async function addAdminUser(
   data: Required<Pick<UserProfile, "name" | "email" | "role">> & { password?: string; allowedCategoryIds?: string[], canSendNotifications?: boolean }
 ): Promise<{ success?: boolean; error?: string; message?: string }> {
@@ -64,7 +74,13 @@ export async function addAdminUser(
     }
 }
 
-
+/**
+ * Одоо байгаа админ хэрэглэгчийн мэдээллийг шинэчилнэ.
+ * Энэ нь `updateAdminAuthDetails` Cloud Function-г дууддаг.
+ * @param userId - Засварлах хэрэглэгчийн ID.
+ * @param data - Шинэчлэх мэдээлэл.
+ * @returns Амжилттай болсон эсвэл алдааны мэдээлэл.
+ */
 export async function updateAdminUser(
   userId: string,
   data: Partial<Pick<UserProfile, "name" | "email" | "role" | "allowedCategoryIds" | "avatar" | "canSendNotifications">> & { newPassword?: string }
@@ -95,7 +111,10 @@ export async function updateAdminUser(
   }
 }
 
-
+/**
+ * Бүх админ хэрэглэгчдийн жагсаалтыг Firestore-оос авна.
+ * @returns Админ хэрэглэгчдийн массив.
+ */
 export async function getAdminUsers(): Promise<UserProfile[]> {
   try {
     const adminsRef = collection(db, ADMINS_COLLECTION);
@@ -122,6 +141,11 @@ export async function getAdminUsers(): Promise<UserProfile[]> {
   }
 }
 
+/**
+ * Тодорхой нэг админ хэрэглэгчийн мэдээллийг Firestore-оос авна.
+ * @param id - Авах гэж буй хэрэглэгчийн ID.
+ * @returns Хэрэглэгчийн профайл эсвэл олдсонгүй бол `null`.
+ */
 export async function getAdminUser(id: string): Promise<UserProfile | null> {
   try {
     const docRef = doc(db, ADMINS_COLLECTION, id);
@@ -148,6 +172,12 @@ export async function getAdminUser(id: string): Promise<UserProfile | null> {
   }
 }
 
+/**
+ * Админ хэрэглэгчийг устгана.
+ * Энэ нь `deleteAdminUser` Cloud Function-г дууддаг.
+ * @param id - Устгах хэрэглэгчийн ID.
+ * @returns Амжилттай болсон эсвэл алдааны мэдээлэл.
+ */
 export async function deleteAdminUser(id: string): Promise<{ success?: boolean; error?: string, message?: string }> {
     try {
         const functions = getFunctions(clientApp, 'us-central1');
@@ -171,6 +201,11 @@ export async function deleteAdminUser(id: string): Promise<{ success?: boolean; 
     }
 }
 
+/**
+ * Админ хэрэглэгчийн нууц үгийг сэргээх и-мэйл илгээнэ.
+ * @param email - Нууц үг сэргээх и-мэйл хаяг.
+ * @returns Амжилттай болсон эсвэл алдааны мэдээлэл.
+ */
 export async function sendAdminPasswordResetEmail(email: string): Promise<{ success?: boolean; error?: string }> {
   try {
     await sendPasswordResetEmail(clientAuth, email);
