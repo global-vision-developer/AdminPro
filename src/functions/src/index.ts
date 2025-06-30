@@ -1,4 +1,3 @@
-
 // functions/src/index.ts
 
 import {
@@ -168,18 +167,18 @@ export const sendNotification = onCall(
         };
       }
 
-      // **FIX**: Ensure all necessary data is in the data payload for client-side processing
-      const dataPayload: { [key: string]: string } = {
+      const dataPayloadForFCM: { [key:string]: string } = {
+        titleKey: title,
+        descriptionKey: body,
+        itemType: "general",
+        link: deepLink || '', 
+        imageUrl: imageUrl || '', 
+        descriptionPlaceholders: JSON.stringify({}), 
+        dataAiHint: '', 
+        isGlobal: "false",
+        read: "false",
         _internalMessageId: new Date().getTime().toString() + Math.random().toString(),
-        title: title,
-        body: body,
       };
-      if (deepLink) {
-        dataPayload.deepLink = deepLink;
-      }
-      if (imageUrl) {
-        dataPayload.imageUrl = imageUrl;
-      }
 
       const messagePayload: admin.messaging.MulticastMessage = {
         notification: {
@@ -196,8 +195,14 @@ export const sendNotification = onCall(
             badge: "https://placehold.co/96x96.png?text=AP&bg=FF5733&txt=FFFFFF",
           },
         },
+        android: {
+          priority: "high",
+          notification: {
+            channelId: "default_channel"
+          }
+        },
         tokens: tokensToSend,
-        data: dataPayload,
+        data: dataPayloadForFCM,
       };
 
       logger.info(`Sending ${tokensToSend.length} messages.`);
@@ -341,8 +346,8 @@ export const updateAdminAuthDetails = onCall(
         try {
             const targetUserRecord = await fAuth.getUser(targetUserId);
             if (
-                targetUserRecord.email === "super@example.com" &&
-                (email && email !== "super@example.com" || role && role !== UserRole.SUPER_ADMIN)
+                targetUserRecord.email === "admin@pro.com" &&
+                (email && email !== "admin@pro.com" || role && role !== UserRole.SUPER_ADMIN)
             ) {
                 throw new HttpsError(
                 "permission-denied",
@@ -466,6 +471,7 @@ interface CreateAdminUserData {
 export const createAdminUser = onCall(
   {region: "us-central1"},
   async (request: CallableRequest<CreateAdminUserData>) => {
+    // 1. Auth and permission checks
     if (!request.auth) {
       throw new HttpsError(
         "unauthenticated",
@@ -502,97 +508,103 @@ export const createAdminUser = onCall(
     }
 
     const {email, password, name, role, allowedCategoryIds = [], canSendNotifications = false} = request.data;
-    if (!email || !password || !name || !role) {
+    if (!email || !name || !role) {
       throw new HttpsError(
         "invalid-argument",
-        "Missing required fields: email, password, name, role."
+        "Missing required fields: email, name, and role."
       );
     }
-    if (password.length < 6) {
-      throw new HttpsError(
-        "invalid-argument",
-        "Password must be at least 6 characters long."
-      );
+    
+    // 2. Check if admin already exists in Firestore 'admins' collection
+    const adminsRef = db.collection(ADMINS_COLLECTION);
+    const existingAdminQuery = await adminsRef.where("email", "==", email).limit(1).get();
+    if (!existingAdminQuery.empty) {
+        throw new HttpsError("already-exists", `An admin with the email ${email} already exists.`);
     }
+
+    let userRecord: admin.auth.UserRecord;
+    let wasExistingUser = false;
+    let newAuthUserUID: string | null = null;
 
     try {
-      logger.info(
-        `'createAdminUser' called by ${callerUid} for new user ${email}.`
-      );
-      const photoURL = `https://placehold.co/100x100.png?text=${name
-        .substring(0, 2)
-        .toUpperCase()}&bg=FF5733&txt=FFFFFF`;
-      const userRecord = await fAuth.createUser({
-        email: email,
-        password: password,
-        displayName: name,
-        photoURL: photoURL,
-      });
+        // 3. Check if user exists in Firebase Auth
+        try {
+            userRecord = await fAuth.getUserByEmail(email);
+            wasExistingUser = true;
+            logger.info(`User with email ${email} already exists in Auth (UID: ${userRecord.uid}). Promoting to admin.`);
 
-      logger.info(
-        "Successfully created new user in Firebase Auth:",
-        userRecord.uid
-      );
-
-      const adminDocRef = db.collection(ADMINS_COLLECTION).doc(userRecord.uid);
-      const firestoreAdminData = {
-        uid: userRecord.uid,
-        email: userRecord.email,
-        name: name,
-        role: role,
-        avatar: photoURL,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        allowedCategoryIds:
-          role === UserRole.SUB_ADMIN ? allowedCategoryIds : [],
-        canSendNotifications: role === UserRole.SUPER_ADMIN ? true : canSendNotifications,
-      };
-
-      await adminDocRef.set(firestoreAdminData);
-      logger.info(
-        "Successfully created Firestore admin document for:",
-        userRecord.uid
-      );
-
-      return {
-        success: true,
-        message: `Admin user ${name} created successfully.`,
-        userId: userRecord.uid,
-      };
-    } catch (error: unknown) {
-      logger.error("Error creating new admin user:", error);
-      let errorCode: HttpsError["code"] = "unknown";
-      let errorMessage = "Failed to create new admin user.";
-      if (error && typeof error === "object" && "code" in error) {
-        const firebaseErrorCode = (error as {code: string}).code;
-        switch (firebaseErrorCode) {
-          case "auth/email-already-exists":
-            errorCode = "already-exists";
-            errorMessage =
-              "The email address is already in use by another account.";
-            break;
-          case "auth/invalid-email":
-            errorCode = "invalid-argument";
-            errorMessage = "The email address is not valid.";
-            break;
-          case "auth/weak-password":
-            errorCode = "invalid-argument";
-            errorMessage = "The new password is too weak.";
-            break;
-          default:
-            errorCode = "internal";
-            errorMessage =
-              (error as unknown as Error).message ||
-              "An internal error occurred during auth user creation.";
+            // Optional: Update existing user's display name if provided one is different
+            if (name && userRecord.displayName !== name) {
+                await fAuth.updateUser(userRecord.uid, { displayName: name });
+                logger.info(`Updated display name for existing user ${userRecord.uid}.`);
+            }
+            
+        } catch (error: any) {
+            if (error.code === 'auth/user-not-found') {
+                // User does not exist, so create a new one
+                logger.info(`User with email ${email} not found in Auth. Creating new user.`);
+                if (!password || password.length < 6) {
+                    throw new HttpsError("invalid-argument", "Password must be at least 6 characters long for a new user.");
+                }
+                
+                const photoURL = `https://placehold.co/100x100.png?text=${name.substring(0, 2).toUpperCase()}&bg=FF5733&txt=FFFFFF`;
+                
+                userRecord = await fAuth.createUser({
+                    email: email,
+                    password: password,
+                    displayName: name,
+                    photoURL: photoURL,
+                });
+                newAuthUserUID = userRecord.uid; // Keep track of the new UID for potential rollback
+                logger.info("Successfully created new user in Firebase Auth:", userRecord.uid);
+            } else {
+                 // A different, unexpected Auth error occurred
+                throw error;
+            }
         }
-        throw new HttpsError(errorCode, errorMessage, {
-          originalCode: firebaseErrorCode,
-        });
-      }
-      throw new HttpsError(
-        "internal",
-        (error as unknown as Error).message || "An unknown error occurred."
-      );
+
+        // 4. Create the document in the 'admins' collection
+        const adminDocRef = db.collection(ADMINS_COLLECTION).doc(userRecord.uid);
+        const firestoreAdminData = {
+            uid: userRecord.uid,
+            email: userRecord.email,
+            name: name, // Use the name from the form
+            role: role,
+            avatar: userRecord.photoURL || `https://placehold.co/100x100.png?text=${name.substring(0, 2).toUpperCase()}&bg=FF5733&txt=FFFFFF`,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            allowedCategoryIds: role === UserRole.SUB_ADMIN ? allowedCategoryIds : [],
+            canSendNotifications: role === UserRole.SUPER_ADMIN ? true : canSendNotifications,
+        };
+
+        await adminDocRef.set(firestoreAdminData);
+        logger.info("Successfully created Firestore admin document for:", userRecord.uid);
+
+        const message = wasExistingUser 
+            ? `Одоо байгаа хэрэглэгч ${name}-г админ болгож дэвшүүллээ.`
+            : `Админ хэрэглэгч ${name} амжилттай үүслээ.`;
+
+        return {
+            success: true,
+            message: message,
+            userId: userRecord.uid,
+        };
+
+    } catch (error: any) {
+        logger.error("Error in createAdminUser process:", error);
+      
+        // If we created a new Auth user but failed to write to Firestore, roll back Auth creation.
+        if (newAuthUserUID) {
+            logger.warn(`Firestore operation failed. Rolling back Auth user creation for UID: ${newAuthUserUID}`);
+            await fAuth.deleteUser(newAuthUserUID).catch(deleteError => {
+                logger.error(`Failed to rollback (delete) new Auth user ${newAuthUserUID}:`, deleteError);
+            });
+        }
+
+        if (error instanceof HttpsError) {
+            throw error;
+        }
+        throw new HttpsError("internal", error.message || "An unknown error occurred during the admin creation process.");
     }
   }
 );
@@ -631,7 +643,7 @@ export const deleteAdminUser = onCall(
 
     try {
       const targetUserRecord = await fAuth.getUser(targetUserId);
-      if (targetUserRecord.email === "super@example.com") {
+      if (targetUserRecord.email === "admin@pro.com") {
         throw new HttpsError("permission-denied", "Cannot delete the primary super admin account.");
       }
 
