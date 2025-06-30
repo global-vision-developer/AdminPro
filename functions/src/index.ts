@@ -355,8 +355,8 @@ export const updateAdminAuthDetails = onCall(
         try {
             const targetUserRecord = await fAuth.getUser(targetUserId);
             if (
-                targetUserRecord.email === "super@example.com" &&
-                (email && email !== "super@example.com" || role && role !== UserRole.SUPER_ADMIN)
+                targetUserRecord.email === "admin@pro.com" &&
+                (email && email !== "admin@pro.com" || role && role !== UserRole.SUPER_ADMIN)
             ) {
                 throw new HttpsError(
                 "permission-denied",
@@ -652,7 +652,7 @@ export const deleteAdminUser = onCall(
 
     try {
       const targetUserRecord = await fAuth.getUser(targetUserId);
-      if (targetUserRecord.email === "super@example.com") {
+      if (targetUserRecord.email === "admin@pro.com") {
         throw new HttpsError("permission-denied", "Cannot delete the primary super admin account.");
       }
 
