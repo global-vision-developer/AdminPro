@@ -212,7 +212,7 @@ export const sendNotification = onCall(
         android: {
           priority: "high",
           notification: {
-            channel_id: "default_channel"
+            channelId: "default_channel"
           }
         },
         tokens: tokensToSend,
@@ -686,3 +686,5 @@ export const deleteAdminUser = onCall(
     }
   }
 );
+
+    
