@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -123,28 +122,24 @@ export default function DashboardPage() {
           </Link>
         ))}
       </div>
-      <Card className="mt-8">
-        <CardHeader>
-          <CardTitle className="font-headline">Командын цэс</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-4">
-          {currentUser.role === UserRole.SUPER_ADMIN || currentUser.role === UserRole.SUB_ADMIN ? (
-            <>
-              <Link href="/admin/categories/new">
-                <Button variant="outline"><Library className="mr-2 h-4 w-4" /> Категори үүсгэх</Button>
-              </Link>
-              <Link href="/admin/entries/new">
-                <Button variant="outline"><Newspaper className="mr-2 h-4 w-4" /> Бүртгэл үүсгэх</Button>
-              </Link>
-            </>
-          ) : null}
-          {currentUser.role === UserRole.SUPER_ADMIN && (
+      {currentUser.role === UserRole.SUPER_ADMIN && (
+        <Card className="mt-8">
+          <CardHeader>
+            <CardTitle className="font-headline">Командын цэс</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-4">
+            <Link href="/admin/categories/new">
+              <Button variant="outline"><Library className="mr-2 h-4 w-4" /> Категори үүсгэх</Button>
+            </Link>
+            <Link href="/admin/entries/new">
+              <Button variant="outline"><Newspaper className="mr-2 h-4 w-4" /> Бүртгэл үүсгэх</Button>
+            </Link>
             <Link href="/admin/users/new">
               <Button variant="outline"><Users className="mr-2 h-4 w-4" /> Хэрэглэгч үүсгэх</Button>
             </Link>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
     </>
   );
 }
