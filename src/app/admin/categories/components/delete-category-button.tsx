@@ -1,23 +1,21 @@
-
 "use client";
 
 import React from 'react';
 import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { deleteCategory } from '@/lib/actions/categoryActions';
-import { useRouter } from 'next/navigation'; // Added import
 
 interface DeleteCategoryButtonProps {
   categoryId: string;
   categoryName: string;
+  onSuccess?: () => void;
 }
 
-export function DeleteCategoryButton({ categoryId, categoryName }: DeleteCategoryButtonProps) {
+export function DeleteCategoryButton({ categoryId, categoryName, onSuccess }: DeleteCategoryButtonProps) {
   const { toast } = useToast();
-  const router = useRouter(); // Initialized useRouter
 
   const handleDelete = async () => {
     const result = await deleteCategory(categoryId);
@@ -26,7 +24,7 @@ export function DeleteCategoryButton({ categoryId, categoryName }: DeleteCategor
         title: "Ангилал устгагдлаа",
         description: `"${categoryName}" ангилал болон түүнд хамаарах бүх бүртгэлүүд амжилттай устгагдлаа.`,
       });
-      router.refresh(); // Explicitly refresh the current route to update the UI
+      onSuccess?.();
     } else if (result.error) {
       toast({
         title: "Ангилал устгахад алдаа гарлаа",

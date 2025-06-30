@@ -1,42 +1,100 @@
-// "use client"; // Removed as data fetching will be server-side now
-import React from 'react'; // Suspense can be used if needed for parts of page
+"use client";
+
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
-import { unstable_noStore as noStore } from 'next/cache';
-import { PlusCircle, Edit, Trash2, Search, ListFilter, Library } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Library } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { PageHeader } from '@/components/admin/page-header';
 import type { Category } from '@/types';
 import { Input } from '@/components/ui/input';
-import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-// import { useToast } from '@/hooks/use-toast'; // Toasts will be handled by server actions or client components if needed
+import { getCategories } from '@/lib/actions/categoryActions';
+import { DeleteCategoryButton } from './components/delete-category-button';
+import { useAuth } from '@/hooks/use-auth';
+import { UserRole } from '@/types';
+import { useRouter } from 'next/navigation';
+import { useToast } from '@/hooks/use-toast';
+import { Skeleton } from '@/components/ui/skeleton';
 
-import { getCategories, deleteCategory } from '@/lib/actions/categoryActions';
-import { DeleteCategoryButton } from './components/delete-category-button'; // Client component for delete confirmation
+export default function CategoriesPage() {
+  const { currentUser, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const { toast } = useToast();
 
-// Search and filter will need to be re-implemented, possibly client-side or with server-side search params
-// For now, removing client-side useState for searchTerm and filters
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
 
-export default async function CategoriesPage({
-  searchParams
-}: {
-  searchParams?: { [key: string]: string | string[] | undefined }
-}) {
-  noStore(); // Opt out of caching for this page
-  const categories = await getCategories();
-  // const { toast } = useToast(); // Not available in Server Component
+  // Role-based access control
+  useEffect(() => {
+    if (!authLoading) {
+      if (!currentUser || currentUser.role !== UserRole.SUPER_ADMIN) {
+        toast({
+          title: "Хандалт хориглогдсон",
+          description: "Та категорийн жагсаалтыг харах эрхгүй байна.",
+          variant: "destructive"
+        });
+        router.push('/admin/dashboard');
+      }
+    }
+  }, [currentUser, authLoading, router, toast]);
 
-  const searchTerm = typeof searchParams?.search === 'string' ? searchParams.search : '';
+  // Data fetching
+  const fetchCategories = useCallback(async () => {
+    if (currentUser && currentUser.role === UserRole.SUPER_ADMIN) {
+      setIsLoading(true);
+      try {
+        const fetchedCategories = await getCategories();
+        setCategories(fetchedCategories);
+      } catch (err) {
+        console.error("Failed to fetch categories:", err);
+        toast({ title: "Алдаа", description: "Категориудыг ачааллахад алдаа гарлаа.", variant: "destructive" });
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      setIsLoading(false);
+    }
+  }, [currentUser, toast]);
   
-  const filteredCategories = categories.filter(category =>
-    category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (category.description && category.description.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  useEffect(() => {
+    if (!authLoading && currentUser?.role === UserRole.SUPER_ADMIN) {
+      fetchCategories();
+    }
+  }, [authLoading, currentUser, fetchCategories]);
 
+
+  const filteredCategories = useMemo(() => {
+    return categories.filter(category =>
+      category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (category.description && category.description.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+  }, [categories, searchTerm]);
+
+  if (authLoading || isLoading) {
+    return (
+      <>
+        <PageHeader title="Контентийн ангилал" description="контент бүтэц удирдах хэсэг."/>
+        <Card className="shadow-lg">
+          <CardHeader>
+            <Skeleton className="h-10 w-full sm:max-w-xs" />
+          </CardHeader>
+          <CardContent className="space-y-3 mt-4">
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+          </CardContent>
+        </Card>
+      </>
+    );
+  }
+
+  if (!currentUser || currentUser.role !== UserRole.SUPER_ADMIN) {
+      return <PageHeader title="Хандалт хориглогдсон" description="Хуудас руу шилжиж байна..." />;
+  }
 
   return (
     <TooltipProvider>
@@ -51,31 +109,15 @@ export default async function CategoriesPage({
       <Card className="shadow-lg">
         <CardHeader>
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-            {/* Basic server-side search (reloads page) - can be enhanced with client-side filtering or debouncing */}
-            <form method="GET" action="/admin/categories" className="relative w-full sm:max-w-xs">
+            <div className="relative w-full sm:max-w-xs">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                name="search"
                 placeholder="Категори хайх"
-                defaultValue={searchTerm}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
               />
-              {/* Hidden submit or rely on form submission on enter */}
-            </form>
-            {/* Filters will need to be client-side or server-side with query params */}
-            {/* <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1">
-                  <ListFilter className="h-3.5 w-3.5" />
-                  <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">Filter</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Filter by</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuCheckboxItem checked>Active</DropdownMenuCheckboxItem>
-              </DropdownMenuContent>
-            </DropdownMenu> */}
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -123,7 +165,11 @@ export default async function CategoriesPage({
                             </TooltipTrigger>
                             <TooltipContent>Засах</TooltipContent>
                           </Tooltip>
-                          <DeleteCategoryButton categoryId={category.id} categoryName={category.name} />
+                          <DeleteCategoryButton 
+                            categoryId={category.id} 
+                            categoryName={category.name}
+                            onSuccess={fetchCategories}
+                           />
                         </div>
                       </TableCell>
                     </TableRow>
@@ -152,7 +198,3 @@ export default async function CategoriesPage({
     </TooltipProvider>
   );
 }
-
-export const metadata = {
-  title: "Categories | Admin Pro",
-};
