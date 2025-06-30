@@ -1,28 +1,47 @@
 
-"use client"; // Keep client for form interactions and useEffect
+"use client";
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { PageHeader } from '@/components/admin/page-header';
 import { CategoryForm, type CategoryFormValues } from '../../components/category-form';
-// import { useToast } from '@/hooks/use-toast'; // Toast is handled within CategoryForm
+import { useToast } from '@/hooks/use-toast';
 import type { Category } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getCategory, updateCategory } from '@/lib/actions/categoryActions';
-import { Card, CardHeader, CardContent } from '@/components/ui/card'; // Added import
+import { Card, CardHeader, CardContent } from '@/components/ui/card';
+import { useAuth } from '@/hooks/use-auth';
+import { UserRole } from '@/types';
 
 export default function EditCategoryPage() {
   const router = useRouter();
   const rawParams = useParams();
-  const params = { ...rawParams }; // Ensure params is a plain object by spreading
+  const params = { ...rawParams };
   const categoryId = params.id as string;
   
-  // const { toast } = useToast(); // Handled by CategoryForm
+  const { toast } = useToast();
+  const { currentUser, loading: authLoading } = useAuth();
   const [category, setCategory] = useState<Category | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
+    if (!authLoading && currentUser && currentUser.role !== UserRole.SUPER_ADMIN) {
+      toast({
+        title: "Хандалт хориглогдсон",
+        description: "Зөвхөн Сүпер Админ категори засах боломжтой.",
+        variant: "destructive"
+      });
+      router.push('/admin/dashboard');
+    }
+  }, [currentUser, authLoading, router, toast]);
+
+  useEffect(() => {
+    if (authLoading || (currentUser && currentUser.role !== UserRole.SUPER_ADMIN)) {
+        setIsLoading(false);
+        return;
+    }
+
     if (categoryId) {
       setIsLoading(true);
       getCategory(categoryId)
@@ -30,42 +49,41 @@ export default function EditCategoryPage() {
           if (fetchedCategory) {
             setCategory(fetchedCategory);
           } else {
-            // toast({ title: "Error", description: "Category not found.", variant: "destructive" });
-            alert("Категори олдсонгүй. Жагсаалт руу буцаж байна..."); // Simple alert for now
+            toast({ title: "Алдаа", description: "Категори олдсонгүй.", variant: "destructive" });
             router.push('/admin/categories');
           }
         })
         .catch(err => {
           console.error("Failed to fetch category:", err);
-          // toast({ title: "Error", description: "Failed to load category data.", variant: "destructive" });
-          alert("Категорийн мэдээллийг ачааллахад алдаа гарлаа. Жагсаалт руу буцаж байна...");
+          toast({ title: "Алдаа", description: "Категорийн мэдээллийг ачааллахад алдаа гарлаа.", variant: "destructive" });
           router.push('/admin/categories');
         })
         .finally(() => setIsLoading(false));
     }
-  }, [categoryId, router]);
+  }, [categoryId, router, toast, currentUser, authLoading]);
 
   const handleSubmit = async (data: CategoryFormValues) => {
     if (!category) return { error: "Category data not loaded." };
+    if (currentUser?.role !== UserRole.SUPER_ADMIN) {
+        toast({ title: "Хандалт хориглогдсон", description: "Үйлдэл хийх эрхгүй байна.", variant: "destructive"});
+        return { error: "Permission denied." };
+    }
+    
     setIsSubmitting(true);
-    // Only pass fields that can be updated, id is from URL param.
-    // Timestamps are handled by the server action.
-    const { name, slug, description, fields } = data;
-    const result = await updateCategory(categoryId, { name, slug, description, fields });
+    const { name, slug, description, fields, coverImageUrl } = data;
+    const result = await updateCategory(categoryId, { name, slug, description, fields, coverImageUrl });
     setIsSubmitting(false);
 
     if (result && result.success) {
-      // Success toast is handled by CategoryForm or action.
       router.push('/admin/categories');
       return { success: true };
     } else if (result && result.error) {
-      // Error toast is handled by CategoryForm or action.
       return { error: result.error };
     }
     return {};
   };
 
-  if (isLoading) {
+  if (authLoading || isLoading) {
     return (
       <>
         <PageHeader title="Категори засварлах" />
@@ -84,6 +102,15 @@ export default function EditCategoryPage() {
         </div>
       </>
     );
+  }
+  
+  if (!currentUser || currentUser.role !== UserRole.SUPER_ADMIN) {
+      return (
+        <>
+            <PageHeader title="Хандалт хориглогдсон" />
+            <p className="p-4">Та энэ хуудсыг үзэх эрхгүй.</p>
+        </>
+      );
   }
 
   if (!category) {
@@ -105,5 +132,3 @@ export default function EditCategoryPage() {
     </>
   );
 }
-
-    

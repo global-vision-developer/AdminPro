@@ -1,35 +1,64 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/admin/page-header';
 import { CategoryForm, type CategoryFormValues } from '../components/category-form';
-// import { useToast } from '@/hooks/use-toast'; // Toast is handled within CategoryForm after submit
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/use-auth';
+import { UserRole } from '@/types';
 import { addCategory } from '@/lib/actions/categoryActions';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function NewCategoryPage() {
   const router = useRouter();
-  // const { toast } = useToast(); // Handled by CategoryForm or the action itself
+  const { toast } = useToast();
+  const { currentUser, loading: authLoading } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!authLoading && currentUser && currentUser.role !== UserRole.SUPER_ADMIN) {
+      toast({
+        title: "Хандалт хориглогдсон",
+        description: "Зөвхөн Сүпер Админ шинэ категори үүсгэх боломжтой.",
+        variant: "destructive",
+      });
+      router.push('/admin/dashboard');
+    }
+  }, [currentUser, authLoading, router, toast]);
 
   const handleSubmit = async (data: CategoryFormValues) => {
     setIsSubmitting(true);
+    if (currentUser?.role !== UserRole.SUPER_ADMIN) {
+        toast({ title: "Хандалт хориглогдсон", description: "Үйлдэл хийх эрхгүй байна.", variant: "destructive"});
+        setIsSubmitting(false);
+        return { error: "Permission denied." };
+    }
     const result = await addCategory(data);
     setIsSubmitting(false);
 
     if (result && "id" in result && result.id) {
-      // Success toast is handled by CategoryForm or not needed if redirecting immediately
-      // Toast is now handled in CategoryForm for consistency or by action.
-      router.push('/admin/categories'); // Redirect after successful creation
-      return { id: result.id }; // Propagate success for form reset or other logic
+      router.push('/admin/categories');
+      return { id: result.id };
     } else if (result && "error" in result && result.error) {
-      // Error toast is handled by CategoryForm or action.
-      return { error: result.error }; // Propagate error
+      return { error: result.error };
     }
-     // Default return or handle cases where result is void
     return {};
   };
+
+  if (authLoading || !currentUser || currentUser.role !== UserRole.SUPER_ADMIN) {
+    return (
+      <>
+        <PageHeader title="Шинэ Категори Үүсгэх" />
+        <div className="space-y-4 p-4">
+          <p>Хандалтыг шалгаж байна...</p>
+          <Skeleton className="h-10 w-full sm:w-1/3 mb-4" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -45,4 +74,3 @@ export default function NewCategoryPage() {
     </>
   );
 }
-
