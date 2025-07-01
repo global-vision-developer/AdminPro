@@ -1,44 +1,50 @@
-
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# Dependencies
+# dependencies
 /node_modules
 /.pnp
 .pnp.js
 
-# Testing
+# testing
 /coverage
 
-# Next.js
+# next.js
 /.next/
 /out/
-build/
 
-# Production
+# production
 /build
 
-# Miscellaneous
+# misc
 .DS_Store
 *.pem
-*.log
-.vercel
-.firebase
 
-# Debug files
+# debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-firestore-debug.log*
-firebase-debug.*.log
 
-# Local environment files - VERY IMPORTANT
-.env
-.env*.local
-.env.development
-.env.production
-.env.test
+# local env files
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+local.txt
 
-# TypeScript
+# vercel
+.vercel
+
+# typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# firebase
+firebase-debug.log
+firestore-debug.log
+*.emulators.export
+
+# vscode
+# Ignore all vscode files except settings.json for team consistency
+.vscode/*
+!.vscode/settings.json
