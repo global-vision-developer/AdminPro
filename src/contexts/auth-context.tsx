@@ -175,15 +175,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await signInWithEmailAndPassword(auth, email, password);
     } catch (error: any) {
       console.error("AuthContext: Firebase login error:", error);
-      let friendlyMessage = "Нэвтрэхэд алдаа гарлаа. И-мэйл эсвэл нууц үгээ шалгана уу.";
+      
+      let friendlyMessage = "Нэвтрэхэд тодорхойгүй алдаа гарлаа. Сүлжээгээ шалгаад дахин оролдоно уу.";
+      
       if (error.code === 'auth/invalid-credential') {
-        friendlyMessage = "И-мэйл эсвэл нууц үг буруу байна. Та Firebase Authentication хэсэгт бүртгэлтэй эсэхээ шалгана уу.";
+        friendlyMessage = "И-мэйл эсвэл нууц үг буруу байна. Дахин шалгана уу.";
       } else if (error.code === 'auth/too-many-requests') {
         friendlyMessage = "Хэт олон удаа буруу оролдлого хийлээ. Түр хүлээгээд дахин оролдоно уу.";
-      } else if (error.message) {
-        friendlyMessage = `Алдаа: ${error.message} (Код: ${error.code})`;
       }
-      toast({ title: "Нэвтрэлт амжилтгүй", description: friendlyMessage, variant: "destructive", duration: 10000 });
+      
+      toast({ title: "Нэвтрэлт амжилтгүй", description: friendlyMessage, variant: "destructive" });
       setLoading(false); 
     }
   }, [toast]);
