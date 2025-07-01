@@ -174,7 +174,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await signInWithEmailAndPassword(auth, email, password);
     } catch (error: any) {
-      console.error("AuthContext: Firebase login error:", error);
+      // console.error("AuthContext: Firebase login error:", error); // Removed for cleaner user experience
       
       let friendlyMessage = "Нэвтрэхэд тодорхойгүй алдаа гарлаа. Сүлжээгээ шалгаад дахин оролдоно уу.";
       
