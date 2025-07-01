@@ -7,7 +7,6 @@
  * Үүсгэх, засах, устгах зэрэг хамгаалалттай үйлдлүүдийг Cloud Functions-руу дамжуулж,
  * унших үйлдлийг Firestore-оос шууд хийдэг.
  */
-"use server";
 
 import { db, auth as clientAuth, app as clientApp } from "@/lib/firebase";
 import type { UserProfile } from "@/types";
@@ -25,7 +24,6 @@ import {
   sendPasswordResetEmail
 } from "firebase/auth";
 import { getFunctions, httpsCallable, type HttpsCallableResult } from 'firebase/functions';
-import { revalidatePath } from "next/cache";
 
 const ADMINS_COLLECTION = "admins";
 
@@ -57,7 +55,6 @@ export async function addAdminUser(
         const result = await callCreateAdmin(payload) as HttpsCallableResult<{success?: boolean; message?: string; error?: string; userId?: string}>;
 
         if (result.data.success) {
-            revalidatePath("/admin/users");
             return { success: true, message: result.data.message || `Админ хэрэглэгч "${data.name}" амжилттай үүслээ.` };
         } else {
             return { error: result.data.error || "Cloud Function-оос тодорхойгүй алдаа гарлаа." };
@@ -93,9 +90,6 @@ export async function updateAdminUser(
     const result = await callUpdateUser(payload) as HttpsCallableResult<{success?: boolean; message?: string; error?: string}>;
 
     if (result.data.success) {
-        revalidatePath("/admin/users");
-        revalidatePath(`/admin/users/${userId}/edit`);
-        revalidatePath(`/admin/profile`);
         return { success: true, message: result.data.message || "Хэрэглэгчийн мэдээлэл амжилттай шинэчлэгдлээ." };
     } else {
         return { error: result.data.error || "Cloud Function-оос хэрэглэгч шинэчлэхэд алдаа гарлаа." };
@@ -185,7 +179,6 @@ export async function deleteAdminUser(id: string): Promise<{ success?: boolean; 
         const result = await callDeleteAdmin({ targetUserId: id }) as HttpsCallableResult<{success?: boolean; message?: string; error?: string}>;
         
         if (result.data.success) {
-            revalidatePath("/admin/users");
             return { success: true, message: result.data.message };
         } else {
             return { error: result.data.error || "Cloud функц алдаа буцаалаа." };
@@ -207,7 +200,7 @@ export async function deleteAdminUser(id: string): Promise<{ success?: boolean; 
  */
 export async function sendAdminPasswordResetEmail(email: string): Promise<{ success?: boolean; error?: string }> {
   try {
-    await sendPasswordResetEmail(clientAuth, email);
+    await sendAdminPasswordResetEmail(clientAuth, email);
     return { success: true };
   } catch (error: any) {
     let friendlyMessage = error.message || "Нууц үг сэргээх имэйл илгээхэд алдаа гарлаа.";

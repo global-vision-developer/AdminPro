@@ -78,7 +78,7 @@ export default function UsersPage() {
       setUserToDelete(null);
       return;
     }
-     if (userToDelete.email === "super@example.com") {
+     if (userToDelete.email === "admin@pro.com") {
       toast({ title: "Алдаа", description: "Үндсэн сүпер админыг устгах боломжгүй.", variant: "destructive" });
       setUserToDelete(null);
       return;
@@ -87,7 +87,7 @@ export default function UsersPage() {
     const result = await deleteAdminUser(userToDelete.id);
     
     if (result.success) {
-      setAdminUsers(prev => prev.filter(u => u.id !== userToDelete.id));
+      fetchAdminUsers(); // Re-fetch the user list from the server
       toast({ title: "Админ устгагдлаа", description: result.message || `Админ хэрэглэгч "${userToDelete.name}" амжилттай устгагдлаа.` });
     } else {
       toast({ title: "Алдаа", description: result.error || "Админ хэрэглэгчийг устгахад алдаа гарлаа.", variant: "destructive" });
@@ -218,7 +218,7 @@ export default function UsersPage() {
                             </TooltipTrigger>
                             <TooltipContent>Админ засах / эрх өөрчлөх</TooltipContent> 
                           </Tooltip>
-                          {user.id !== currentUser?.id && user.email !== 'super@example.com' && (
+                          {user.id !== currentUser?.id && user.email !== 'admin@pro.com' && (
                             <AlertDialog open={userToDelete?.id === user.id} onOpenChange={(open) => !open && setUserToDelete(null)}>
                               <AlertDialogTrigger asChild>
                                  <Tooltip>
