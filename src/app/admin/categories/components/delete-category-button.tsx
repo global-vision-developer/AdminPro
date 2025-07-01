@@ -1,7 +1,8 @@
+
 "use client";
 
-import React from 'react';
-import { Trash2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { Loader2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -16,9 +17,13 @@ interface DeleteCategoryButtonProps {
 
 export function DeleteCategoryButton({ categoryId, categoryName, onSuccess }: DeleteCategoryButtonProps) {
   const { toast } = useToast();
+  const [isOpen, setIsOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDelete = async () => {
+    setIsDeleting(true);
     const result = await deleteCategory(categoryId);
+    
     if (result.success) {
       toast({
         title: "Ангилал устгагдлаа",
@@ -32,20 +37,23 @@ export function DeleteCategoryButton({ categoryId, categoryName, onSuccess }: De
         variant: "destructive",
       });
     }
+
+    setIsDeleting(false);
+    setIsOpen(false);
   };
 
   return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/90" aria-label="Ангилал устгах">
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Устгах</TooltipContent>
-        </Tooltip>
-      </AlertDialogTrigger>
+    <AlertDialog open={isOpen} onOpenChange={setIsOpen}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+           <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/90" aria-label="Ангилал устгах">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </AlertDialogTrigger>
+        </TooltipTrigger>
+        <TooltipContent>Устгах</TooltipContent>
+      </Tooltip>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Та итгэлтэй байна уу?</AlertDialogTitle>
@@ -54,11 +62,13 @@ export function DeleteCategoryButton({ categoryId, categoryName, onSuccess }: De
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Цуцлах</AlertDialogCancel>
+          <AlertDialogCancel onClick={() => setIsOpen(false)} disabled={isDeleting}>Цуцлах</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleDelete}
+            disabled={isDeleting}
             className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
           >
+            {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Устгах
           </AlertDialogAction>
         </AlertDialogFooter>
@@ -66,3 +76,4 @@ export function DeleteCategoryButton({ categoryId, categoryName, onSuccess }: De
     </AlertDialog>
   );
 }
+
