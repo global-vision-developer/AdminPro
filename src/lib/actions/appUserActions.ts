@@ -1,6 +1,9 @@
 /**
  * @fileoverview Server-side actions for fetching application user data from the 'users' collection in Firestore.
  * This is distinct from admin users.
+ * 
+ * Энэ файл нь Firestore-ийн 'users' коллекциос аппликейшны хэрэглэгчийн өгөгдлийг авах сервер талын үйлдлүүдийг агуулдаг.
+ * Энэ нь админ хэрэглэгчдээс ялгаатай.
  */
 "use server";
 
@@ -8,8 +11,12 @@ import { db } from "@/lib/firebase";
 import type { AppUser } from "@/types";
 import { collection, getDocs, query, orderBy, Timestamp } from "firebase/firestore";
 
-const USERS_COLLECTION = "users"; // Collection for app users, not admin users
+const USERS_COLLECTION = "users"; // Апп хэрэглэгчдийн коллекци, админ хэрэглэгчдийнх биш
 
+/**
+ * Firestore-оос бүх апп хэрэглэгчдийн жагсаалтыг авна.
+ * @returns Апп хэрэглэгчдийн массив.
+ */
 export async function getAppUsers(): Promise<AppUser[]> {
   try {
     const usersRef = collection(db, USERS_COLLECTION);
@@ -40,6 +47,10 @@ export async function getAppUsers(): Promise<AppUser[]> {
   }
 }
 
+/**
+ * Апп хэрэглэгчдийг ID-гаар нь хурдан хайх боломжтой Map үүсгэж буцаана.
+ * @returns Хэрэглэгчийн ID-г түлхүүр болгосон хэрэглэгчийн мэдээллийн Map.
+ */
 export async function getAppUsersMap(): Promise<Record<string, AppUser>> {
   try {
     const users = await getAppUsers();

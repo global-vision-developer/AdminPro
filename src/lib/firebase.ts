@@ -3,6 +3,11 @@
  * This file configures Firebase using environment variables and exports instances of
  * Authentication, Firestore, and Storage for use throughout the application.
  * It ensures Firebase is initialized only once.
+ * 
+ * Энэ файл нь Firebase-ийн үйлчилгээнүүдийг клиент талд ашиглахад зориулж эхлүүлдэг.
+ * Энэ нь Firebase-г орчны хувьсагч (.env) ашиглан тохируулж, Authentication, Firestore,
+ * Storage зэрэг үйлчилгээний объектуудыг апп даяар ашиглахаар экспортлодог.
+ * Энэ нь Firebase-г зөвхөн нэг удаа эхлүүлэхийг баталгаажуулдаг.
  */
 // src/lib/firebase.ts
 import { initializeApp, getApps, getApp } from 'firebase/app';

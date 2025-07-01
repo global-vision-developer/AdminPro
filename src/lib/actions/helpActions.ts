@@ -1,6 +1,9 @@
 /**
  * @fileoverview Server-side actions for managing "HelpItem" (FAQ) data in Firestore.
  * Provides CRUD (Create, Read, Update, Delete) operations for help/FAQ items.
+ * 
+ * Энэ файл нь Firestore дахь "Тусламжийн зүйл" (Түгээмэл Асуулт Хариулт) өгөгдлийг удирдах сервер талын үйлдлүүдийг агуулдаг.
+ * Тусламжийн зүйлсийн CRUD (Үүсгэх, Унших, Шинэчлэх, Устгах) үйлдлүүдийг хангадаг.
  */
 "use server";
 
@@ -24,6 +27,11 @@ import { revalidatePath } from "next/cache";
 
 const HELP_ITEMS_COLLECTION = "help_items";
 
+/**
+ * Firestore-оос тусламжийн зүйлсийн жагсаалтыг авна.
+ * @param topicFilter - (Сонголтоор) Тодорхой сэдвээр шүүх.
+ * @returns Тусламжийн зүйлсийн массив.
+ */
 export async function getHelpItems(topicFilter?: HelpTopic): Promise<HelpItem[]> {
   console.log(`getHelpItems: Received topicFilter: '${topicFilter}'`);
   try {
@@ -76,6 +84,11 @@ export interface AddHelpItemData {
   adminId: string;
 }
 
+/**
+ * Firestore-д шинэ тусламжийн зүйл нэмнэ.
+ * @param data - Шинэ тусламжийн зүйлийн мэдээлэл.
+ * @returns Үүссэн зүйлийн ID эсвэл алдааны мэдээлэл.
+ */
 export async function addHelpItem(
   data: AddHelpItemData
 ): Promise<{ id: string } | { error: string }> {
@@ -104,6 +117,12 @@ export async function addHelpItem(
 
 export type UpdateHelpItemData = Partial<Pick<HelpItem, "topic" | "question" | "answer">> & { adminId: string };
 
+/**
+ * Одоо байгаа тусламжийн зүйлийн мэдээллийг шинэчилнэ.
+ * @param id - Шинэчлэх зүйлийн ID.
+ * @param data - Шинэчлэх мэдээлэл.
+ * @returns Амжилттай болсон эсэх эсвэл алдааны мэдээлэл.
+ */
 export async function updateHelpItem(
   id: string,
   data: UpdateHelpItemData
@@ -135,6 +154,12 @@ export async function updateHelpItem(
   }
 }
 
+/**
+ * Тусламжийн зүйлийг Firestore-оос устгана.
+ * @param id - Устгах зүйлийн ID.
+ * @param adminId - Үйлдлийг гүйцэтгэж буй админы ID.
+ * @returns Амжилттай болсон эсэх эсвэл алдааны мэдээлэл.
+ */
 export async function deleteHelpItem(id: string, adminId: string): Promise<{ success: boolean } | { error: string }> {
  if (!adminId) {
     return { error: "Админы ID алга байна. Нэвтэрсэн эсэхээ шалгана уу." };

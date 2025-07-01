@@ -1,5 +1,7 @@
 /**
  * @fileoverview Server-side action for fetching notification history logs from Firestore.
+ * 
+ * Энэ файл нь Firestore-оос мэдэгдлийн түүхийн логуудыг авах сервер талын үйлдлийг агуулдаг.
  */
 "use server";
 
@@ -9,9 +11,10 @@ import { collection, getDocs, query, orderBy, limit, Timestamp } from "firebase/
 
 const NOTIFICATIONS_COLLECTION = "notifications";
 
-// The sendNotificationAction has been removed as it is now handled directly on the client
-// in notifications/page.tsx to ensure authenticated calls to the Cloud Function.
-
+/**
+ * Firestore-оос сүүлийн 50 мэдэгдлийн түүхийг авна.
+ * @returns Мэдэгдлийн түүхийн массив.
+ */
 export async function getNotificationLogs(): Promise<NotificationLog[]> {
   try {
     const logsRef = collection(db, NOTIFICATIONS_COLLECTION);

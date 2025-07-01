@@ -3,6 +3,11 @@
  * It provides a `AuthProvider` component that wraps the application and handles all
  * authentication logic, including login, logout, and maintaining the current user's state.
  * The `useAuth` hook is used to access this context from any client component.
+ * 
+ * Энэ файл нь аппликейшны authentication-ий контекстийг тодорхойлдог.
+ * Энэ нь `AuthProvider` компонентоор дамжуулан аппликейшныг бүхэлд нь ороож, нэвтрэх, гарах,
+ * одоогийн хэрэглэгчийн төлөвийг хадгалах зэрэг бүх authentication-ий логикийг хариуцдаг.
+ * `useAuth` hook нь энэ контекст рүү дурын клиент компонентоос хандах боломжийг олгодог.
  */
 "use client";
 

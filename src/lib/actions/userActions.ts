@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Client-side functions for managing "Admin User" data.
  * These functions call Cloud Functions for protected operations (create, update, delete)

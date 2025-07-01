@@ -1,6 +1,9 @@
 /**
  * @fileoverview Server-side actions for managing "Banner" data in Firestore.
  * Provides CRUD (Create, Read, Update, Delete) operations for banners.
+ * 
+ * Энэ файл нь Firestore дахь "Баннер" өгөгдлийг удирдах сервер талын үйлдлүүдийг агуулдаг.
+ * Баннерын CRUD (Үүсгэх, Унших, Шинэчлэх, Устгах) үйлдлүүдийг хангадаг.
  */
 "use server";
 
@@ -32,6 +35,11 @@ interface BannerFirestoreData {
   updatedAt: Timestamp | ReturnType<typeof serverTimestamp>;
 }
 
+/**
+ * Firestore-д шинэ баннер нэмнэ.
+ * @param bannerData - Шинэ баннерын мэдээлэл.
+ * @returns Үүссэн баннерын ID эсвэл алдааны мэдээлэл.
+ */
 export async function addBanner(
   bannerData: Omit<Banner, "id" | "createdAt" | "updatedAt">
 ): Promise<{ id: string } | { error: string }> {
@@ -54,6 +62,10 @@ export async function addBanner(
   }
 }
 
+/**
+ * Firestore-оос бүх баннерын жагсаалтыг авна.
+ * @returns Баннеруудын массив.
+ */
 export async function getBanners(): Promise<Banner[]> {
   try {
     const q = query(collection(db, BANNERS_COLLECTION), orderBy("createdAt", "desc"));
@@ -76,6 +88,11 @@ export async function getBanners(): Promise<Banner[]> {
   }
 }
 
+/**
+ * Тодорхой нэг баннерыг ID-гаар нь авна.
+ * @param id - Авах баннерын ID.
+ * @returns Баннерын мэдээлэл эсвэл `null`.
+ */
 export async function getBanner(id: string): Promise<Banner | null> {
   try {
     const docRef = doc(db, BANNERS_COLLECTION, id);
@@ -99,6 +116,12 @@ export async function getBanner(id: string): Promise<Banner | null> {
   }
 }
 
+/**
+ * Одоо байгаа баннерын мэдээллийг шинэчилнэ.
+ * @param id - Шинэчлэх баннерын ID.
+ * @param bannerData - Шинэчлэх мэдээлэл.
+ * @returns Амжилттай болсон эсэх эсвэл алдааны мэдээлэл.
+ */
 export async function updateBanner(
   id: string,
   bannerData: Partial<Omit<Banner, "id" | "createdAt" | "updatedAt">>
@@ -125,6 +148,11 @@ export async function updateBanner(
   }
 }
 
+/**
+ * Баннерыг Firestore-оос устгана.
+ * @param id - Устгах баннерын ID.
+ * @returns Амжилттай болсон эсэх эсвэл алдааны мэдээлэл.
+ */
 export async function deleteBanner(id: string): Promise<{ success: boolean } | { error: string }> {
   try {
     const docRef = doc(db, BANNERS_COLLECTION, id);

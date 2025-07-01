@@ -1,6 +1,9 @@
 /**
  * @fileoverview Server-side actions for managing "Anket" (application form) data in Firestore.
  * Includes functions for fetching, retrieving a single anket, and updating status.
+ * 
+ * Энэ файл нь Firestore дахь "Анкет" (өргөдлийн маягт) өгөгдлийг удирдах сервер талын үйлдлүүдийг агуулдаг.
+ * Анкет авах, нэг анкет авах, статусыг шинэчлэх функцүүдийг багтаасан.
  */
 "use server";
 
@@ -30,6 +33,11 @@ const ANKETS_COLLECTION = "ankets";
 const CATEGORIES_COLLECTION = "categories";
 const TARGET_TRANSLATOR_CATEGORY_SLUG = "translators";
 
+/**
+ * Firestore-оос бүх анкетын жагсаалтыг авна.
+ * @param statusFilter - (Сонголтоор) Тодорхой статусаар шүүх.
+ * @returns Анкетуудын массив.
+ */
 export async function getAnkets(statusFilter?: AnketStatus): Promise<Anket[]> {
   try {
     const anketsRef = collection(db, ANKETS_COLLECTION);
@@ -83,6 +91,11 @@ export async function getAnkets(statusFilter?: AnketStatus): Promise<Anket[]> {
   }
 }
 
+/**
+ * Тодорхой нэг анкетыг ID-гаар нь авна.
+ * @param id - Авах анкетын ID.
+ * @returns Анкетын дэлгэрэнгүй мэдээлэл эсвэл `null`.
+ */
 export async function getAnket(id: string): Promise<Anket | null> {
   try {
     const anketDocRef = doc(db, ANKETS_COLLECTION, id);
@@ -158,7 +171,13 @@ export async function getAnket(id: string): Promise<Anket | null> {
   }
 }
 
-
+/**
+ * Анкетын статусыг шинэчилнэ (жишээ нь, "Хүлээгдэж буй" -> "Татгалзсан").
+ * @param id - Шинэчлэх анкетын ID.
+ * @param status - Шинэ статус.
+ * @param adminId - Үйлдлийг гүйцэтгэсэн админы ID.
+ * @returns Амжилттай болсон эсэх эсвэл алдааны мэдээлэл.
+ */
 export async function updateAnketStatus(
   id: string,
   status: AnketStatus,

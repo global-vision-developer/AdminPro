@@ -1,6 +1,9 @@
 /**
  * @fileoverview Server-side actions for managing "City" data in Firestore.
  * Provides CRUD (Create, Read, Update, Delete) operations for cities.
+ * 
+ * Энэ файл нь Firestore дахь "Хот" өгөгдлийг удирдах сервер талын үйлдлүүдийг агуулдаг.
+ * Хотын CRUD (Үүсгэх, Унших, Шинэчлэх, Устгах) үйлдлүүдийг хангадаг.
  */
 "use server";
 
@@ -34,6 +37,11 @@ interface CityFirestoreData {
   updatedAt: Timestamp | ReturnType<typeof serverTimestamp>;
 }
 
+/**
+ * Firestore-д шинэ хот нэмнэ.
+ * @param cityData - Шинэ хотын мэдээлэл.
+ * @returns Үүссэн хотын ID эсвэл алдааны мэдээлэл.
+ */
 export async function addCity(
   cityData: Omit<City, "id" | "createdAt" | "updatedAt">
 ): Promise<{ id: string } | { error: string }> {
@@ -57,6 +65,10 @@ export async function addCity(
   }
 }
 
+/**
+ * Firestore-оос бүх хотын жагсаалтыг авна.
+ * @returns Хотуудын массив.
+ */
 export async function getCities(): Promise<City[]> {
   try {
     const q = query(collection(db, CITIES_COLLECTION), orderBy("order", "asc"), orderBy("name", "asc"));
@@ -80,6 +92,10 @@ export async function getCities(): Promise<City[]> {
   }
 }
 
+/**
+ * Хотуудыг ID-гаар нь хурдан хайх боломжтой Map үүсгэж буцаана.
+ * @returns Хотын ID-г түлхүүр болгосон хотын нэрийн Map.
+ */
 export async function getCitiesMap(): Promise<Record<string, string>> {
   try {
     const cities = await getCities();
@@ -93,6 +109,11 @@ export async function getCitiesMap(): Promise<Record<string, string>> {
   }
 }
 
+/**
+ * Тодорхой нэг хотыг ID-гаар нь авна.
+ * @param id - Авах хотын ID.
+ * @returns Хотын мэдээлэл эсвэл `null`.
+ */
 export async function getCity(id: string): Promise<City | null> {
   try {
     const docRef = doc(db, CITIES_COLLECTION, id);
@@ -117,6 +138,12 @@ export async function getCity(id: string): Promise<City | null> {
   }
 }
 
+/**
+ * Одоо байгаа хотын мэдээллийг шинэчилнэ.
+ * @param id - Шинэчлэх хотын ID.
+ * @param cityData - Шинэчлэх мэдээлэл.
+ * @returns Амжилттай болсон эсэх эсвэл алдааны мэдээлэл.
+ */
 export async function updateCity(
   id: string,
   cityData: Partial<Omit<City, "id" | "createdAt" | "updatedAt">>
@@ -145,6 +172,11 @@ export async function updateCity(
   }
 }
 
+/**
+ * Хотыг Firestore-оос устгана.
+ * @param id - Устгах хотын ID.
+ * @returns Амжилттай болсон эсэх эсвэл алдааны мэдээлэл.
+ */
 export async function deleteCity(id: string): Promise<{ success: boolean } | { error: string }> {
   try {
     const docRef = doc(db, CITIES_COLLECTION, id);
